@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  /* Define the specific colors from your reference images */
+  --color-brand-orange: #ff6b35;
+  --color-brand-purple: #a855f7;
+  --color-brand-blue: #00d2ff;
+  --color-brand-green: #22c55e;
+}
+
+:root {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #f8fafc; /* Soft light background */
+}
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+}
