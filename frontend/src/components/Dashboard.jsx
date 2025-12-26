@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Home, Map, BarChart3, Users, Briefcase, Settings, 
-  Search, ChevronRight, Play, Clock,
+  Search, ChevronRight, Play, Clock, Bell,
   Flame, MessageCircle, Zap, Target, Sparkles
 } from 'lucide-react';
 
@@ -11,6 +11,9 @@ import RoadmapView from './RoadmapView';
 import TaskDetailView from './TaskDetailView';
 import AnalyticsView from './AnalyticsView';
 import CareerHub from './CareerHub';
+import SettingsView from './SettingsView';
+import NotificationDropdown from './Notification';
+import CommunityView from './CommunityView'; // <--- Added Import
 
 const Dashboard = ({ userData }) => { 
   // State to track which sidebar tab is active
@@ -18,6 +21,9 @@ const Dashboard = ({ userData }) => {
   
   // State to track active task (for TaskDetailView)
   const [activeTask, setActiveTask] = useState(null);
+
+  // State for Notifications
+  const [showNotifications, setShowNotifications] = useState(false);
 
   // Professional Emerald & Slate AI Theme
   const theme = {
@@ -75,11 +81,6 @@ const Dashboard = ({ userData }) => {
   // Function to handle task completion
   const handleTaskComplete = (completedTask) => {
     console.log('Task completed!', completedTask);
-    // Here you would typically:
-    // 1. Update user progress in database
-    // 2. Award XP
-    // 3. Update streak
-    // 4. Refresh dashboard data
     setActiveTask(null);
   };
 
@@ -156,10 +157,13 @@ const Dashboard = ({ userData }) => {
 
         {/* 3. MAIN CONTENT AREA */}
         <div className="flex-1 flex flex-col overflow-hidden relative">
+          
           {/* Top Navigation Header */}
-          <header className="px-10 py-6 flex items-center justify-between z-10 bg-white/10 backdrop-blur-md border-b border-white/20 flex-shrink-0">
+          <header className="px-10 py-6 flex items-center justify-between z-10 bg-white/10 backdrop-blur-md border-b border-white/20 flex-shrink-0 relative">
             <h1 className="text-3xl font-black text-slate-900 tracking-tight capitalize">{activeTab}</h1>
+            
             <div className="flex items-center gap-6">
+              {/* Search Bar */}
               <div className="relative hidden md:block">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input 
@@ -168,20 +172,38 @@ const Dashboard = ({ userData }) => {
                   className="pl-12 pr-6 py-3 bg-white/80 border border-white rounded-2xl text-sm focus:ring-4 focus:ring-emerald-100 w-80 shadow-sm outline-none" 
                 />
               </div>
-              <button className="flex items-center gap-3 bg-white border border-white rounded-[20px] px-2 py-2 pr-5 shadow-sm hover:scale-105 transition-all cursor-pointer">
+
+              {/* === Notification Button === */}
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative w-12 h-12 bg-white border border-white rounded-[20px] flex items-center justify-center shadow-sm hover:scale-105 transition-all cursor-pointer group"
+              >
+                <Bell className="w-5 h-5 text-slate-600 group-hover:text-emerald-600 transition-colors" />
+                <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+              </button>
+
+              {/* === User Profile Button (Links to Settings) === */}
+              <button 
+                onClick={() => setActiveTab('settings')} // <--- Opens Settings View
+                className="flex items-center gap-3 bg-white border border-white rounded-[20px] px-2 py-2 pr-5 shadow-sm hover:scale-105 transition-all cursor-pointer"
+              >
                 <div className={`${theme.accent} w-9 h-9 rounded-xl flex items-center justify-center font-black text-white`}>K</div>
                 <span className="font-bold text-slate-700">Kavya</span>
               </button>
             </div>
+
+            {/* Notification Dropdown Component */}
+            <NotificationDropdown 
+              isOpen={showNotifications} 
+              onClose={() => setShowNotifications(false)} 
+            />
           </header>
 
           {/* Dynamic Content Area */}
           <main className="flex-1 overflow-y-auto px-10 pb-10 scrollbar-hide">
             <AnimatePresence mode="wait">
               
-              {/* =========================================================
-                  VIEW 1: DASHBOARD HOME
-                 ========================================================= */}
+              {/* DASHBOARD VIEW */}
               {activeTab === 'dashboard' && (
                 <motion.div 
                   key="dash" 
@@ -285,9 +307,7 @@ const Dashboard = ({ userData }) => {
                 </motion.div>
               )}
 
-              {/* =========================================================
-                  VIEW 2: ROADMAP VIEW
-                 ========================================================= */}
+              {/* ROADMAP VIEW */}
               {activeTab === 'roadmap' && (
                 <motion.div 
                   key="roadmap" 
@@ -300,9 +320,7 @@ const Dashboard = ({ userData }) => {
                 </motion.div>
               )}
 
-              {/* =========================================================
-                  VIEW 3: ANALYTICS VIEW
-                 ========================================================= */}
+              {/* ANALYTICS VIEW */}
               {activeTab === 'analytics' && (
                 <motion.div 
                   key="analytics" 
@@ -315,9 +333,20 @@ const Dashboard = ({ userData }) => {
                 </motion.div>
               )}
 
-              {/* =========================================================
-                  VIEW 4: CAREER HUB
-                 ========================================================= */}
+              {/* COMMUNITY VIEW (CONNECTED) */}
+              {activeTab === 'community' && (
+                <motion.div 
+                  key="community" 
+                  initial={{ opacity: 0, x: 20 }} 
+                  animate={{ opacity: 1, x: 0 }} 
+                  exit={{ opacity: 0, x: -20 }} 
+                  className="mt-6"
+                >
+                  <CommunityView />
+                </motion.div>
+              )}
+
+              {/* CAREER HUB */}
               {activeTab === 'career' && (
                 <motion.div 
                   key="career" 
@@ -330,18 +359,17 @@ const Dashboard = ({ userData }) => {
                 </motion.div>
               )}
 
-              {/* =========================================================
-                  OTHER VIEWS (Placeholders)
-                 ========================================================= */}
-              {activeTab === 'community' && (
-                <div className="flex items-center justify-center h-64 text-slate-400 font-bold">
-                  Community Coming Soon...
-                </div>
-              )}
+              {/* SETTINGS VIEW */}
               {activeTab === 'settings' && (
-                <div className="flex items-center justify-center h-64 text-slate-400 font-bold">
-                  Settings Coming Soon...
-                </div>
+                <motion.div 
+                  key="settings"
+                  initial={{ opacity: 0, x: 20 }} 
+                  animate={{ opacity: 1, x: 0 }} 
+                  exit={{ opacity: 0, x: -20 }} 
+                  className="mt-6"
+                >
+                  <SettingsView />
+                </motion.div>
               )}
 
             </AnimatePresence>
@@ -349,9 +377,7 @@ const Dashboard = ({ userData }) => {
         </div>
       </div>
 
-      {/* =========================================================
-          TASK DETAIL VIEW OVERLAY (Renders on top when task is active)
-         ========================================================= */}
+      {/* TASK DETAIL VIEW OVERLAY */}
       {activeTask && (
         <TaskDetailView
           task={activeTask}
