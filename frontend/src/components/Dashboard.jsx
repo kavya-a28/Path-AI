@@ -9,6 +9,8 @@ import {
 // Import components
 import RoadmapView from './RoadmapView'; 
 import TaskDetailView from './TaskDetailView';
+import AnalyticsView from './AnalyticsView';
+import CareerHub from './CareerHub';
 
 const Dashboard = ({ userData }) => { 
   // State to track which sidebar tab is active
@@ -22,9 +24,9 @@ const Dashboard = ({ userData }) => {
     background: "bg-[#f4f7f9]",
     mesh: "fixed inset-0 -z-10 overflow-hidden pointer-events-none",
     glass: "bg-white/60 backdrop-blur-xl border border-white/80 shadow-xl",
-    accent: "bg-linear-to-r from-[#10b981] via-[#3b82f6] to-[#2dd4bf]",
+    accent: "bg-gradient-to-r from-[#10b981] via-[#3b82f6] to-[#2dd4bf]",
     sidebarActive: "bg-[#10b981]/10 text-[#059669] border-r-4 border-[#10b981]",
-    cardIcon: "bg-linear-to-br from-[#10b981] to-[#3b82f6]"
+    cardIcon: "bg-gradient-to-br from-[#10b981] to-[#3b82f6]"
   };
 
   const sidebarItems = [
@@ -217,7 +219,7 @@ const Dashboard = ({ userData }) => {
                           <motion.div 
                             initial={{ width: 0 }} 
                             animate={{ width: '60%' }} 
-                            className="h-full bg-linear-to-r from-[#10b981] to-[#3b82f6]" 
+                            className="h-full bg-gradient-to-r from-[#10b981] to-[#3b82f6]" 
                           />
                         </div>
                       </div>
@@ -267,7 +269,7 @@ const Dashboard = ({ userData }) => {
                           className="bg-white border border-white p-6 rounded-[28px] shadow-sm flex items-center justify-between hover:shadow-md transition-all cursor-pointer"
                         >
                           <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 rounded-2xl bg-linear-to-br ${task.priorityColor} flex items-center justify-center shadow-lg opacity-80`}>
+                            <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${task.priorityColor} flex items-center justify-center shadow-lg opacity-80`}>
                               <Clock className="w-6 h-6 text-white" />
                             </div>
                             <div>
@@ -299,21 +301,41 @@ const Dashboard = ({ userData }) => {
               )}
 
               {/* =========================================================
-                  OTHER VIEWS (Placeholders)
+                  VIEW 3: ANALYTICS VIEW
                  ========================================================= */}
               {activeTab === 'analytics' && (
-                <div className="flex items-center justify-center h-64 text-slate-400 font-bold">
-                  Analytics Coming Soon...
-                </div>
+                <motion.div 
+                  key="analytics" 
+                  initial={{ opacity: 0, x: 20 }} 
+                  animate={{ opacity: 1, x: 0 }} 
+                  exit={{ opacity: 0, x: -20 }} 
+                  className="mt-6"
+                >
+                  <AnalyticsView />
+                </motion.div>
               )}
+
+              {/* =========================================================
+                  VIEW 4: CAREER HUB
+                 ========================================================= */}
+              {activeTab === 'career' && (
+                <motion.div 
+                  key="career" 
+                  initial={{ opacity: 0, x: 20 }} 
+                  animate={{ opacity: 1, x: 0 }} 
+                  exit={{ opacity: 0, x: -20 }} 
+                  className="mt-6"
+                >
+                  <CareerHub />
+                </motion.div>
+              )}
+
+              {/* =========================================================
+                  OTHER VIEWS (Placeholders)
+                 ========================================================= */}
               {activeTab === 'community' && (
                 <div className="flex items-center justify-center h-64 text-slate-400 font-bold">
                   Community Coming Soon...
-                </div>
-              )}
-              {activeTab === 'career' && (
-                <div className="flex items-center justify-center h-64 text-slate-400 font-bold">
-                  Career Hub Coming Soon...
                 </div>
               )}
               {activeTab === 'settings' && (
