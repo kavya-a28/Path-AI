@@ -100,8 +100,11 @@ async function finalizeSession(session, userId) {
     profile.goals.push(ep.primaryGoal.value);
   }
   if (ep.preferredDomain?.value) {
-    profile.preferredDomains.push(ep.preferredDomain.value);
-    profile.interests.push(ep.preferredDomain.value);
+    const domains = Array.isArray(ep.preferredDomain.value)
+      ? ep.preferredDomain.value
+      : [ep.preferredDomain.value];
+    profile.preferredDomains.push(...domains);
+    profile.interests.push(...domains);
   }
   if (ep.currentSkills?.value && Array.isArray(ep.currentSkills.value)) {
     profile.currentSkills = ep.currentSkills.value;

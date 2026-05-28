@@ -31,7 +31,8 @@ const FIELD_PATTERNS = {
       { regex: /\b(data\s*science|data\s*analyst|analytics|pandas|jupyter)\b/i, value: 'data_science', confidence: 0.85 },
       { regex: /\b(game\s*dev|game\s*development|unity|unreal|godot)\b/i, value: 'game_dev', confidence: 0.85 },
       { regex: /\b(blockchain|web3|crypto|solidity|smart\s*contract)\b/i, value: 'blockchain', confidence: 0.85 }
-    ]
+    ],
+    isArray: true
   },
   preferredLanguage: {
     patterns: [

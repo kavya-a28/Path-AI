@@ -18,7 +18,7 @@ function App() {
 
   // Transition handler for high-tech feeling
   const handleQuizComplete = (data) => {
-    setUserData(data); // 1. Save the user data
+    setUserData(data); // 1. Save the user data (Groq-gathered profile)
     setIsAnalyzing(true);
     
     // Simulate AI roadmap generation time
@@ -27,6 +27,26 @@ function App() {
       setCurrentScreen('dashboard');
     }, 3500);
   };
+
+  // Extract readable domain/goal from profile for the loading screen
+  const getLoadingText = () => {
+    if (!userData) return 'your career';
+    const domainMap = {
+      dsa: 'DSA & Algorithms',
+      web_development: 'Web Development',
+      ai_ml: 'AI/Machine Learning',
+      cybersecurity: 'Cybersecurity',
+      mobile_dev: 'Mobile Development',
+      cloud_devops: 'Cloud & DevOps',
+      data_science: 'Data Science',
+      blockchain: 'Blockchain',
+      game_dev: 'Game Development',
+    };
+    const domain = userData.preferredDomains?.[0] || userData.preferredDomain;
+    const goal = userData.goals?.[0] || userData.primaryGoal;
+    return domainMap[domain] || domain || goal || 'your career';
+  };
+
 
   return (
     <main className="font-sans text-slate-900 bg-slate-50 min-h-screen">
@@ -81,7 +101,7 @@ function App() {
 
             <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">Generating Your Roadmap</h2>
             <p className="text-slate-500 font-medium mb-8 max-w-sm">
-              Our AI is analyzing your goals and schedule to build the perfect path for <span className="text-blue-600 font-bold">{userData?.techInterest || 'your career'}</span>.
+              Our AI is analyzing your goals and schedule to build the perfect path for <span className="text-blue-600 font-bold">{getLoadingText()}</span>.
             </p>
 
             <div className="flex items-center gap-2 bg-slate-100 px-4 py-2 rounded-full border border-slate-200">

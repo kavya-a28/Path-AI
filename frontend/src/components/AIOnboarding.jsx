@@ -10,6 +10,7 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp,
+  Zap,
 } from 'lucide-react';
 
 // ==================== CONSTANTS ====================
@@ -34,6 +35,11 @@ const TRAIT_EMOJI_MAP = {
 /** Format raw trait value for display: replace underscores, capitalize first letter */
 const formatTraitValue = (value) => {
   if (value == null) return '';
+  if (Array.isArray(value)) {
+    return value
+      .map(v => String(v).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()))
+      .join(' + ');
+  }
   const str = String(value);
   return str
     .replace(/_/g, ' ')
@@ -665,16 +671,32 @@ export default function AIOnboarding({ onComplete, onBack }) {
                 </motion.button>
               )}
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg">
+                <motion.div
+                  animate={{ rotate: [0, 360] }}
+                  transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+                  className="w-11 h-11 bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg"
+                >
                   <Brain className="w-6 h-6 text-white" />
-                </div>
+                </motion.div>
                 <div>
                   <h1 className="text-xl font-black text-slate-800 tracking-tight">
                     AI Mentor
                   </h1>
-                  <p className="text-xs text-slate-500 font-semibold">
-                    Building your roadmap
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <Zap className="w-3 h-3 text-orange-500" />
+                    <p className="text-xs text-slate-500 font-semibold">
+                      Powered by Groq
+                    </p>
+                    {isTyping && (
+                      <motion.span
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-xs text-blue-500 font-bold ml-1"
+                      >
+                        · thinking...
+                      </motion.span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -739,7 +761,7 @@ export default function AIOnboarding({ onComplete, onBack }) {
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Tell me about yourself..."
+              placeholder={isTyping ? 'AI is thinking...' : 'Type your answer or pick a suggestion above...'}
               disabled={inputDisabled}
               className="flex-1 px-6 py-4 bg-white rounded-3xl border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all font-semibold text-slate-700 shadow-lg outline-none disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-slate-400"
             />

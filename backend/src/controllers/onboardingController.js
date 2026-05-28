@@ -1,15 +1,50 @@
 const stateManager = require('../services/stateManager');
 const { extractProfile } = require('../services/profileExtractor');
 const { checkCompletion } = require('../services/completionChecker');
-// FIX: Imported generateFallbackSuggestions
-const { generateNextQuestion, generateFallbackSuggestions } = require('../services/promptEngine');
+const { generateNextQuestion, generateFallbackSuggestions, detectAllDomains } = require('../services/promptEngine');
 const { validateQuestion, sanitizeQuestion } = require('../services/ruleGuard');
+const Groq = require('groq-sdk');
 
 const WELCOME_MESSAGE = "Hey there! I'm your AI mentor at PathAI. Instead of a boring quiz, let's have a quick conversation.\n\nTell me what you are aiming for right now. Placements, DSA, web development, cybersecurity, AI/ML, freelancing, or something else?";
 
 const WELCOME_SUGGESTIONS = ['FAANG placements', 'Build web apps', 'Explore AI/ML'];
 
-const COMPLETION_MESSAGE = "Perfect. I have a clear enough picture of your goals, current level, and study constraints. Let me generate your personalized learning roadmap.";
+/**
+ * Generate a personalized completion message using Groq based on the student's full profile
+ */
+async function generateCompletionMessage(profile) {
+  try {
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+    const profileSummary = Object.entries(profile)
+      .filter(([k, v]) => v !== null && v !== undefined && v !== '' && (!Array.isArray(v) || v.length > 0))
+      .map(([k, v]) => `  • ${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+      .join('\n');
+
+    const res = await groq.chat.completions.create({
+      messages: [{
+        role: 'system',
+        content: `You are PathAI. A student just finished their onboarding conversation with you. Based on their profile, write a short, exciting, personalized 2-3 sentence completion message that:
+1. Acknowledges their specific goal and domain in a natural way
+2. Mentions 1-2 specific things from their profile (e.g., their timeline, skill level, or target companies)
+3. Ends with excitement about generating their personalized roadmap
+
+Student Profile:
+${profileSummary}
+
+Keep it under 60 words. Sound enthusiastic but natural — not corporate. Do NOT use "Great!" or "Awesome!" at the start.`
+      }],
+      model: 'llama-3.1-8b-instant',
+      temperature: 0.7,
+      max_tokens: 120,
+    });
+
+    return res.choices[0]?.message?.content?.trim() || null;
+  } catch (err) {
+    console.error('Completion message generation failed:', err.message);
+    return null;
+  }
+}
 
 const startSession = async (req, res) => {
   try {
@@ -67,21 +102,42 @@ const handleMessage = async (req, res) => {
     const { updatedProfile, extractedFields, topicsDetected } = extractProfile(message, currentProfile);
     await stateManager.updateProfile(session, updatedProfile, topicsDetected);
 
+    // Detect all domains from conversation + profile for multi-domain support
+    const recentMessages = stateManager.getRecentMessages(session);
+    const allDetectedDomains = detectAllDomains(recentMessages);
+    // Also merge domains from the extracted profile (preferredDomain is now an array)
+    const profileDomains = Array.isArray(updatedProfile?.preferredDomain?.value)
+      ? updatedProfile.preferredDomain.value
+      : (updatedProfile?.preferredDomain?.value ? [updatedProfile.preferredDomain.value] : []);
+    for (const d of profileDomains) {
+      if (!allDetectedDomains.find(det => det.domain === d)) {
+        const label = d.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        allDetectedDomains.push({ domain: d, label });
+      }
+    }
+
     const completionResult = checkCompletion(
       updatedProfile,
       session.turnCount,
-      session.maxTurns
+      session.maxTurns,
+      allDetectedDomains
     );
+
 
     if (completionResult.isComplete) {
       const finalProfile = await stateManager.finalizeSession(session, userId);
-      await stateManager.addMessage(session, 'assistant', COMPLETION_MESSAGE);
+      
+      // Generate personalized completion message using Groq
+      const FALLBACK_COMPLETION = "Perfect. I have a clear picture of your goals, skill level, and study schedule. Let me now generate your personalized learning roadmap!";
+      const completionMsg = (await generateCompletionMessage(finalProfile)) || FALLBACK_COMPLETION;
+      
+      await stateManager.addMessage(session, 'assistant', completionMsg);
 
       return res.status(200).json({
         success: true,
         message: {
           role: 'assistant',
-          content: COMPLETION_MESSAGE
+          content: completionMsg
         },
         completion: {
           percentage: 100,
@@ -93,7 +149,7 @@ const handleMessage = async (req, res) => {
       });
     }
 
-    const recentMessages = stateManager.getRecentMessages(session);
+
     let aiResponse;
     let retries = 0;
     const MAX_RETRIES = 3;
@@ -128,36 +184,57 @@ const handleMessage = async (req, res) => {
       }
     }
 
-    // FIX: Smarter Fallback Logic handling Gemini Rate Limits
+    // Smart domain-aware fallback when Groq fails
     if (!aiResponse || retries >= MAX_RETRIES) {
-      // Find a missing field that WE HAVE NOT ASKED ABOUT YET
-      let fallbackField = completionResult.missingFields.find(f => !session.topicsCovered.includes(f));
-      
-      // If we've asked everything but the user didn't answer properly, cycle back to the most critical missing one
-      if (!fallbackField) {
-        fallbackField = completionResult.missingFields[0] || 'primaryGoal';
-      }
+      const { detectAllDomains } = require('../services/promptEngine');
+      const detectedDomains = detectAllDomains(recentMessages);
+      const primaryDomain = Array.isArray(updatedProfile?.preferredDomain?.value)
+        ? updatedProfile.preferredDomain.value[0]
+        : updatedProfile?.preferredDomain?.value;
+      const activeDomain = detectedDomains[0]?.domain || primaryDomain;
 
-      const fallbackQuestions = {
-        primaryGoal: "What's your main goal right now: placements, a job, freelancing, skill building, or internships?",
-        preferredDomain: "Which tech track should we focus on: DSA, web development, AI/ML, cybersecurity, or something else?",
-        currentYear: "What year of college are you in currently?",
-        preferredLanguage: "Which programming language do you prefer or want to use for this path?",
-        dsaLevel: "How comfortable are you with DSA right now: beginner, basics, intermediate, or advanced?",
-        studyHoursPerDay: "How many focused hours can you realistically study per day?",
-        consistencyLevel: "How consistent can you be: daily, most days, a few days a week, or weekends?",
-        learningStyle: "How do you prefer learning: videos, docs, hands-on projects, or a structured course?",
-        currentSkills: "What skills or tools do you already know?",
-        targetCompanies: "What kind of companies are you targeting: FAANG/big tech, product companies, startups, service companies, or any?",
-        timeline: "What timeline are you working with: 3 months, 6 months, 1 year, or flexible?",
-        projectExperience: "Have you built any projects or portfolio work so far?"
+      // Domain-specific fallback questions — ONLY relevant to their field
+      const DOMAIN_FALLBACKS = {
+        web_development: {
+          currentSkills:    "What do you already know — HTML/CSS, JavaScript, or any framework?",
+          preferredLanguage:"Do you prefer JavaScript, Python, or something else for web dev?",
+          studyHoursPerDay: "How many hours can you commit daily to learning web development?",
+        },
+        cybersecurity: {
+          currentSkills:    "Any networking, Linux, or scripting background you already have?",
+          preferredLanguage:"Do you know Python or any scripting language?",
+          studyHoursPerDay: "How much time can you give weekly to cybersecurity learning?",
+        },
+        dsa: {
+          preferredLanguage:"Which language for DSA — C++, Java, or Python?",
+          dsaLevel:         "Current DSA level — beginner, basics done, or 100+ problems solved?",
+          studyHoursPerDay: "How many hours daily can you practice DSA?",
+        },
+        ai_ml: {
+          preferredLanguage:"Do you know Python? It's the main language for AI/ML.",
+          currentSkills:    "Any math or ML background — statistics, linear algebra, or any libraries?",
+          studyHoursPerDay: "How many hours per week can you commit to AI/ML?",
+        },
       };
-      
+
+      const domainFallbacks = DOMAIN_FALLBACKS[activeDomain] || {
+        primaryGoal:      "What's your main goal — get a job, build projects, or freelance?",
+        preferredDomain:  "Which area — web dev, cybersecurity, AI/ML, or DSA?",
+        studyHoursPerDay: "How much time can you dedicate daily to learning?",
+      };
+
+      const fallbackField = completionResult.missingFields.find(f => Object.keys(domainFallbacks).includes(f) && !session.topicsCovered.includes(f))
+        || completionResult.missingFields[0]
+        || 'studyHoursPerDay';
+
+      const fallbackQ = domainFallbacks[fallbackField]
+        || { primaryGoal: "What's your main goal?", preferredDomain: "Which tech area?", studyHoursPerDay: "How many hours daily can you study?" }[fallbackField]
+        || "How much time can you dedicate to learning daily?";
+
       aiResponse = {
-        question: fallbackQuestions[fallbackField] || fallbackQuestions.primaryGoal,
+        question: fallbackQ,
         targetField: fallbackField,
-        // FIX: Utilize your dynamic suggestions instead of the hardcoded pills
-        suggestedReplies: generateFallbackSuggestions(fallbackField) 
+        suggestedReplies: generateFallbackSuggestions(fallbackField, activeDomain)
       };
     }
 

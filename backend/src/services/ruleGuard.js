@@ -42,8 +42,8 @@ function validateQuestion(question, topicsCovered, confidentFields, targetField)
         matchCount++;
       }
     }
-    // If 3+ keywords from an already-covered topic are found, likely a repeat
-    if (matchCount >= 3 && topic !== targetField) {
+    // If 4+ keywords from an already-covered topic are found, likely a repeat
+    if (matchCount >= 4 && topic !== targetField) {
       return { isValid: false, reason: `Likely repeating topic: ${topic}` };
     }
   }

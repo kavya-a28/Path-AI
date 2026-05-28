@@ -1,108 +1,105 @@
-const REQUIRED_FIELDS = ['primaryGoal', 'preferredDomain'];
+// ──────────────────────────────────────────────────────────────
+// MULTI-DOMAIN aware completion checker
+// Builds required fields from ALL detected domains combined
+// ──────────────────────────────────────────────────────────────
 
-const BASE_FIELDS = [
-  'currentYear',
-  'studyHoursPerDay',
-  'consistencyLevel',
-  'learningStyle',
-  'currentSkills',
-  'timeline'
-];
-
-const DOMAIN_FIELDS = {
-  dsa: ['preferredLanguage', 'dsaLevel', 'targetCompanies'],
-  web_development: ['preferredLanguage', 'projectExperience'],
-  cybersecurity: ['currentSkills', 'projectExperience', 'timeline'],
-  ai_ml: ['preferredLanguage', 'currentSkills', 'projectExperience'],
-  data_science: ['preferredLanguage', 'currentSkills', 'projectExperience'],
-  freelancing: ['currentSkills', 'projectExperience', 'timeline'],
-  mobile_dev: ['preferredLanguage', 'projectExperience'],
-  cloud_devops: ['currentSkills', 'projectExperience'],
-  blockchain: ['preferredLanguage', 'projectExperience'],
-  game_dev: ['preferredLanguage', 'projectExperience']
-};
-
-const GOAL_FIELDS = {
-  faang_placement: ['preferredLanguage', 'dsaLevel', 'targetCompanies', 'studyHoursPerDay', 'consistencyLevel'],
-  placement: ['preferredLanguage', 'dsaLevel', 'targetCompanies', 'studyHoursPerDay', 'consistencyLevel'],
-  job: ['currentSkills', 'projectExperience', 'timeline'],
-  internship: ['currentSkills', 'projectExperience', 'timeline'],
-  freelancing: ['currentSkills', 'projectExperience', 'timeline']
-};
-
-const OPTIONAL_FIELDS = [
-  'currentYear', 'preferredLanguage', 'dsaLevel', 
-  'studyHoursPerDay', 'consistencyLevel', 'learningStyle',
-  'currentSkills', 'targetCompanies', 'timeline', 'projectExperience'
-];
-
-const ALL_FIELDS = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS];
 const CONFIDENCE_THRESHOLD = 0.6;
 
-function getFieldValue(extractedProfile, field) {
-  return extractedProfile?.[field]?.value;
-}
+// Core fields always needed
+const BASE_REQUIRED = ['primaryGoal', 'preferredDomain'];
 
-function unique(values) {
-  return [...new Set(values.filter(Boolean))];
-}
+// Domain-specific fields — per domain (3 max each)
+const DOMAIN_REQUIRED_FIELDS = {
+  web_development: ['currentSkills', 'preferredLanguage', 'studyHoursPerDay'],
+  cybersecurity:   ['currentSkills', 'preferredLanguage', 'studyHoursPerDay'],
+  dsa:             ['preferredLanguage', 'dsaLevel', 'studyHoursPerDay'],
+  ai_ml:           ['preferredLanguage', 'currentSkills', 'studyHoursPerDay'],
+  data_science:    ['preferredLanguage', 'currentSkills', 'studyHoursPerDay'],
+  mobile_dev:      ['preferredLanguage', 'currentSkills', 'studyHoursPerDay'],
+  cloud_devops:    ['currentSkills', 'preferredLanguage', 'studyHoursPerDay'],
+  game_dev:        ['preferredLanguage', 'studyHoursPerDay'],
+  blockchain:      ['preferredLanguage', 'currentSkills', 'studyHoursPerDay'],
+  placement:       ['preferredLanguage', 'dsaLevel', 'studyHoursPerDay'],
+  faang_placement: ['preferredLanguage', 'dsaLevel', 'studyHoursPerDay'],
+  job:             ['currentSkills', 'studyHoursPerDay'],
+  freelancing:     ['currentSkills', 'studyHoursPerDay'],
+  skill_building:  ['currentSkills', 'studyHoursPerDay'],
+};
 
-function getRelevantFields(extractedProfile) {
-  const preferredDomain = getFieldValue(extractedProfile, 'preferredDomain');
-  const primaryGoal = getFieldValue(extractedProfile, 'primaryGoal');
+/**
+ * Build combined required fields from ALL detected domains
+ * e.g. web_development + dsa → [currentSkills, preferredLanguage, dsaLevel, studyHoursPerDay]
+ */
+function getRelevantFields(extractedProfile, allDetectedDomains = []) {
+  const rawDomain = extractedProfile?.preferredDomain?.value;
+  // preferredDomain is now an array — normalize to array for iteration
+  const profileDomains = Array.isArray(rawDomain) ? rawDomain : (rawDomain ? [rawDomain] : []);
+  const goal = extractedProfile?.primaryGoal?.value;
 
-  const relevantOptional = unique([
-    ...(GOAL_FIELDS[primaryGoal] || []),
-    ...(DOMAIN_FIELDS[preferredDomain] || []),
-    ...BASE_FIELDS
-  ]);
+  // Collect fields from every detected domain
+  const combinedOptional = new Set();
 
-  return unique([...REQUIRED_FIELDS, ...relevantOptional]);
+  // Add fields for all user-detected domains
+  for (const { domain: d } of allDetectedDomains) {
+    const fields = DOMAIN_REQUIRED_FIELDS[d] || [];
+    fields.forEach(f => combinedOptional.add(f));
+  }
+
+  // Also add from ALL extracted profile domains (may not be in detectedDomains yet)
+  for (const d of profileDomains) {
+    if (d && DOMAIN_REQUIRED_FIELDS[d]) {
+      DOMAIN_REQUIRED_FIELDS[d].forEach(f => combinedOptional.add(f));
+    }
+  }
+
+  // Also add from goal if domain not yet detected
+  if (combinedOptional.size === 0 && goal && DOMAIN_REQUIRED_FIELDS[goal]) {
+    DOMAIN_REQUIRED_FIELDS[goal].forEach(f => combinedOptional.add(f));
+  }
+
+  // Fallback if nothing detected
+  if (combinedOptional.size === 0) {
+    combinedOptional.add('currentSkills');
+    combinedOptional.add('studyHoursPerDay');
+  }
+
+  return [...BASE_REQUIRED, ...combinedOptional];
 }
 
 /**
- * Check if the onboarding has gathered enough information
- * @param {Object} extractedProfile - The session's extractedProfile
- * @param {number} turnCount - Current conversation turn count
- * @param {number} maxTurns - Maximum allowed turns
- * @returns {Object} - { isComplete, missingFields, completionPercentage, discoveredTraits }
+ * Check completion dynamically based on ALL user-detected domains
  */
-function checkCompletion(extractedProfile, turnCount, maxTurns) {
-  const relevantFields = getRelevantFields(extractedProfile);
+function checkCompletion(extractedProfile, turnCount, maxTurns, allDetectedDomains = []) {
+  const relevantFields = getRelevantFields(extractedProfile, allDetectedDomains);
   const confidentFields = [];
   const missingFields = [];
   const discoveredTraits = [];
 
   for (const field of relevantFields) {
-    const data = extractedProfile[field];
+    const data = extractedProfile?.[field];
     if (data && data.confidence >= CONFIDENCE_THRESHOLD && data.value !== null) {
       confidentFields.push(field);
-      discoveredTraits.push({
-        field,
-        value: data.value,
-        confidence: data.confidence
-      });
+      discoveredTraits.push({ field, value: data.value, confidence: data.confidence });
     } else {
       missingFields.push(field);
     }
   }
 
-  // Check required fields
-  const allRequiredMet = REQUIRED_FIELDS.every(f => confidentFields.includes(f));
-  
-  // Check optional field ratio
-  const relevantOptionalFields = relevantFields.filter(f => !REQUIRED_FIELDS.includes(f));
-  const optionalMet = relevantOptionalFields.filter(f => confidentFields.includes(f)).length;
-  const optionalNeeded = Math.min(5, relevantOptionalFields.length);
+  const allRequiredMet = BASE_REQUIRED.every(f => confidentFields.includes(f));
+  const domainOptionalFields = relevantFields.filter(f => !BASE_REQUIRED.includes(f));
+  const optionalMet = domainOptionalFields.filter(f => confidentFields.includes(f)).length;
 
-  // Completion conditions:
-  // 1. All required + 60% optional
-  // 2. Turn count exceeded max
-  // 3. All required + at least 5 optional fields filled
-  const isComplete = 
+  // For multi-domain: require more optional fields
+  const domainCount = Math.max(1, allDetectedDomains.length);
+  const optionalNeeded = Math.min(
+    domainOptionalFields.length,
+    domainCount === 1 ? 2 : Math.ceil(domainOptionalFields.length * 0.75)
+  );
+
+  const isComplete =
     (allRequiredMet && optionalMet >= optionalNeeded) ||
-    (turnCount >= maxTurns) ||
-    (allRequiredMet && optionalMet === relevantOptionalFields.length);
+    confidentFields.length >= relevantFields.length ||
+    turnCount >= maxTurns;
 
   const completionPercentage = Math.round(
     (confidentFields.length / relevantFields.length) * 100
@@ -119,4 +116,4 @@ function checkCompletion(extractedProfile, turnCount, maxTurns) {
   };
 }
 
-module.exports = { checkCompletion, ALL_FIELDS, CONFIDENCE_THRESHOLD, getRelevantFields };
+module.exports = { checkCompletion, CONFIDENCE_THRESHOLD, getRelevantFields };

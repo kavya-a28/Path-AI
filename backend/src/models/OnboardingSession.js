@@ -41,7 +41,7 @@ const onboardingSessionSchema = new mongoose.Schema({
   },
   topicsCovered: [String],
   turnCount: { type: Number, default: 0 },
-  maxTurns: { type: Number, default: 12 }
+  maxTurns: { type: Number, default: 6 }
 }, {
   timestamps: true
 });
