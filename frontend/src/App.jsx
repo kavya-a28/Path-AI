@@ -5,7 +5,7 @@ import { Brain, Loader2 } from 'lucide-react';
 // Import Screens
 import LandingPage from './components/LandingPage';
 import AuthScreen from './components/AuthScreen';
-import OnboardingQuiz from './components/OnboardingQuiz';
+import AIOnboarding from './components/AIOnboarding';
 import Dashboard from './components/Dashboard';
 
 // NOTE: We do NOT import RoadmapView here anymore. 
@@ -13,7 +13,7 @@ import Dashboard from './components/Dashboard';
 
 function App() {
   const [currentScreen, setCurrentScreen] = useState('landing');
-  const [userData, setUserData] = useState(null); // Stores the quiz answers
+  const [userData, setUserData] = useState(null); // Stores onboarding profile data
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // Transition handler for high-tech feeling
@@ -49,11 +49,12 @@ function App() {
           </motion.div>
         )}
         
-        {/* 3. ONBOARDING QUIZ */}
+        {/* 3. AI ONBOARDING */}
         {currentScreen === 'quiz' && !isAnalyzing && (
           <motion.div key="quiz" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <OnboardingQuiz 
+            <AIOnboarding
               onComplete={handleQuizComplete}
+              onBack={() => setCurrentScreen('auth')}
             />
           </motion.div>
         )}

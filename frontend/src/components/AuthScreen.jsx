@@ -1,11 +1,24 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, User, School, Github, Chrome, ArrowRight, ArrowLeft, Sparkles, Book, Coffee, Laptop } from 'lucide-react';
+import { Mail, Lock, User, School, Chrome, ArrowRight, ArrowLeft, Sparkles, Book, Coffee, Laptop } from 'lucide-react';
 
 const AuthScreen = ({ onBack, onNavigate }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [error, setError] = useState('');
+  const [googleClient, setGoogleClient] = useState(null);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [signupForm, setSignupForm] = useState({
+    fullName: '',
+    email: '',
+    college: '',
+    password: ''
+  });
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
   // Animation variants for switching between Login and Sign Up
   const formVariants = {
@@ -14,26 +27,159 @@ const AuthScreen = ({ onBack, onNavigate }) => {
     exit: { opacity: 0, x: -20, transition: { duration: 0.3 } }
   };
 
-  // Logic for the Loading and Success animation
-  const handleAuthAction = () => {
+  const handleAuthAction = async () => {
+    setError('');
     setIsLoading(true);
-    
-    // Simulate a high-tech "Guaranteed" login process
-    setTimeout(() => {
+
+    const endpoint = isLogin ? '/auth/login' : '/auth/signup';
+    const payload = isLogin ? loginForm : signupForm;
+
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const validationMessage = data.errors?.[0]?.message;
+        throw new Error(validationMessage || data.message || 'Authentication failed');
+      }
+
+      localStorage.setItem('pathai_token', data.token);
+      localStorage.setItem('pathai_user', JSON.stringify(data.user));
+
       setIsLoading(false);
       setIsSuccess(true);
-      
-      // After showing the happy success state, move to Screen 3 (Quiz)
+
       setTimeout(() => {
-        if (isLogin) {
-          // Login goes directly to dashboard
-          onNavigate('dashboard');
-        } else {
-          // Signup goes to onboarding quiz
-          onNavigate('quiz');
-        }
+        onNavigate(isLogin ? 'dashboard' : 'quiz');
       }, 1500);
-    }, 2000);
+    } catch (authError) {
+      setIsLoading(false);
+      setError(authError.message);
+    }
+  };
+
+  const handleLoginChange = (event) => {
+    setLoginForm((prev) => ({ ...prev, [event.target.name]: event.target.value }));
+  };
+
+  const handleSignupChange = (event) => {
+    setSignupForm((prev) => ({ ...prev, [event.target.name]: event.target.value }));
+  };
+
+  const switchMode = (nextIsLogin) => {
+    setIsLogin(nextIsLogin);
+    setError('');
+    setIsSuccess(false);
+  };
+
+  const getGoogleClient = () => {
+    return new Promise((resolve, reject) => {
+      if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID === 'your-google-oauth-client-id.apps.googleusercontent.com') {
+        reject(new Error('Google OAuth is not configured. Add VITE_GOOGLE_CLIENT_ID to the frontend environment.'));
+        return;
+      }
+
+      if (googleClient) {
+        resolve(googleClient);
+        return;
+      }
+
+      const initializeClient = () => {
+        if (!window.google?.accounts?.oauth2) {
+          reject(new Error('Google OAuth could not be loaded. Please try again.'));
+          return;
+        }
+
+        const client = window.google.accounts.oauth2.initTokenClient({
+          client_id: GOOGLE_CLIENT_ID,
+          scope: 'openid email profile',
+          callback: async (tokenResponse) => {
+            if (tokenResponse.error) {
+              setIsGoogleLoading(false);
+              setError(tokenResponse.error_description || 'Google login was cancelled');
+              return;
+            }
+
+            await completeGoogleLogin(tokenResponse.access_token);
+          },
+        });
+
+        setGoogleClient(client);
+        resolve(client);
+      };
+
+      const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+
+      if (existingScript) {
+        existingScript.addEventListener('load', initializeClient, { once: true });
+        existingScript.addEventListener('error', () => reject(new Error('Google OAuth could not be loaded.')), { once: true });
+        if (window.google?.accounts?.oauth2) {
+          initializeClient();
+        }
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = initializeClient;
+      script.onerror = () => reject(new Error('Google OAuth could not be loaded.'));
+      document.head.appendChild(script);
+    });
+  };
+
+  const completeGoogleLogin = async (accessToken) => {
+    try {
+      const response = await fetch(`${API_URL}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Google login failed');
+      }
+
+      localStorage.setItem('pathai_token', data.token);
+      localStorage.setItem('pathai_user', JSON.stringify(data.user));
+
+      setIsGoogleLoading(false);
+      setIsSuccess(true);
+
+      setTimeout(() => {
+        onNavigate(data.user?.onboardingStatus === 'not_started' ? 'quiz' : 'dashboard');
+      }, 1000);
+    } catch (googleError) {
+      setIsGoogleLoading(false);
+      setError(googleError.message);
+    }
+  };
+
+  const handleGoogleAuth = async () => {
+    setError('');
+    setIsGoogleLoading(true);
+
+    try {
+      const client = await getGoogleClient();
+      client.requestAccessToken();
+    } catch (googleError) {
+      setIsGoogleLoading(false);
+      setError(googleError.message);
+    }
+  };
+
+  const handleSubmitOnEnter = (event) => {
+    if (event.key === 'Enter' && !isLoading && !isSuccess) {
+      handleAuthAction();
+    }
   };
 
   return (
@@ -114,13 +260,15 @@ const AuthScreen = ({ onBack, onNavigate }) => {
                 <div className="space-y-4">
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input type="email" placeholder="Email Address" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
+                    <input name="email" value={loginForm.email} onChange={handleLoginChange} onKeyDown={handleSubmitOnEnter} type="email" placeholder="Email Address" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
                   </div>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input type="password" placeholder="Password" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
+                    <input name="password" value={loginForm.password} onChange={handleLoginChange} onKeyDown={handleSubmitOnEnter} type="password" placeholder="Password" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
                   </div>
                 </div>
+
+                {error && <p className="mt-4 text-sm font-bold text-red-500">{error}</p>}
 
                 {/* ANIMATED BUTTON */}
                 <button 
@@ -153,17 +301,25 @@ const AuthScreen = ({ onBack, onNavigate }) => {
                   <div className="flex-1 h-px bg-slate-200" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <button className="flex items-center justify-center gap-2 py-3 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer">
-                    <Chrome className="w-5 h-5 text-blue-500" /> Google
-                  </button>
-                  <button className="flex items-center justify-center gap-2 py-3 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer">
-                    <Github className="w-5 h-5 text-slate-900" /> GitHub
-                  </button>
-                </div>
+                <button
+                  onClick={handleGoogleAuth}
+                  disabled={isGoogleLoading || isLoading || isSuccess}
+                  className="w-full flex items-center justify-center gap-2 py-3 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isGoogleLoading ? (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                      className="w-5 h-5 border-2 border-blue-200 border-t-blue-500 rounded-full"
+                    />
+                  ) : (
+                    <Chrome className="w-5 h-5 text-blue-500" />
+                  )}
+                  Continue with Google
+                </button>
 
                 <p className="text-center mt-8 text-slate-500 font-medium">
-                  New here? <button onClick={() => setIsLogin(false)} className="text-blue-600 font-bold hover:underline cursor-pointer">Sign Up</button>
+                  New here? <button onClick={() => switchMode(false)} className="text-blue-600 font-bold hover:underline cursor-pointer">Sign Up</button>
                 </p>
               </motion.div>
             ) : (
@@ -180,21 +336,23 @@ const AuthScreen = ({ onBack, onNavigate }) => {
                 <div className="space-y-4">
                   <div className="relative">
                     <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input type="text" placeholder="Full Name" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
+                    <input name="fullName" value={signupForm.fullName} onChange={handleSignupChange} onKeyDown={handleSubmitOnEnter} type="text" placeholder="Full Name" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
                   </div>
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input type="email" placeholder="Email Address" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
+                    <input name="email" value={signupForm.email} onChange={handleSignupChange} onKeyDown={handleSubmitOnEnter} type="email" placeholder="Email Address" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
                   </div>
                   <div className="relative">
                     <School className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input type="text" placeholder="College (Optional)" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
+                    <input name="college" value={signupForm.college} onChange={handleSignupChange} onKeyDown={handleSubmitOnEnter} type="text" placeholder="College (Optional)" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
                   </div>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input type="password" placeholder="Password" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
+                    <input name="password" value={signupForm.password} onChange={handleSignupChange} onKeyDown={handleSubmitOnEnter} type="password" placeholder="Password" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
                   </div>
                 </div>
+
+                {error && <p className="mt-4 text-sm font-bold text-red-500">{error}</p>}
 
                 <button 
                   onClick={handleAuthAction}
@@ -217,7 +375,7 @@ const AuthScreen = ({ onBack, onNavigate }) => {
                 </button>
 
                 <p className="text-center mt-8 text-slate-500 font-medium">
-                  Already have an account? <button onClick={() => setIsLogin(true)} className="text-blue-600 font-bold hover:underline cursor-pointer">Login</button>
+                  Already have an account? <button onClick={() => switchMode(true)} className="text-blue-600 font-bold hover:underline cursor-pointer">Login</button>
                 </p>
               </motion.div>
             )}
