@@ -1,8 +1,7 @@
 const stateManager = require('../services/stateManager');
 const { extractProfile } = require('../services/profileExtractor');
 const { checkCompletion } = require('../services/completionChecker');
-const { generateNextQuestion, generateFallbackSuggestions, detectAllDomains } = require('../services/promptEngine');
-const { validateQuestion, sanitizeQuestion } = require('../services/ruleGuard');
+const { buildQuestionQueue } = require('../services/nodes/aggregatorNode');
 const Groq = require('groq-sdk');
 
 const WELCOME_MESSAGE = "Hey there! I'm your AI mentor at PathAI. Instead of a boring quiz, let's have a quick conversation.\n\nTell me what you are aiming for right now. Placements, DSA, web development, cybersecurity, AI/ML, freelancing, or something else?";
@@ -102,32 +101,19 @@ const handleMessage = async (req, res) => {
     const { updatedProfile, extractedFields, topicsDetected } = extractProfile(message, currentProfile);
     await stateManager.updateProfile(session, updatedProfile, topicsDetected);
 
-    // Detect all domains from conversation + profile for multi-domain support
-    const recentMessages = stateManager.getRecentMessages(session);
-    const allDetectedDomains = detectAllDomains(recentMessages);
-    // Also merge domains from the extracted profile (preferredDomain is now an array)
-    const profileDomains = Array.isArray(updatedProfile?.preferredDomain?.value)
-      ? updatedProfile.preferredDomain.value
-      : (updatedProfile?.preferredDomain?.value ? [updatedProfile.preferredDomain.value] : []);
-    for (const d of profileDomains) {
-      if (!allDetectedDomains.find(det => det.domain === d)) {
-        const label = d.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-        allDetectedDomains.push({ domain: d, label });
-      }
+    if (!session.queueGenerated) {
+      console.log("Generating question queue via Nodes...");
+      const { queue } = await buildQuestionQueue(message);
+      session.questionQueue = queue;
+      session.queueGenerated = true;
+      await session.save();
     }
 
-    const completionResult = checkCompletion(
-      updatedProfile,
-      session.turnCount,
-      session.maxTurns,
-      allDetectedDomains
-    );
-
+    const completionResult = checkCompletion(session);
 
     if (completionResult.isComplete) {
       const finalProfile = await stateManager.finalizeSession(session, userId);
       
-      // Generate personalized completion message using Groq
       const FALLBACK_COMPLETION = "Perfect. I have a clear picture of your goals, skill level, and study schedule. Let me now generate your personalized learning roadmap!";
       const completionMsg = (await generateCompletionMessage(finalProfile)) || FALLBACK_COMPLETION;
       
@@ -135,10 +121,7 @@ const handleMessage = async (req, res) => {
 
       return res.status(200).json({
         success: true,
-        message: {
-          role: 'assistant',
-          content: completionMsg
-        },
+        message: { role: 'assistant', content: completionMsg },
         completion: {
           percentage: 100,
           isComplete: true,
@@ -149,99 +132,25 @@ const handleMessage = async (req, res) => {
       });
     }
 
+    // Pop the next question from the queue
+    const nextQ = session.questionQueue.shift();
+    await session.save();
 
-    let aiResponse;
-    let retries = 0;
-    const MAX_RETRIES = 3;
-
-    while (retries < MAX_RETRIES) {
-      try {
-        aiResponse = await generateNextQuestion({
-          extractedProfile: updatedProfile,
-          missingFields: completionResult.missingFields,
-          topicsCovered: session.topicsCovered,
-          recentMessages
-        });
-
-        const sanitized = sanitizeQuestion(aiResponse.question);
-        const validation = validateQuestion(
-          sanitized,
-          session.topicsCovered,
-          completionResult.confidentFields,
-          aiResponse.targetField
-        );
-
-        if (validation.isValid) {
-          aiResponse.question = sanitized;
-          break;
-        } else {
-          console.log(`Rule Guard rejected (attempt ${retries + 1}): ${validation.reason}`);
-          retries++;
-        }
-      } catch (error) {
-        console.error(`Prompt Engine error (attempt ${retries + 1}):`, error.message);
-        retries++;
-      }
-    }
-
-    // Smart domain-aware fallback when Groq fails
-    if (!aiResponse || retries >= MAX_RETRIES) {
-      const { detectAllDomains } = require('../services/promptEngine');
-      const detectedDomains = detectAllDomains(recentMessages);
-      const primaryDomain = Array.isArray(updatedProfile?.preferredDomain?.value)
-        ? updatedProfile.preferredDomain.value[0]
-        : updatedProfile?.preferredDomain?.value;
-      const activeDomain = detectedDomains[0]?.domain || primaryDomain;
-
-      // Domain-specific fallback questions — ONLY relevant to their field
-      const DOMAIN_FALLBACKS = {
-        web_development: {
-          currentSkills:    "What do you already know — HTML/CSS, JavaScript, or any framework?",
-          preferredLanguage:"Do you prefer JavaScript, Python, or something else for web dev?",
-          studyHoursPerDay: "How many hours can you commit daily to learning web development?",
-        },
-        cybersecurity: {
-          currentSkills:    "Any networking, Linux, or scripting background you already have?",
-          preferredLanguage:"Do you know Python or any scripting language?",
-          studyHoursPerDay: "How much time can you give weekly to cybersecurity learning?",
-        },
-        dsa: {
-          preferredLanguage:"Which language for DSA — C++, Java, or Python?",
-          dsaLevel:         "Current DSA level — beginner, basics done, or 100+ problems solved?",
-          studyHoursPerDay: "How many hours daily can you practice DSA?",
-        },
-        ai_ml: {
-          preferredLanguage:"Do you know Python? It's the main language for AI/ML.",
-          currentSkills:    "Any math or ML background — statistics, linear algebra, or any libraries?",
-          studyHoursPerDay: "How many hours per week can you commit to AI/ML?",
-        },
-      };
-
-      const domainFallbacks = DOMAIN_FALLBACKS[activeDomain] || {
-        primaryGoal:      "What's your main goal — get a job, build projects, or freelance?",
-        preferredDomain:  "Which area — web dev, cybersecurity, AI/ML, or DSA?",
-        studyHoursPerDay: "How much time can you dedicate daily to learning?",
-      };
-
-      const fallbackField = completionResult.missingFields.find(f => Object.keys(domainFallbacks).includes(f) && !session.topicsCovered.includes(f))
-        || completionResult.missingFields[0]
-        || 'studyHoursPerDay';
-
-      const fallbackQ = domainFallbacks[fallbackField]
-        || { primaryGoal: "What's your main goal?", preferredDomain: "Which tech area?", studyHoursPerDay: "How many hours daily can you study?" }[fallbackField]
-        || "How much time can you dedicate to learning daily?";
-
-      aiResponse = {
-        question: fallbackQ,
-        targetField: fallbackField,
-        suggestedReplies: generateFallbackSuggestions(fallbackField, activeDomain)
-      };
-    }
+    let aiResponse = {
+      question: nextQ ? nextQ.text : "How much time can you dedicate to learning weekly?",
+      targetField: nextQ ? nextQ.field : "timeCommitment",
+      suggestedReplies: nextQ ? nextQ.suggestedReplies : ["Yes", "No", "Tell me more"]
+    };
 
     await stateManager.addMessage(session, 'assistant', aiResponse.question);
 
     if (aiResponse.targetField && !session.topicsCovered.includes(aiResponse.targetField)) {
       session.topicsCovered.push(aiResponse.targetField);
+      // Also push the plain field name (without domain prefix) for profile extraction compatibility
+      const plainField = aiResponse.targetField.includes(':') ? aiResponse.targetField.split(':')[1] : aiResponse.targetField;
+      if (plainField && !session.topicsCovered.includes(plainField)) {
+        session.topicsCovered.push(plainField);
+      }
       await session.save();
     }
 
@@ -288,12 +197,7 @@ const getStatus = async (req, res) => {
       });
     }
 
-    const currentProfile = session.extractedProfile?.toObject ? session.extractedProfile.toObject() : session.extractedProfile;
-    const completionResult = checkCompletion(
-      currentProfile,
-      session.turnCount,
-      session.maxTurns
-    );
+    const completionResult = checkCompletion(session);
 
     return res.status(200).json({
       success: true,

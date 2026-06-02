@@ -1,8 +1,5 @@
 const Groq = require('groq-sdk');
 
-// ──────────────────────────────────────────────────────────────
-// Domain detection from raw conversation text
-// ──────────────────────────────────────────────────────────────
 const DOMAIN_PATTERNS = [
   { regex: /\b(web\s*dev|web\s*development|frontend|backend|fullstack|mern|mean|react|node(?:\.?js)?|django|vue|angular|next\.?js|html|css)\b/i, domain: 'web_development', label: 'Web Development' },
   { regex: /\b(cyber\s*security|cybersecurity|ethical\s*hack|penetration|pentest|infosec|bug\s*bounty|ctf|kali|metasploit|network\s*security|oscp|ceh)\b/i, domain: 'cybersecurity', label: 'Cybersecurity' },
@@ -15,11 +12,7 @@ const DOMAIN_PATTERNS = [
   { regex: /\b(blockchain|web3|crypto|solidity|smart\s*contract|nft)\b/i, domain: 'blockchain', label: 'Blockchain/Web3' },
 ];
 
-/**
- * Detect ALL domains mentioned — ONLY from USER messages (not AI messages)
- * The welcome message contains "web development, cybersecurity, AI/ML" which
- * would falsely trigger all domains if we scanned all messages.
- */
+
 function detectAllDomains(messages) {
   // Only look at what the USER actually typed — ignore AI messages
   const userText = messages
@@ -36,39 +29,38 @@ function detectAllDomains(messages) {
   return detected;
 }
 
-// ──────────────────────────────────────────────────────────────
-// Domain-specific question guidance for Groq
-// ──────────────────────────────────────────────────────────────
+
 const DOMAIN_GUIDANCE = {
   web_development: `For WEB DEVELOPMENT, the questions to ask (pick the most relevant unanswered one):
-  1. Why do you want to learn web dev — build personal projects, get a job, or freelance?
-  2. What do you already know — HTML/CSS, JavaScript, any framework like React or Node?
-  3. Which stack interests you — MERN (React+Node+MongoDB), Django+React, Vue, Next.js, or something else?
-  4. How much time can you dedicate daily or weekly to learning?`,
+  1. Are you focusing on Frontend (React, Next.js), Backend (Node.js, Go), or Full-Stack?
+  2. What is your existing baseline — do you know raw HTML/CSS/JS, or are you already familiar with state management and databases?
+  3. How much time can you dedicate weekly?
+  4. What is your target timeline or deadline for learning this?`,
 
   cybersecurity: `For CYBERSECURITY, the questions to ask (pick the most relevant unanswered one):
   1. Which area of cybersecurity — ethical hacking/pentesting, network security, bug bounty, SOC/forensics, or malware analysis?
   2. Do you have any background — networking (TCP/IP), Linux command line, or scripting?
   3. Any programming/scripting experience — Python, Bash, or none yet?
-  4. Are you a complete beginner, done some CTFs, or have professional experience?`,
-
-  dsa: `For DSA, the questions to ask (pick the most relevant unanswered one):
-  1. What's your goal with DSA — campus placements, FAANG, competitive programming, or general improvement?
-  2. Which language do you use — C++, Java, or Python?
-  3. Current level — never started, know basic arrays/loops, or solved 100+ problems on LeetCode?
-  4. How many hours can you practice DSA daily?`,
-
-  ai_ml: `For AI/MACHINE LEARNING, the questions to ask (pick the most relevant unanswered one):
-  1. What's your AI/ML goal — research, build AI products, data scientist role, or just exploring?
-  2. Do you know Python? Any math background (linear algebra, statistics)?
-  3. Beginner to ML or have you worked with any libraries (scikit-learn, TensorFlow, PyTorch)?
   4. How much time can you commit weekly?`,
 
+  dsa: `For DSA, the questions to ask (pick the most relevant unanswered one):
+  1. What language do you want to implement DSA in — C++, Java, or Python?
+  2. What is your current skill level — can you comfortably solve LeetCode Easy, Medium, or Hard?
+  3. What is your algorithmic core focus — foundational arrays/strings, or advanced structures like Graphs, Trees, and DP?
+  4. How much time can you practice DSA weekly?`,
+
+  ai_ml: `For AI/MACHINE LEARNING, the questions to ask (pick the most relevant unanswered one):
+  1. What is your preferred language for AI/ML (e.g., Python, R, C++)?
+  2. Do you have experience with high-level libraries (Pandas, PyTorch) or want to build algorithms from scratch?
+  3. What is your mathematical foundation (Linear Algebra, Calculus, Stats)?
+  4. What is your core motivation (e.g., building generative agents, research, data analysis)?`,
+
   mobile_dev: `For MOBILE DEVELOPMENT, the questions to ask (pick the most relevant unanswered one):
-  1. Android, iOS, or cross-platform (Flutter/React Native)?
-  2. Any programming background — Java, Kotlin, Swift, JavaScript, or Dart?
-  3. Built any mobile apps before or starting fresh?
-  4. How much time can you dedicate daily?`,
+  1. What is your primary goal (e.g. build an app, get a job)?
+  2. Android, iOS, or cross-platform (Flutter/React Native)?
+  3. Any programming background — Java, Kotlin, Swift, JavaScript, or Dart?
+  4. How much time can you dedicate weekly?
+  5. What is your target timeline or deadline for learning this?`,
 
   cloud_devops: `For CLOUD/DEVOPS, the questions to ask (pick the most relevant unanswered one):
   1. Which cloud platform interests you — AWS, Azure, GCP, or general DevOps?
@@ -95,32 +87,41 @@ const DOMAIN_GUIDANCE = {
   4. How much time can you commit weekly?`,
 };
 
-// ──────────────────────────────────────────────────────────────
-// Main question generator
-// ──────────────────────────────────────────────────────────────
 async function generateNextQuestion({ extractedProfile, missingFields, topicsCovered, recentMessages }) {
   const apiKey = process.env.GROQ_API_KEY;
+  // Compute targetField EARLY so we can reference it in the system prompt
+  const _allDetected = detectAllDomains(recentMessages);
+  const _rawDom = extractedProfile?.preferredDomain?.value;
+  const _allProfDoms = Array.isArray(_rawDom) ? _rawDom : (_rawDom ? [_rawDom] : []);
+  for (const d of _allProfDoms) {
+    if (!_allDetected.find(det => det.domain === d)) {
+      const label = d.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      _allDetected.push({ domain: d, label });
+    }
+  }
+  const _primaryDom = Array.isArray(_rawDom) ? _rawDom[0] : _rawDom;
+  const { compositeKey, field: targetField, domain: targetDomain, domainLabel: targetDomainLabel } = pickTargetField(_allDetected, _primaryDom, topicsCovered);
   if (!apiKey) throw new Error('GROQ_API_KEY is missing.');
 
   const groq = new Groq({ apiKey });
 
-  // Detect ALL domains from the full conversation (handles "web dev AND cybersecurity")
   const allDetectedDomains = detectAllDomains(recentMessages);
   // preferredDomain is now an array — extract primary (first) value
   const rawDomain = extractedProfile?.preferredDomain?.value;
   const primaryDomain = Array.isArray(rawDomain) ? rawDomain[0] : rawDomain;
   const allProfileDomains = Array.isArray(rawDomain) ? rawDomain : (rawDomain ? [rawDomain] : []);
   const primaryGoal = extractedProfile?.primaryGoal?.value;
-
-  // Merge profile domains into allDetectedDomains to ensure nothing is missed
+                                                              
+  // Merge profile domains into allDetectedDomains to enter thing is missed
   for (const d of allProfileDomains) {
+
     if (!allDetectedDomains.find(det => det.domain === d)) {
       const label = d.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
       allDetectedDomains.push({ domain: d, label });
     }
   }
-
-  // Build domain guidance for ALL detected domains
+  
+    // Build domain guidance for ALL detected domains
   let domainGuidanceText = '';
   if (allDetectedDomains.length > 0) {
     domainGuidanceText = allDetectedDomains
@@ -166,22 +167,27 @@ ${historyStr || 'Just started.'}
 ${domainGuidanceText || 'Ask: what do you want to learn, why, and how much time you have?'}
 
 ━━━ YOUR TASK ━━━
-Ask the single most important UNANSWERED question from the domain-specific question bank above.
+You MUST now ask a question specifically about: **${targetDomainLabel}**
+Ask about the topic: **${targetField.replace(/_/g, ' ')}**
 
 STRICT RULES:
-1. ONLY ask about domains the student actually mentioned — NEVER ask about DSA if they said web dev, NEVER ask about placements if they said cybersecurity, etc.
-2. If they mentioned MULTIPLE domains (e.g., web dev + cybersecurity), alternate between them — ask one question per domain per round
-3. Keep the question SHORT — max 20 words, direct, conversational
-4. Reference what they said to make it feel natural
-5. Do NOT ask about things outside their stated domains
-6. Do NOT start with "Great!", "Awesome!", "Perfect!"
+1. ONLY ask about the domain specified above (${targetDomainLabel}) — do NOT ask about any other domain
+2. Keep the question SHORT — max 20 words, direct, conversational
+3. Reference what the student said to make it feel natural
+4. Do NOT repeat any question that appears in the RECENT CONVERSATION above
+5. Do NOT start with "Great!", "Awesome!", "Perfect!"
+6. Each question must be clearly DIFFERENT from previous questions
 
 RESPONSE FORMAT (you MUST output EXACTLY two lines, nothing more):
 [Your short, direct question here]
-SUGGESTIONS: Short answer 1 | Short answer 2 | Short answer 3
+SUGGESTIONS: option1 | option2 | option3
 
-CRITICAL: The SUGGESTIONS line is MANDATORY. You must ALWAYS include it with exactly 3 pipe-separated options. Never omit it.
-Suggestions = 3 realistic short answers a student might click (max 6 words each).`;
+CRITICAL FORMATTING RULES:
+- The SUGGESTIONS line is MANDATORY — never omit it
+- You MUST use the pipe character | to separate exactly 3 options
+- Do NOT use commas to separate options
+- Each option must be max 6 words
+- Example: SUGGESTIONS: Build apps | Get a job | Learn for fun`;
 
   const chatCompletion = await groq.chat.completions.create({
     messages: [
@@ -196,20 +202,25 @@ Suggestions = 3 realistic short answers a student might click (max 6 words each)
   const responseText = chatCompletion.choices[0]?.message?.content?.trim() || '';
   const lines = responseText.split('\n').filter(l => l.trim());
 
-  // Determine targetField FIRST so fallbacks can use it
-  const targetField = pickTargetField(allDetectedDomains, primaryDomain, topicsCovered);
-
   let question = '';
   let suggestedReplies = [];
 
   for (const line of lines) {
     if (line.includes('SUGGESTIONS:')) {
       const suggPart = line.split('SUGGESTIONS:')[1] || '';
-      suggestedReplies = suggPart
-        .split('|')
-        .map(s => s.trim())
-        .filter(s => s.length > 0)
-        .slice(0, 4);
+      // Try pipe-separated first (preferred)
+      let parts = suggPart.split('|').map(s => s.trim()).filter(s => s.length > 0);
+      // If pipe split gives only 1 result, try comma-separated as fallback
+      if (parts.length <= 1) {
+        parts = suggPart.split(',').map(s => s.trim()).filter(s => s.length > 0);
+      }
+      // If still only 1 result or the single item is very long, try splitting on common patterns
+      if (parts.length <= 1 && suggPart.trim().length > 20) {
+        // Try splitting on numbered patterns like "1. option 2. option"
+        const numbered = suggPart.split(/\d+\.\s*/).map(s => s.trim()).filter(s => s.length > 0);
+        if (numbered.length >= 2) parts = numbered;
+      }
+      suggestedReplies = parts.slice(0, 4);
     } else if (!question) {
       const cleaned = line.replace(/SUGGESTIONS:.*/i, '').trim();
       // Skip lines that are meta-instructions
@@ -233,7 +244,7 @@ Suggestions = 3 realistic short answers a student might click (max 6 words each)
     suggestedReplies = ['Yes', 'No', 'Tell me more'];
   }
 
-  return { question, targetField, suggestedReplies };
+  return { question, targetField: compositeKey, suggestedReplies };
 }
 
 
@@ -241,21 +252,23 @@ Suggestions = 3 realistic short answers a student might click (max 6 words each)
 // Determine the "target field" for topic tracking
 // ──────────────────────────────────────────────────────────────
 const DOMAIN_FIELD_ORDER = {
-  web_development: ['primaryGoal', 'currentSkills', 'preferredStack', 'studyHoursPerDay', 'preferredLanguage'],
-  cybersecurity:   ['primaryGoal', 'cyberDomain', 'currentSkills', 'preferredLanguage', 'studyHoursPerDay'],
-  dsa:             ['primaryGoal', 'preferredLanguage', 'dsaLevel', 'studyHoursPerDay'],
-  ai_ml:           ['primaryGoal', 'preferredLanguage', 'currentSkills', 'studyHoursPerDay'],
-  mobile_dev:      ['primaryGoal', 'preferredLanguage', 'currentSkills', 'studyHoursPerDay'],
-  cloud_devops:    ['primaryGoal', 'currentSkills', 'studyHoursPerDay', 'preferredLanguage'],
-  data_science:    ['primaryGoal', 'preferredLanguage', 'currentSkills', 'studyHoursPerDay'],
-  game_dev:        ['primaryGoal', 'preferredLanguage', 'studyHoursPerDay'],
-  blockchain:      ['primaryGoal', 'preferredLanguage', 'currentSkills', 'studyHoursPerDay'],
+  web_development: ['primaryGoal', 'stackFocus', 'existingBaseline', 'learningStyle', 'timeCommitment', 'targetDuration'],
+  cybersecurity:   ['primaryGoal', 'cyberDomain', 'currentSkills', 'preferredLanguage', 'timeCommitment', 'targetDuration'],
+  dsa:             ['primaryGoal', 'preferredLanguage', 'dsaLevel', 'algorithmicCore', 'timeCommitment', 'targetDuration'],
+  ai_ml:           ['primaryGoal', 'preferredLanguage', 'frameworkExperience', 'mathFoundation', 'motivation', 'timeCommitment', 'targetDuration'],
+  mobile_dev:      ['primaryGoal', 'preferredLanguage', 'currentSkills', 'learningStyle', 'timeCommitment', 'targetDuration'],
+  cloud_devops:    ['primaryGoal', 'currentSkills', 'preferredLanguage', 'learningStyle', 'timeCommitment', 'targetDuration'],
+  data_science:    ['primaryGoal', 'preferredLanguage', 'currentSkills', 'learningStyle', 'timeCommitment', 'targetDuration'],
+  game_dev:        ['primaryGoal', 'preferredLanguage', 'consistencyLevel', 'learningStyle', 'timeCommitment', 'targetDuration'],
+  blockchain:      ['primaryGoal', 'preferredLanguage', 'currentSkills', 'learningStyle', 'timeCommitment', 'targetDuration'],
 };
 
+/**
+ * Pick the next target field using domain-prefixed keys for per-domain tracking.
+ * Returns { compositeKey, field, domain, domainLabel }
+ * compositeKey = "domain:field" so each domain's fields are tracked independently.
+ */
 function pickTargetField(detectedDomains, primaryDomain, topicsCovered) {
-  // Build a combined ordered list of fields across ALL detected domains
-  // Round-robin: one field from each domain before repeating
-  // e.g., web_dev[0], dsa[0], web_dev[1], dsa[1], ...
   const allDomains = detectedDomains.length > 0
     ? detectedDomains.map(d => d.domain)
     : [primaryDomain || 'web_development'];
@@ -263,18 +276,26 @@ function pickTargetField(detectedDomains, primaryDomain, topicsCovered) {
   // Gather field orders per domain
   const domainFields = allDomains.map(d => (DOMAIN_FIELD_ORDER[d] || ['currentSkills', 'studyHoursPerDay']));
 
-  // Try each domain's uncovered fields in order (prioritize first uncovered across all)
+  // Round-robin across domains using domain-prefixed composite keys
+  // e.g., "web_development:primaryGoal", "dsa:primaryGoal", "web_development:currentSkills", ...
   for (let i = 0; i < 10; i++) {
-    for (const fields of domainFields) {
-      const field = fields[i];
-      if (field && !topicsCovered.includes(field)) {
-        return field;
+    for (let dIdx = 0; dIdx < allDomains.length; dIdx++) {
+      const domain = allDomains[dIdx];
+      const field = domainFields[dIdx][i];
+      if (!field) continue;
+      const compositeKey = `${domain}:${field}`;
+      // Check both the composite key AND the plain field in topicsCovered
+      // to handle backward compat with old sessions
+      if (!topicsCovered.includes(compositeKey)) {
+        const domainObj = detectedDomains.find(d => d.domain === domain);
+        const label = domainObj?.label || domain.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        return { compositeKey, field, domain, domainLabel: label };
       }
     }
   }
 
   // Fallback
-  return 'studyHoursPerDay';
+  return { compositeKey: 'targetDuration', field: 'targetDuration', domain: allDomains[0], domainLabel: 'General' };
 }
 
 
@@ -289,16 +310,21 @@ function buildFallbackQuestion(targetField, detectedDomains, primaryDomain) {
     preferredDomain:  'Which area do you want to focus on — web dev, cybersecurity, AI/ML, or DSA?',
     currentSkills:    domain === 'cybersecurity'
                         ? 'Do you have any networking, Linux, or scripting background?'
-                        : domain === 'web_development'
-                          ? 'What do you already know — HTML/CSS, JavaScript, or any framework?'
-                          : 'What technical skills do you currently have?',
-    preferredStack:   'Which stack — MERN, Django+React, Vue, or Next.js?',
+                        : 'What technical skills do you currently have?',
     cyberDomain:      'Which area — ethical hacking, network security, or bug bounty?',
     preferredLanguage:'Which programming language do you prefer — Python, JavaScript, or C++?',
-    dsaLevel:         'DSA experience — beginner, solved some basics, or 100+ problems?',
+    dsaLevel:         'DSA experience — beginner, solved LeetCode Easy, Medium, or Hard?',
     studyHoursPerDay: 'How much time can you dedicate — hours per day or per week?',
+    timeCommitment:   'How many hours per week can you dedicate to learning?',
+    targetDuration:   'What is your timeline or deadline (e.g., 3 months)?',
+    frameworkExperience: 'Do you know high-level libraries (PyTorch, Pandas) or want to build from scratch?',
+    mathFoundation:   'How is your math foundation (Linear Algebra, Calculus, Stats)?',
+    motivation:       'What is your core goal (generative AI, research, data analysis)?',
+    algorithmicCore:  'Focusing on arrays/strings, or advanced structures like Graphs/DP?',
+    stackFocus:       'Are you focusing on Frontend, Backend, or Full-Stack?',
+    existingBaseline: 'Do you know raw HTML/CSS/JS, or familiar with state management/DBs?'
   };
-  return fallbacks[targetField] || 'How much time can you commit to learning daily?';
+  return fallbacks[targetField] || 'How much time can you commit to learning weekly?';
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -316,13 +342,21 @@ function generateFallbackSuggestions(targetField, primaryDomain) {
     preferredStack:    ['MERN stack', 'Django + React', 'Next.js'],
     cyberDomain:       ['Ethical hacking', 'Network security', 'Bug bounty'],
     preferredLanguage: ['Python', 'JavaScript', 'C++'],
-    dsaLevel:          ['Complete beginner', 'Know the basics', '100+ problems solved'],
+    dsaLevel:          ['LeetCode Easy', 'LeetCode Medium', 'LeetCode Hard'],
     studyHoursPerDay:  ['1-2 hrs/day', '3-4 hrs/day', '5+ hrs/day'],
     consistencyLevel:  ['Every day', 'Weekends only', 'A few days a week'],
     learningStyle:     ['Video tutorials', 'Hands-on projects', 'Reading docs'],
     timeline:          ['1-3 months', '3-6 months', '6+ months'],
     targetCompanies:   ['FAANG / Big Tech', 'Startups', 'Any company'],
     projectExperience: ['No projects yet', 'A few projects', 'Many projects'],
+    timeCommitment:    ['1-5 hrs/week', '6-10 hrs/week', '15+ hrs/week'],
+    targetDuration:    ['1-2 months', '3-6 months', '6+ months'],
+    frameworkExperience: ['High-level libraries', 'Build from scratch', 'Just starting'],
+    mathFoundation:    ['Strong (Calculus/Stats)', 'Basic Math', 'Need refresh'],
+    motivation:        ['Generative AI', 'Data Analysis', 'Research'],
+    algorithmicCore:   ['Arrays & Strings', 'Graphs & Trees', 'Dynamic Programming'],
+    stackFocus:        ['Frontend', 'Backend', 'Full-Stack'],
+    existingBaseline:  ['Raw HTML/CSS/JS', 'State & Databases', 'System Architecture']
   };
   return map[targetField] || ['Yes', 'No', 'Tell me more'];
 }

@@ -155,8 +155,10 @@ async function finalizeSession(session, userId) {
 /**
  * Get recent messages for context
  */
-function getRecentMessages(session, count = 6) {
-  return session.messages.slice(-count);
+function getRecentMessages(session, count = 20) {
+  // Return more messages to ensure domain detection catches ALL user-mentioned domains
+  // The first few messages often contain the critical domain selections
+  return session.messages;
 }
 
 module.exports = {

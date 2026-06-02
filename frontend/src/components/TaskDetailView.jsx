@@ -49,7 +49,32 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
     duration: 45,
     index: 1,
     total: 10,
-    id: 'task-1'
+    id: 'task-1',
+    resources: []
+  };
+
+  // Helper to extract youtube URL
+  const getYoutubeEmbedUrl = () => {
+    const videoResource = taskData?.resources?.find(r => r.url && (r.url.includes('youtube.com') || r.url.includes('youtu.be')));
+    let embedUrl = '';
+    
+    if (videoResource) {
+      if (videoResource.url.includes('youtu.be')) {
+        const id = videoResource.url.split('youtu.be/')[1];
+        embedUrl = `https://www.youtube.com/embed/${id}`;
+      } else {
+        const match = videoResource.url.match(/[?&]v=([^&]+)/);
+        if (match && match[1]) {
+          embedUrl = `https://www.youtube.com/embed/${match[1]}`;
+        } else {
+          embedUrl = videoResource.url.replace('watch?v=', 'embed/');
+        }
+      }
+    } else {
+      // Default placeholder if no video provided
+      embedUrl = 'https://www.youtube.com/embed/PkZNo7MFNFg';
+    }
+    return embedUrl;
   };
 
   // Define tabs configuration
@@ -212,10 +237,10 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
           
           <div>
             <h1 className="text-slate-900 font-black text-xl leading-none mb-1">
-              {taskData.icon} {taskData.title}
+              {taskData.icon || '🎯'} {taskData.title}
             </h1>
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-slate-500 font-semibold">by Abdul Bari</span>
+              <span className="text-slate-500 font-semibold">by AI Instructor</span>
               <span className="text-amber-500 flex items-center gap-1 font-bold">
                 <Star className="w-3 h-3 fill-amber-500" /> 4.9
               </span>
@@ -251,7 +276,7 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
           <div className="flex items-center gap-2 bg-white/80 border border-white px-4 py-2.5 rounded-xl shadow-sm">
             <Clock className="w-4 h-4 text-emerald-500" />
             <span className="text-slate-900 font-black text-sm">{formatTime(timeSpent)}</span>
-            <span className="text-slate-400 text-xs font-bold">/ {taskData.duration}m</span>
+            <span className="text-slate-400 text-xs font-bold">/ {taskData.duration || 45}m</span>
           </div>
 
           {!isOnline && (
@@ -302,88 +327,16 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
                   <div className="w-full h-[65vh] min-h-[400px] bg-slate-900 shadow-2xl relative z-10 group">
                     <div className="w-full h-full relative"> 
                       {/* Video Content */}
-                      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-emerald-900/20 to-blue-900/20">
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => {
-                            setIsPlaying(!isPlaying);
-                            if (!isPlaying) {
-                              const interval = setInterval(() => {
-                                setVideoProgress(prev => {
-                                  if (prev >= 100) {
-                                    clearInterval(interval);
-                                    return 100;
-                                  }
-                                  return prev + 0.5;
-                                });
-                              }, 100);
-                            }
-                          }}
-                          className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/30 transition-all border-4 border-white/30"
-                        >
-                          {isPlaying ? (
-                            <Pause className="w-10 h-10 text-white" />
-                          ) : (
-                            <Play className="w-10 h-10 text-white ml-1" />
-                          )}
-                        </motion.button>
-                      </div>
-
-                      {/* Video Controls Overlay */}
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        {/* Progress Bar */}
-                        <div 
-                          className="h-1.5 bg-white/20 rounded-full overflow-hidden mb-4 cursor-pointer hover:h-2 transition-all group/progress"
-                          onClick={(e) => {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const x = e.clientX - rect.left;
-                            const percentage = (x / rect.width) * 100;
-                            setVideoProgress(percentage);
-                          }}
-                        >
-                          <motion.div
-                            animate={{ width: `${videoProgress}%` }}
-                            className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 relative"
-                          >
-                            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg opacity-0 group-hover/progress:opacity-100 transition-opacity" />
-                          </motion.div>
-                        </div>
-
-                        {/* Control Bar */}
-                        <div className="flex items-center justify-between text-white text-sm">
-                          <div className="flex items-center gap-4">
-                            <button 
-                              onClick={() => setIsPlaying(!isPlaying)}
-                              className="hover:text-emerald-400 transition-colors"
-                            >
-                              {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-                            </button>
-                            <button className="hover:text-emerald-400 transition-colors">
-                              <SkipBack className="w-5 h-5" />
-                            </button>
-                            <button className="hover:text-emerald-400 transition-colors">
-                              <SkipForward className="w-5 h-5" />
-                            </button>
-                            <div className="flex items-center gap-2 group/vol">
-                              <Volume2 className="w-5 h-5" />
-                              <div className="w-0 overflow-hidden group-hover/vol:w-20 transition-all duration-300">
-                                <div className="h-1 bg-white/30 rounded-full w-full ml-2">
-                                  <div className="w-[70%] h-full bg-white rounded-full"></div>
-                                </div>
-                              </div>
-                            </div>
-                            <span className="font-mono text-xs opacity-80">25:42 / 45:00</span>
-                          </div>
-                          
-                          <div className="flex items-center gap-4">
-                            <button className="hover:text-emerald-400 transition-colors text-xs font-bold px-2 py-1 bg-white/10 rounded">1x</button>
-                            <button className="hover:text-emerald-400 transition-colors text-xs font-bold">CC</button>
-                            <button className="hover:text-emerald-400 transition-colors text-xs font-bold">HD</button>
-                            <button className="hover:text-emerald-400 transition-colors"><Settings className="w-5 h-5" /></button>
-                            <button className="hover:text-emerald-400 transition-colors"><Maximize className="w-5 h-5" /></button>
-                          </div>
-                        </div>
+                      <div className="absolute inset-0 bg-black">
+                        <iframe 
+                          width="100%" 
+                          height="100%" 
+                          src={getYoutubeEmbedUrl()} 
+                          title="YouTube video player" 
+                          frameBorder="0" 
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                          allowFullScreen
+                        ></iframe>
                       </div>
                     </div>
                   </div>
@@ -395,16 +348,15 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
                       <div className="flex items-start justify-between border-b border-slate-200 pb-6">
                         <div>
                           <h2 className="text-3xl font-black text-slate-900 mb-3 tracking-tight">
-                            Binary Search Algorithm Explained
+                            {taskData.title}
                           </h2>
                           <div className="flex items-center gap-6 text-sm text-slate-600">
                             <span className="flex items-center gap-2 bg-white px-2 py-1 rounded-lg border border-slate-200 shadow-sm">
-                              <div className="w-6 h-6 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-md flex items-center justify-center text-white font-bold text-[10px]">AB</div>
-                              <span className="font-bold text-slate-800">Abdul Bari</span>
+                              <div className="w-6 h-6 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-md flex items-center justify-center text-white font-bold text-[10px]">AI</div>
+                              <span className="font-bold text-slate-800">AI Instructor</span>
                             </span>
-                            <span className="font-semibold flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-blue-500" /> 2.4M subscribers</span>
                             <span className="text-slate-300">•</span>
-                            <span className="font-medium text-slate-500">Updated Dec 2024</span>
+                            <span className="font-medium text-slate-500">Updated {new Date().toLocaleDateString()}</span>
                           </div>
                         </div>
                         
@@ -421,7 +373,7 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
                           <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><Clock className="w-6 h-6" /></div>
                           <div>
                             <div className="text-slate-500 text-xs font-bold mb-1 uppercase tracking-wider">Duration</div>
-                            <div className="text-slate-900 font-black text-2xl">45 min</div>
+                            <div className="text-slate-900 font-black text-2xl">{taskData.duration || 45} min</div>
                           </div>
                         </div>
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
@@ -429,8 +381,8 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
                           <div>
                             <div className="text-slate-500 text-xs font-bold mb-1 uppercase tracking-wider">Difficulty</div>
                             <div className="text-amber-500 font-black text-2xl flex gap-0.5">
-                              {'★'.repeat(taskData.difficulty)}
-                              <span className="text-slate-200">{'★'.repeat(5-taskData.difficulty)}</span>
+                              {'★'.repeat(taskData.difficulty || 3)}
+                              <span className="text-slate-200">{'★'.repeat(5-(taskData.difficulty || 3))}</span>
                             </div>
                           </div>
                         </div>
@@ -438,7 +390,7 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
                           <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><Sparkles className="w-6 h-6" /></div>
                           <div>
                             <div className="text-slate-500 text-xs font-bold mb-1 uppercase tracking-wider">XP Reward</div>
-                            <div className="text-emerald-500 font-black text-2xl">+{taskData.xp} XP</div>
+                            <div className="text-emerald-500 font-black text-2xl">+{taskData.xp || 50} XP</div>
                           </div>
                         </div>
                       </div>
@@ -490,7 +442,7 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
                   <div className="max-w-4xl mx-auto space-y-6">
                     <div className="flex items-center justify-between mb-6">
                       <h2 className="text-3xl font-black text-slate-900 tracking-tight">
-                        Binary Search Algorithm
+                        {taskData.title}
                       </h2>
                       <div className="text-sm font-bold text-slate-500">
                         {Math.round(readingProgress)}% complete
@@ -517,8 +469,7 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
                       style={{ maxHeight: '500px', overflowY: 'auto' }}
                     >
                       <p className="text-xl text-slate-600 leading-relaxed font-medium">
-                        Binary search is a search algorithm that finds the position of a target 
-                        value within a sorted array by repeatedly dividing the search interval in half.
+                        Learn about {taskData.title} and explore core concepts, algorithms, and practical applications.
                       </p>
 
                       <h2 className="font-black">How It Works</h2>

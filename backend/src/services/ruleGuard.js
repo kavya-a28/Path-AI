@@ -33,18 +33,22 @@ function validateQuestion(question, topicsCovered, confidentFields, targetField)
   }
 
   // Check 3: Repeat topic detection
+  // Support composite keys like "web_development:primaryGoal" — extract the field part
   const questionLower = question.toLowerCase();
   for (const topic of topicsCovered) {
-    const keywords = TOPIC_KEYWORDS[topic] || [];
+    const plainField = topic.includes(':') ? topic.split(':')[1] : topic;
+    const keywords = TOPIC_KEYWORDS[plainField] || [];
     let matchCount = 0;
     for (const keyword of keywords) {
       if (questionLower.includes(keyword.toLowerCase())) {
         matchCount++;
       }
     }
+    // Extract plain field from targetField too for comparison
+    const targetPlain = targetField?.includes(':') ? targetField.split(':')[1] : targetField;
     // If 4+ keywords from an already-covered topic are found, likely a repeat
-    if (matchCount >= 4 && topic !== targetField) {
-      return { isValid: false, reason: `Likely repeating topic: ${topic}` };
+    if (matchCount >= 4 && plainField !== targetPlain) {
+      return { isValid: false, reason: `Likely repeating topic: ${plainField}` };
     }
   }
 

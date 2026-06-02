@@ -37,11 +37,33 @@ const onboardingSessionSchema = new mongoose.Schema({
     currentSkills: { type: fieldDataSchema, default: () => ({}) },
     targetCompanies: { type: fieldDataSchema, default: () => ({}) },
     timeline: { type: fieldDataSchema, default: () => ({}) },
-    projectExperience: { type: fieldDataSchema, default: () => ({}) }
+    projectExperience: { type: fieldDataSchema, default: () => ({}) },
+    frameworkExperience: { type: fieldDataSchema, default: () => ({}) },
+    mathFoundation: { type: fieldDataSchema, default: () => ({}) },
+    motivation: { type: fieldDataSchema, default: () => ({}) },
+    algorithmicCore: { type: fieldDataSchema, default: () => ({}) },
+    stackFocus: { type: fieldDataSchema, default: () => ({}) },
+    existingBaseline: { type: fieldDataSchema, default: () => ({}) },
+    timeCommitment: { type: fieldDataSchema, default: () => ({}) },
+    targetDuration: { type: fieldDataSchema, default: () => ({}) }
   },
   topicsCovered: [String],
-  turnCount: { type: Number, default: 0 },
-  maxTurns: { type: Number, default: 6 }
+  turnCount: {
+    type: Number,
+    default: 0
+  },
+  maxTurns: {
+    type: Number,
+    default: 20
+  },
+  queueGenerated: {
+    type: Boolean,
+    default: false
+  },
+  questionQueue: {
+    type: Array,
+    default: []
+  }
 }, {
   timestamps: true
 });

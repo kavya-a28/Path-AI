@@ -14,8 +14,9 @@ import CareerHub from './CareerHub';
 import SettingsView from './SettingsView';
 import NotificationDropdown from './Notification';
 import CommunityView from './CommunityView'; // <--- Added Import
+import { updateMilestone } from '../services/roadmapApi';
 
-const Dashboard = ({ userData }) => { 
+const Dashboard = ({ userData, roadmapData }) => { 
   // State to track which sidebar tab is active
   const [activeTab, setActiveTab] = useState('dashboard');
   
@@ -44,58 +45,60 @@ const Dashboard = ({ userData }) => {
     { id: 'settings', icon: Settings, label: 'Settings' }
   ];
 
-  const upcomingTasks = [
-    { 
-      id: 'task_2',
-      index: 2,
-      total: 5,
-      title: 'React - useState Hook', 
-      icon: '⚛️',
-      duration: 30, 
-      due: 'Due in 2h', 
-      priority: 'high',
-      difficulty: 2,
-      xp: 30,
-      priorityColor: 'from-[#f59e0b] to-[#ea580c]' 
-    },
-    { 
-      id: 'task_3',
-      index: 3,
-      total: 5,
-      title: 'Network Basics - TCP/IP', 
-      icon: '🌐',
-      duration: 30, 
-      due: 'Due by 10 PM', 
-      priority: 'medium',
-      difficulty: 2,
-      xp: 25,
-      priorityColor: 'from-[#3b82f6] to-[#2563eb]' 
-    }
-  ];
-
   // Function to handle task start
   const handleStartTask = (taskData) => {
     setActiveTask(taskData);
   };
 
   // Function to handle task completion
-  const handleTaskComplete = (completedTask) => {
+  const handleTaskComplete = async (completedTask) => {
     console.log('Task completed!', completedTask);
+    if (completedTask?.milestoneId) {
+      try {
+        await updateMilestone(completedTask.milestoneId, { status: 'completed', progress: 100 });
+        // Note: For a full production app, we would also update the local roadmapData state here.
+      } catch (err) {
+        console.error('Failed to update milestone progress:', err);
+      }
+    }
     setActiveTask(null);
   };
 
-  // Main task data
+  // Derive standard tasks from roadmapData
+  const activeSession = roadmapData?.dailySessions?.find(s => s.status === 'current') || 
+    roadmapData?.dailySessions?.[0] || {
+      id: 'task_1', title: 'Loading...', icon: 'Code', priority: 'high', duration: 45
+    };
+
   const focusTask = {
-    id: 'task_1',
+    ...activeSession,
     index: 1,
-    total: 5,
-    title: 'Binary Search Practice',
-    icon: '📚',
-    priority: 'high',
+    total: roadmapData?.dailySessions?.length || 5,
     difficulty: 3,
     xp: 50,
-    duration: 45
+    duration: parseInt(activeSession.time) || 45,
+    icon: '🚀'
   };
+
+  const upcomingSessions = roadmapData?.dailySessions?.filter(s => s.status === 'locked').slice(0, 2) || [];
+  const upcomingTasks = upcomingSessions.length > 0 ? upcomingSessions.map((s, i) => ({
+    id: s.id,
+    index: i + 2,
+    total: roadmapData?.dailySessions?.length || 5,
+    title: s.title,
+    icon: '⏰',
+    duration: 30,
+    due: `Due Next`,
+    priority: i === 0 ? 'medium' : 'low',
+    priorityColor: i === 0 ? 'from-[#f59e0b] to-[#ea580c]' : 'from-[#3b82f6] to-[#2563eb]'
+  })) : [
+    { title: 'Finish Current Milestone', due: 'Ongoing', priorityColor: 'from-[#3b82f6] to-[#2563eb]', icon: '🏁' }
+  ];
+
+  const stats = roadmapData?.stats || { progressPercent: 0, currentDay: 1, completedMilestones: 0 };
+  const displayName = roadmapData?.displayName || 'Learning';
+  const userName = userData?.name || 'Explorer';
+  const estimatedHours = (stats.currentDay || 1) * 2;
 
   return (
     <>
@@ -214,40 +217,40 @@ const Dashboard = ({ userData }) => {
                 >
                   
                   {/* Welcome Card */}
-                  <div className={`p-10 rounded-[40px] relative overflow-hidden bg-white/80 border border-white shadow-xl`}>
-                    <div className="relative z-10 grid md:grid-cols-2 gap-8">
-                      <div>
-                        <div className="bg-emerald-100 px-3 py-1 rounded-full text-[#059669] text-[10px] font-black uppercase inline-block mb-4">Level 5</div>
-                        <h2 className="text-4xl font-black text-slate-900 mb-6 leading-tight tracking-tight">
-                          Excellent progress, <br/> Kavya! 🚀
-                        </h2>
-                        <div className="flex gap-10">
-                          <div>
-                            <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-1">Weekly Goal</p>
-                            <p className="text-2xl font-black text-[#059669]">87%</p>
+                    <div className={`p-10 rounded-[40px] relative overflow-hidden bg-white/80 border border-white shadow-xl`}>
+                      <div className="relative z-10 grid md:grid-cols-2 gap-8">
+                        <div>
+                          <div className="bg-emerald-100 px-3 py-1 rounded-full text-[#059669] text-[10px] font-black uppercase inline-block mb-4">Level {stats.completedMilestones + 1}</div>
+                          <h2 className="text-4xl font-black text-slate-900 mb-6 leading-tight tracking-tight">
+                            Excellent progress, <br/> {userName}! 🚀
+                          </h2>
+                          <div className="flex gap-10">
+                            <div>
+                              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-1">Weekly Goal</p>
+                              <p className="text-2xl font-black text-[#059669]">{Math.max(stats.progressPercent, 12)}%</p>
+                            </div>
+                            <div>
+                              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-1">Studied</p>
+                              <p className="text-2xl font-black text-slate-800">{estimatedHours}h</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-1">Studied</p>
-                            <p className="text-2xl font-black text-slate-800">12.5h</p>
+                        </div>
+                        <div className="flex flex-col justify-end">
+                          <div className="flex justify-between items-end mb-3">
+                            <span className="font-black text-slate-700 uppercase text-[10px] tracking-widest">{displayName} Mastery</span>
+                            <span className="text-[#3b82f6] font-black">{stats.progressPercent}%</span>
+                          </div>
+                          <div className="h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                            <motion.div 
+                              initial={{ width: 0 }} 
+                              animate={{ width: `${stats.progressPercent}%` }} 
+                              className="h-full bg-gradient-to-r from-[#10b981] to-[#3b82f6]" 
+                            />
                           </div>
                         </div>
                       </div>
-                      <div className="flex flex-col justify-end">
-                        <div className="flex justify-between items-end mb-3">
-                          <span className="font-black text-slate-700 uppercase text-[10px] tracking-widest">DSA Mastery</span>
-                          <span className="text-[#3b82f6] font-black">60%</span>
-                        </div>
-                        <div className="h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                          <motion.div 
-                            initial={{ width: 0 }} 
-                            animate={{ width: '60%' }} 
-                            className="h-full bg-gradient-to-r from-[#10b981] to-[#3b82f6]" 
-                          />
-                        </div>
-                      </div>
+                      <Target className="absolute -bottom-10 -right-10 w-64 h-64 text-emerald-500/5 rotate-12" />
                     </div>
-                    <Target className="absolute -bottom-10 -right-10 w-64 h-64 text-emerald-500/5 rotate-12" />
-                  </div>
 
                   <div className="grid lg:grid-cols-3 gap-8">
                     {/* Focus Zone */}
@@ -261,10 +264,10 @@ const Dashboard = ({ userData }) => {
                         </div>
                         <div className="flex-1">
                           <h4 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">
-                            Master Binary Search
+                            {focusTask.title}
                           </h4>
                           <p className="text-slate-500 font-medium mb-6 text-sm">
-                            Part of your "FAANG Ready" roadmap. <br/> Estimated time: 45 minutes.
+                            Part of your "{displayName}" roadmap. <br/> Estimated time: {focusTask.time || '45 minutes'}.
                           </p>
                           <div className="flex gap-3">
                             <button 
@@ -316,7 +319,7 @@ const Dashboard = ({ userData }) => {
                   exit={{ opacity: 0, x: -20 }} 
                   className="mt-6"
                 >
-                  <RoadmapView userData={userData} />
+                  <RoadmapView userData={userData} roadmapData={roadmapData} onTaskSelect={handleStartTask} />
                 </motion.div>
               )}
 

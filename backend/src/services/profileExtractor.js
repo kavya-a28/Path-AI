@@ -140,6 +140,69 @@ const FIELD_PATTERNS = {
       { regex: /\b(built|developed|created|made)\s+(a|an|my|some)\b/i, value: 'has_projects', confidence: 0.7 },
       { regex: /\b(portfolio|github|open\s*source)\b/i, value: 'has_portfolio', confidence: 0.8 }
     ]
+  },
+  frameworkExperience: {
+    patterns: [
+      { regex: /\b(pandas|numpy|matplotlib|scipy)\b/i, value: 'data_libraries', confidence: 0.9 },
+      { regex: /\b(scikit[\s-]*learn|sklearn)\b/i, value: 'ml_basics', confidence: 0.9 },
+      { regex: /\b(pytorch|tensorflow|keras|huggingface)\b/i, value: 'deep_learning', confidence: 0.9 },
+      { regex: /\b(from\s*scratch|build\s*algorithms|core\s*algorithms)\b/i, value: 'from_scratch', confidence: 0.85 }
+    ]
+  },
+  mathFoundation: {
+    patterns: [
+      { regex: /\b(linear\s*algebra|calculus|probability|stats|statistics)\b/i, value: 'has_math_background', confidence: 0.9 },
+      { regex: /\b(no\s*math|weak\s*math|forget|forgot|bad\s*at\s*math)\b/i, value: 'needs_math_basics', confidence: 0.9 }
+    ]
+  },
+  motivation: {
+    patterns: [
+      { regex: /\b(generative|agents|llm|chatgpt)\b/i, value: 'generative_ai', confidence: 0.9 },
+      { regex: /\b(research|paper|publish)\b/i, value: 'research', confidence: 0.9 },
+      { regex: /\b(data\s*analysis|analytics|insights)\b/i, value: 'data_analysis', confidence: 0.9 }
+    ]
+  },
+  algorithmicCore: {
+    patterns: [
+      { regex: /\b(array|string|arrays|strings)\b/i, value: 'basics_arrays_strings', confidence: 0.85 },
+      { regex: /\b(graph|tree|graphs|trees)\b/i, value: 'advanced_graphs_trees', confidence: 0.85 },
+      { regex: /\b(dp|dynamic\s*programming)\b/i, value: 'dynamic_programming', confidence: 0.9 }
+    ]
+  },
+  stackFocus: {
+    patterns: [
+      { regex: /\b(frontend|front[\s-]*end|react|vue|ui)\b/i, value: 'frontend', confidence: 0.85 },
+      { regex: /\b(backend|back[\s-]*end|node|django|api)\b/i, value: 'backend', confidence: 0.85 },
+      { regex: /\b(fullstack|full[\s-]*stack|mern|mean)\b/i, value: 'fullstack', confidence: 0.9 }
+    ]
+  },
+  existingBaseline: {
+    patterns: [
+      { regex: /\b(html|css|js|javascript\s*basics)\b/i, value: 'raw_basics', confidence: 0.85 },
+      { regex: /\b(state|redux|context\s*api)\b/i, value: 'state_management', confidence: 0.85 },
+      { regex: /\b(database|sql|nosql|mongo|postgres)\b/i, value: 'databases', confidence: 0.85 },
+      { regex: /\b(system\s*design|architecture|microservices)\b/i, value: 'architecture', confidence: 0.9 }
+    ],
+    isArray: true
+  },
+  timeCommitment: {
+    patterns: [
+      { regex: /\b(30\s*min|half\s*an?\s*hour)\b/i, value: '0.5_hours_week', confidence: 0.8 },
+      { regex: /\b([1-5])\s*(hour|hr)s?\s*(per\s*week|weekly|a\s*week)\b/i, value: '1_5_hours_week', confidence: 0.85 },
+      { regex: /\b([6-9]|10)\s*(hour|hr)s?\s*(per\s*week|weekly|a\s*week)\b/i, value: '6_10_hours_week', confidence: 0.85 },
+      { regex: /\b(1[1-9]|20)\s*(hour|hr)s?\s*(per\s*week|weekly|a\s*week)\b/i, value: '11_20_hours_week', confidence: 0.85 },
+      { regex: /\b(2[0-9]|3[0-9]|40)\+?\s*(hour|hr)s?\s*(per\s*week|weekly|a\s*week)\b/i, value: '20_plus_hours_week', confidence: 0.85 },
+      { regex: /\b(full\s*time|all\s*day)\b/i, value: 'full_time', confidence: 0.8 }
+    ]
+  },
+  targetDuration: {
+    patterns: [
+      { regex: /\b(1|one|a)\s*month\b/i, value: '1_month', confidence: 0.9 },
+      { regex: /\b(2-3|2\s*to\s*3|couple)\s*months\b/i, value: '2-3_months', confidence: 0.85 },
+      { regex: /\b(3-6|3\s*to\s*6|few)\s*months\b/i, value: '3-6_months', confidence: 0.85 },
+      { regex: /\b(6|six)\s*months\b/i, value: '6_months', confidence: 0.9 },
+      { regex: /\b(1|one|a)\s*year\b/i, value: '1_year', confidence: 0.9 }
+    ]
   }
 };
 
