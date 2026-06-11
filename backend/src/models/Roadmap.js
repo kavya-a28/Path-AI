@@ -54,7 +54,7 @@ const dailySessionSchema = new mongoose.Schema(
     time:           String,       // e.g. "9:00 AM - 10:00 AM"
     title:          String,       // topic name
     topicKey:       String,       // maps to resourceCatalog
-    topicPart:      String,       // e.g. "Session 2 of 8"
+    topicPart:      String,       // e.g. "50h" (estimated duration)
     totalParts:     Number,
     estimatedHours: Number,
     domain:         String,

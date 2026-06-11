@@ -10,8 +10,9 @@
  * AI is still used (via topicContentGenerator) for in-session explanations.
  *
  * Scheduling rule:
- *   estimatedHours / hoursPerDay = number of sessions for this topic.
- *   Each session = one study slot. Sessions are numbered "Day X of Y".
+ *   Each topic = ONE session (not split into hourly parts).
+ *   Each session carries the topic's total estimatedHours for display.
+ *   Sessions are distributed across days based on hoursPerDay slots.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -114,7 +115,7 @@ function flattenTopics(domains) {
 
 /**
  * Build daily sessions from a flat topic list and hours per day.
- * Each session represents one hour of study on a specific topic.
+ * Each topic = ONE session (no splitting into multiple identical sessions).
  *
  * Returns dailySessions[]:
  *   { id, day, time, title, topicKey, topicPart, totalParts, details,
@@ -128,55 +129,45 @@ function buildDailySessions(flatTopics, hoursPerDay) {
 
   for (const topic of flatTopics) {
     const resource       = getResourceForTopic(topic.topicKey);
-    const totalParts     = Math.ceil(topic.estimatedHours / 1); // 1h per session
     const videoId        = resource?.video?.id || null;
     const embedUrl       = videoId ? buildEmbedUrl(videoId) : null;
     const watchUrl       = videoId ? buildWatchUrl(videoId) : null;
+    const time           = buildSessionTime(slotInDay, hoursPerDay);
 
-    for (let part = 1; part <= totalParts; part++) {
-      const isFirstPart = part === 1;
-      const time        = buildSessionTime(slotInDay, hoursPerDay);
+    sessions.push({
+      id:         sessionId,
+      day:        dayNum,
+      time,
+      title:      topic.name,
+      topicKey:   topic.topicKey,
+      topicPart:  `${topic.estimatedHours}h`,
+      totalParts: 1,
+      estimatedHours: topic.estimatedHours,
+      domain:     topic.domain,
+      phaseId:    topic.phaseId,
+      phaseTitle: topic.phaseTitle,
+      details: [
+        `• Part of: ${topic.phaseTitle}`,
+        `• Topic: ${topic.name}`,
+        `• Estimated: ${topic.estimatedHours} hours`,
+        `• Domain: ${domainLabel(topic.domain)}`
+      ],
+      status:  sessionId === 1 ? 'current' : 'locked',
+      icon:    ICON_OPTIONS[Math.abs(topic.topicKey.charCodeAt(0) % ICON_OPTIONS.length)],
+      color:   topic.phaseColor || COLORS[topic.phaseId % COLORS.length],
+      // Video resources (never hallucinated – always from catalog)
+      videoId,
+      embedUrl,
+      watchUrl,
+      resources: buildSessionResources(resource, topic)
+    });
 
-      sessions.push({
-        id:         sessionId,
-        day:        dayNum,
-        time,
-        title:      topic.name,
-        topicKey:   topic.topicKey,
-        topicPart:  totalParts > 1 ? `Session ${part} of ${totalParts}` : 'Complete',
-        totalParts,
-        estimatedHours: topic.estimatedHours,
-        domain:     topic.domain,
-        phaseId:    topic.phaseId,
-        phaseTitle: topic.phaseTitle,
-        details: isFirstPart
-          ? [
-              `• Part of: ${topic.phaseTitle}`,
-              `• Topic: ${topic.name} (${part} of ${totalParts})`,
-              `• Domain: ${domainLabel(topic.domain)}`
-            ]
-          : [
-              `• Continuing: ${topic.name}`,
-              `• Session ${part} of ${totalParts}`,
-              `• Domain: ${domainLabel(topic.domain)}`
-            ],
-        status:  sessionId === 1 ? 'current' : 'locked',
-        icon:    ICON_OPTIONS[Math.abs(topic.topicKey.charCodeAt(0) % ICON_OPTIONS.length)],
-        color:   topic.phaseColor || COLORS[topic.phaseId % COLORS.length],
-        // Video resources (never hallucinated – always from catalog)
-        videoId,
-        embedUrl,
-        watchUrl,
-        resources: buildSessionResources(resource, topic)
-      });
-
-      sessionId++;
-      slotInDay++;
-      // Advance day when we've filled the hoursPerDay slots
-      if (slotInDay >= hoursPerDay) {
-        slotInDay = 0;
-        dayNum++;
-      }
+    sessionId++;
+    slotInDay++;
+    // Advance day when we've filled the hoursPerDay slots
+    if (slotInDay >= hoursPerDay) {
+      slotInDay = 0;
+      dayNum++;
     }
   }
 

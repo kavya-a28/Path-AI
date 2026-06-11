@@ -9,7 +9,7 @@ const isGoogleOAuthConfigured = () => (
 );
 
 const fetchGoogleUser = async (accessToken) => {
-  const tokenInfoUrl = `https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(accessToken)}`;
+  const x = `https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(accessToken)}`;
   const tokenInfoResponse = await fetch(tokenInfoUrl);
   const tokenInfo = await tokenInfoResponse.json();
 

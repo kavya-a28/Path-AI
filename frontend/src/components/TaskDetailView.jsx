@@ -314,7 +314,7 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
           <div className="flex items-center gap-2 bg-white/80 border border-white px-4 py-2.5 rounded-xl shadow-sm">
             <Clock className="w-4 h-4 text-emerald-500" />
             <span className="text-slate-900 font-black text-sm">{formatTime(timeSpent)}</span>
-            <span className="text-slate-400 text-xs font-bold">/ {taskData.duration || 45}m</span>
+            <span className="text-slate-400 text-xs font-bold">/ {taskData.estimatedHours ? `${taskData.estimatedHours}h` : (taskData.duration || '8h')}</span>
           </div>
 
           {!isOnline && (

@@ -1,20 +1,8 @@
-/**
- * seedQuestionnaires.js
- * ─────────────────────────────────────────────────────────────────────────────
- * One-shot seed script: connects to MongoDB and upserts all domain
- * questionnaire documents.
- *
- * Usage:
- *   node src/seeds/seedQuestionnaires.js
- *
- * The script uses UPSERT so it is idempotent — safe to run multiple times.
- * ─────────────────────────────────────────────────────────────────────────────
- */
 
 require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
 
 const mongoose = require('mongoose');
-const DomainQuestionnaire = require('../models/DomainQuestionnaire');
+const DoainQuestionnaire = require('../models/DomainQuestionnaire');
 const domainQuestionnaires = require('../data/domainQuestionnaires');
 
 async function seed() {

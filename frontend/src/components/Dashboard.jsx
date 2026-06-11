@@ -116,7 +116,7 @@ const Dashboard = ({ userData, roadmapData }) => {
         ...t,
         icon: '🚀',
         duration: t.estimatedHours ? `${t.estimatedHours}h` : '1h',
-        subtitle: t.topicPart && t.topicPart !== 'Complete'
+        subtitle: t.topicPart
           ? `${t.topicPart} · ${t.phaseTitle || ''}`
           : t.phaseTitle || ''
       };
