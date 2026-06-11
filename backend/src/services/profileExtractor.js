@@ -23,14 +23,18 @@ const FIELD_PATTERNS = {
   preferredDomain: {
     patterns: [
       { regex: /\b(web\s*dev|web\s*development|frontend|front[\s-]*end|backend|back[\s-]*end|fullstack|full[\s-]*stack|mern|mean)\b/i, value: 'web_development', confidence: 0.9 },
-      { regex: /\b(dsa|data\s*structure|algorithm|competitive\s*prog|leetcode|codeforces|problem\s*solving|logical\s*problem\s*solving|logic|logical)\b/i, value: 'dsa', confidence: 0.9 },
+      { regex: /\b(dsa|data\s*structure|algorithm|leetcode|problem\s*solving|logical\s*problem\s*solving|logic|logical)\b/i, value: 'dsa', confidence: 0.9 },
       { regex: /\b(ai|artificial\s*intelligence|machine\s*learning|ml|deep\s*learning|dl|neural|nlp|computer\s*vision)\b/i, value: 'ai_ml', confidence: 0.9 },
       { regex: /\b(cyber\s*security|cybersecurity|security|ethical\s*hack|penetration\s*test|infosec|bug\s*bounty)\b/i, value: 'cybersecurity', confidence: 0.9 },
       { regex: /\b(mobile|android|ios|flutter|react\s*native|app\s*dev)\b/i, value: 'mobile_dev', confidence: 0.85 },
       { regex: /\b(cloud|aws|azure|gcp|devops|docker|kubernetes)\b/i, value: 'cloud_devops', confidence: 0.85 },
       { regex: /\b(data\s*science|data\s*analyst|analytics|pandas|jupyter)\b/i, value: 'data_science', confidence: 0.85 },
       { regex: /\b(game\s*dev|game\s*development|unity|unreal|godot)\b/i, value: 'game_dev', confidence: 0.85 },
-      { regex: /\b(blockchain|web3|crypto|solidity|smart\s*contract)\b/i, value: 'blockchain', confidence: 0.85 }
+      { regex: /\b(blockchain|web3|crypto|solidity|smart\s*contract)\b/i, value: 'blockchain', confidence: 0.85 },
+      { regex: /\b(competitive\s*programming|competitive\s*prog|codeforces|codechef|icpc|atcoder|cp)\b/i, value: 'competitive_programming', confidence: 0.85 },
+      { regex: /\b(ui\/ux|ui\s*ux|ux\s*design|ui\s*design|product\s*design|figma|wireframe|prototype)\b/i, value: 'ui_ux_design', confidence: 0.85 },
+      { regex: /\b(system\s*design|scalability|scalable|architecture|distributed\s*systems|microservices|load\s*balanc)\b/i, value: 'system_design', confidence: 0.85 },
+      { regex: /\b(app_development|app\s*development|application\s*development|build\s*apps|software\s*app)\b/i, value: 'app_development', confidence: 0.85 }
     ],
     isArray: true
   },

@@ -43,7 +43,7 @@ function App() {
     try {
       // ── Multi-domain detection via keyword matching ───────────────────────────
       const DOMAIN_KEYWORDS = {
-        dsa:            ['dsa', 'data structure', 'algorithm', 'leetcode', 'competitive', 'cp'],
+        dsa:            ['dsa', 'data structure', 'algorithm', 'leetcode'],
         web_development:['web', 'frontend', 'backend', 'fullstack', 'full stack', 'html', 'css', 'react', 'node', 'javascript', 'website'],
         ai_ml:          ['ai', 'ml', 'machine learning', 'deep learning', 'neural', 'tensorflow', 'pytorch'],
         cybersecurity:  ['cyber', 'security', 'ethical hacking', 'penetration', 'pen test', 'ctf'],
@@ -52,6 +52,10 @@ function App() {
         data_science:   ['data science', 'analytics', 'statistics', 'pandas', 'visualization'],
         blockchain:     ['blockchain', 'web3', 'solidity', 'smart contract', 'crypto'],
         game_dev:       ['game', 'unity', 'unreal', 'gamedev'],
+        competitive_programming: ['competitive programming', 'codeforces', 'codechef', 'icpc', 'atcoder', 'cp'],
+        ui_ux_design:   ['ui/ux', 'ui ux', 'ux design', 'ui design', 'product design', 'figma', 'wireframe', 'prototype'],
+        system_design:  ['system design', 'scalability', 'architecture', 'distributed systems', 'microservices'],
+        app_development:['app_development', 'app development', 'application development', 'build apps', 'software app'],
       };
 
       // Gather all text the user might have typed about their goal
@@ -124,6 +128,10 @@ function App() {
       mobile_dev: 'Mobile Development', cloud_devops: 'Cloud & DevOps',
       data_science: 'Data Science', blockchain: 'Blockchain',
       game_dev: 'Game Development',
+      competitive_programming: 'Competitive Programming',
+      ui_ux_design: 'UI/UX Design',
+      system_design: 'System Design',
+      app_development: 'App Development',
     };
     // Try to read the detected domains from userData (stored from quiz)
     const all = [

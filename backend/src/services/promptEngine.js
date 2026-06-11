@@ -3,13 +3,17 @@ const Groq = require('groq-sdk');
 const DOMAIN_PATTERNS = [
   { regex: /\b(web\s*dev|web\s*development|frontend|backend|fullstack|mern|mean|react|node(?:\.?js)?|django|vue|angular|next\.?js|html|css)\b/i, domain: 'web_development', label: 'Web Development' },
   { regex: /\b(cyber\s*security|cybersecurity|ethical\s*hack|penetration|pentest|infosec|bug\s*bounty|ctf|kali|metasploit|network\s*security|oscp|ceh)\b/i, domain: 'cybersecurity', label: 'Cybersecurity' },
-  { regex: /\b(dsa|data\s*structure|algorithm|leetcode|codeforces|competitive\s*prog|problem\s*solving)\b/i, domain: 'dsa', label: 'DSA & Algorithms' },
+  { regex: /\b(dsa|data\s*structure|algorithm|leetcode|problem\s*solving)\b/i, domain: 'dsa', label: 'DSA & Algorithms' },
   { regex: /\b(ai|artificial\s*intelligence|machine\s*learning|ml|deep\s*learning|nlp|computer\s*vision|tensorflow|pytorch)\b/i, domain: 'ai_ml', label: 'AI/Machine Learning' },
   { regex: /\b(mobile|android|ios|flutter|react\s*native|kotlin|swift|app\s*dev)\b/i, domain: 'mobile_dev', label: 'Mobile Development' },
   { regex: /\b(cloud|aws|azure|gcp|devops|docker|kubernetes|terraform|ci\/cd)\b/i, domain: 'cloud_devops', label: 'Cloud & DevOps' },
   { regex: /\b(data\s*science|data\s*analyst|analytics|pandas|numpy|tableau|power\s*bi)\b/i, domain: 'data_science', label: 'Data Science' },
   { regex: /\b(game\s*dev|unity|unreal|godot|game\s*development)\b/i, domain: 'game_dev', label: 'Game Development' },
   { regex: /\b(blockchain|web3|crypto|solidity|smart\s*contract|nft)\b/i, domain: 'blockchain', label: 'Blockchain/Web3' },
+  { regex: /\b(competitive\s*programming|competitive\s*prog|codeforces|codechef|icpc|atcoder|cp)\b/i, domain: 'competitive_programming', label: 'Competitive Programming' },
+  { regex: /\b(ui\/ux|ui\s*ux|ux\s*design|ui\s*design|product\s*design|figma|wireframe|prototype)\b/i, domain: 'ui_ux_design', label: 'UI/UX Design' },
+  { regex: /\b(system\s*design|scalability|scalable|architecture|distributed\s*systems|microservices|load\s*balanc)\b/i, domain: 'system_design', label: 'System Design' },
+  { regex: /\b(app_development|app\s*development|application\s*development|build\s*apps|software\s*app)\b/i, domain: 'app_development', label: 'App Development' },
 ];
 
 
@@ -42,6 +46,30 @@ const DOMAIN_GUIDANCE = {
   2. Do you have any background — networking (TCP/IP), Linux command line, or scripting?
   3. Any programming/scripting experience — Python, Bash, or none yet?
   4. How much time can you commit weekly?`,
+
+  competitive_programming: `For COMPETITIVE PROGRAMMING, the questions to ask (pick the most relevant unanswered one):
+  1. Which platform or goal are you targeting - Codeforces, CodeChef, AtCoder, or ICPC?
+  2. What is your current level - beginner, Div 2, Div 1, or rating range?
+  3. Which language will you use - C++, Java, or Python?
+  4. Which topic needs focus - graphs, DP, greedy, number theory, or implementation?`,
+
+  ui_ux_design: `For UI/UX DESIGN, the questions to ask (pick the most relevant unanswered one):
+  1. Are you focusing on user research, interaction design, visual UI, or portfolio case studies?
+  2. Which design tool do you use or want to learn - Figma, Adobe XD, or Sketch?
+  3. Do you have any existing design work or product screenshots?
+  4. What is your goal - job, freelance, startup, or improving your own product?`,
+
+  system_design: `For SYSTEM DESIGN, the questions to ask (pick the most relevant unanswered one):
+  1. Are you preparing for interviews or designing real production systems?
+  2. Do you know backend basics - APIs, databases, caching, queues, and load balancers?
+  3. Which topic needs focus - scalability, databases, microservices, or case studies?
+  4. What level are you targeting - junior, mid-level, senior, or architect?`,
+
+  app_development: `For APP DEVELOPMENT, the questions to ask (pick the most relevant unanswered one):
+  1. What type of app do you want to build - web, mobile, desktop, or full product?
+  2. What programming background do you have - JavaScript, Python, Dart, or none?
+  3. Is your goal a job, freelance work, startup idea, or personal project?
+  4. Do you prefer frontend, backend, mobile, or full-stack app work?`,
 
   dsa: `For DSA, the questions to ask (pick the most relevant unanswered one):
   1. What language do you want to implement DSA in — C++, Java, or Python?
@@ -261,6 +289,10 @@ const DOMAIN_FIELD_ORDER = {
   data_science:    ['primaryGoal', 'preferredLanguage', 'currentSkills', 'learningStyle', 'timeCommitment', 'targetDuration'],
   game_dev:        ['primaryGoal', 'preferredLanguage', 'consistencyLevel', 'learningStyle', 'timeCommitment', 'targetDuration'],
   blockchain:      ['primaryGoal', 'preferredLanguage', 'currentSkills', 'learningStyle', 'timeCommitment', 'targetDuration'],
+  competitive_programming: ['primaryGoal', 'preferredLanguage', 'dsaLevel', 'algorithmicCore', 'timeCommitment', 'targetDuration'],
+  ui_ux_design:    ['primaryGoal', 'toolPreference', 'focusArea', 'projectExperience', 'learningStyle', 'timeCommitment', 'targetDuration'],
+  system_design:   ['primaryGoal', 'existingBaseline', 'focusArea', 'currentSkills', 'timeCommitment', 'targetDuration'],
+  app_development: ['primaryGoal', 'preferredLanguage', 'focusArea', 'projectExperience', 'timeCommitment', 'targetDuration'],
 };
 
 /**

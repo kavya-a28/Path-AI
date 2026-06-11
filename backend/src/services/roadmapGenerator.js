@@ -1,271 +1,347 @@
 /**
- * roadmapGenerator.js
+ * roadmapGenerator.js  (v2 – Logic Engine)
  * ─────────────────────────────────────────────────────────────────────────────
- * Uses Groq (llama-3.1-8b-instant) to produce a structured learning roadmap
- * from a user's questionnaire profile.
+ * Generates a realistic, mentor-quality roadmap using:
+ *   1. Predefined curriculum trees  (curriculumTrees.js)
+ *   2. Static resource catalog      (resourceCatalog.js)
+ *   3. A deterministic scheduling engine (no LLM involvement)
  *
- * Output shape (returned as a JS object):
- * {
- *   displayName:  string,
- *   milestones:   Milestone[],
- *   dailySessions: DailySession[],
- *   stats:        Stats
- * }
+ * AI (Groq) is NO LONGER used to generate the roadmap structure or URLs.
+ * AI is still used (via topicContentGenerator) for in-session explanations.
+ *
+ * Scheduling rule:
+ *   estimatedHours / hoursPerDay = number of sessions for this topic.
+ *   Each session = one study slot. Sessions are numbered "Day X of Y".
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-const Groq = require('groq-sdk');
+const curriculumTrees   = require('../data/curriculumTrees');
+const { getResourceForTopic } = require('../data/resourceCatalog');
+const { buildEmbedUrl, buildWatchUrl } = require('./youtubeService');
 
 // ─── Colour palette for milestone segments ────────────────────────────────────
-const COLORS = ['#4f46e5', '#22c55e', '#ef4444', '#06b6d4', '#f59e0b', '#a855f7', '#ec4899', '#14b8a6'];
+const COLORS = [
+  '#4f46e5', '#22c55e', '#ef4444', '#06b6d4',
+  '#f59e0b', '#a855f7', '#ec4899', '#14b8a6',
+  '#f97316', '#84cc16'
+];
 
-// ─── Map Groq icon names → safe set used by the frontend ─────────────────────
-const ICON_OPTIONS = ['Code', 'BookOpen', 'Zap', 'Star', 'Rocket', 'Laptop', 'Server', 'Database', 'Shield', 'Globe'];
+// ─── Icon options (safe set used by frontend) ─────────────────────────────────
+const ICON_OPTIONS = [
+  'Code', 'BookOpen', 'Zap', 'Star', 'Rocket',
+  'Laptop', 'Server', 'Database', 'Shield', 'Globe'
+];
 
 // ─── Milestone position presets (scenic winding road) ────────────────────────
 const YEARLY_POSITIONS = [
   { x: 35, y: 21 }, { x: 80, y: 35 }, { x: 55, y: 50 },
   { x: 15, y: 62 }, { x: 45, y: 78 }, { x: 85, y: 88 },
-  { x: 20, y: 92 }, { x: 60, y: 96 }
+  { x: 20, y: 92 }, { x: 60, y: 96 }, { x: 50, y: 15 }, { x: 70, y: 70 }
 ];
 
-/**
- * Convert a duration string like "3 months" / "6 months" / "1 year" to total weeks.
- */
-function durationToWeeks(dur = '6 months') {
-  if (!dur) return 24;
-  const lower = dur.toLowerCase();
-  if (lower.includes('year'))  return 52;
-  if (lower.includes('3 mon')) return 13;
-  if (lower.includes('6 mon')) return 26;
-  return 24;
-}
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
- * Convert a studyHoursPerDay answer to a numeric value.
+ * Parse study hours per day from profile string → numeric value.
  */
-function hoursPerDay(answer = '3 hours/day') {
-  const lower = String(answer).toLowerCase();
-  if (lower.includes('5+') || lower.includes('5 ')) return 5;
-  if (lower.includes('3'))  return 3;
+function parseHoursPerDay(raw = '1 hour/day') {
+  const s = String(raw).toLowerCase();
+  if (s.includes('5+') || s.startsWith('5')) return 5;
+  if (s.includes('3'))  return 3;
   return 1;
 }
 
 /**
- * Determine daily time slots based on hours per day.
+ * Parse target duration → total weeks.
  */
-function buildTimeSlots(hpd) {
-  const slots = [
-    { start: '09:00', end: '10:00 AM' },
-    { start: '10:00', end: '12:00 PM' },
-    { start: '01:00', end: '03:00 PM' },
-    { start: '03:00', end: '05:00 PM' },
-    { start: '05:00', end: '07:00 PM' },
-  ];
-  // pick as many slots as hours allow (rough: 1h = 1 slot, 3h = 2-3 slots, 5h = 5 slots)
-  const count = hpd >= 5 ? 5 : hpd >= 3 ? 3 : 2;
-  return slots.slice(0, count);
+function parseTargetWeeks(dur = '6 months') {
+  const s = String(dur).toLowerCase();
+  if (s.includes('year'))   return 52;
+  if (s.includes('3 mon'))  return 13;
+  if (s.includes('6 mon'))  return 26;
+  return 24;
+}
+
+/**
+ * Convert a domain key to a human-readable label.
+ */
+function domainLabel(key) {
+  return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/**
+ * Build time slot strings based on hours per day and session index.
+ */
+function buildSessionTime(sessionIdx, hoursPerDay) {
+  const BASE_HOUR = 9; // 9:00 AM start
+  const startH    = BASE_HOUR + (sessionIdx % hoursPerDay);
+  const endH      = startH + 1;
+  const fmt = (h) => {
+    const suffix = h >= 12 ? 'PM' : 'AM';
+    const h12    = h > 12 ? h - 12 : h === 0 ? 12 : h;
+    return `${h12}:00 ${suffix}`;
+  };
+  return `${fmt(startH)} - ${fmt(endH)}`;
+}
+
+// ─── Core scheduling engine ───────────────────────────────────────────────────
+
+/**
+ * Flatten curriculum tree phases into a linear topic list.
+ * If multiple domains, interleave topics from each domain alternately.
+ */
+function flattenTopics(domains) {
+  const allPhases = [];
+
+  for (const domainKey of domains) {
+    const tree = curriculumTrees[domainKey];
+    if (!tree) continue;
+    for (const phase of tree.phases) {
+      for (const topic of phase.topics) {
+        allPhases.push({
+          ...topic,
+          domain:      domainKey,
+          phaseId:     phase.id,
+          phaseTitle:  phase.title,
+          phaseColor:  phase.color
+        });
+      }
+    }
+  }
+
+  return allPhases;
+}
+
+/**
+ * Build daily sessions from a flat topic list and hours per day.
+ * Each session represents one hour of study on a specific topic.
+ *
+ * Returns dailySessions[]:
+ *   { id, day, time, title, topicKey, topicPart, totalParts, details,
+ *     status, icon, color, domain, videoId, embedUrl, watchUrl, resources }
+ */
+function buildDailySessions(flatTopics, hoursPerDay) {
+  const sessions = [];
+  let   sessionId = 1;
+  let   dayNum    = 1;
+  let   slotInDay = 0;
+
+  for (const topic of flatTopics) {
+    const resource       = getResourceForTopic(topic.topicKey);
+    const totalParts     = Math.ceil(topic.estimatedHours / 1); // 1h per session
+    const videoId        = resource?.video?.id || null;
+    const embedUrl       = videoId ? buildEmbedUrl(videoId) : null;
+    const watchUrl       = videoId ? buildWatchUrl(videoId) : null;
+
+    for (let part = 1; part <= totalParts; part++) {
+      const isFirstPart = part === 1;
+      const time        = buildSessionTime(slotInDay, hoursPerDay);
+
+      sessions.push({
+        id:         sessionId,
+        day:        dayNum,
+        time,
+        title:      topic.name,
+        topicKey:   topic.topicKey,
+        topicPart:  totalParts > 1 ? `Session ${part} of ${totalParts}` : 'Complete',
+        totalParts,
+        estimatedHours: topic.estimatedHours,
+        domain:     topic.domain,
+        phaseId:    topic.phaseId,
+        phaseTitle: topic.phaseTitle,
+        details: isFirstPart
+          ? [
+              `• Part of: ${topic.phaseTitle}`,
+              `• Topic: ${topic.name} (${part} of ${totalParts})`,
+              `• Domain: ${domainLabel(topic.domain)}`
+            ]
+          : [
+              `• Continuing: ${topic.name}`,
+              `• Session ${part} of ${totalParts}`,
+              `• Domain: ${domainLabel(topic.domain)}`
+            ],
+        status:  sessionId === 1 ? 'current' : 'locked',
+        icon:    ICON_OPTIONS[Math.abs(topic.topicKey.charCodeAt(0) % ICON_OPTIONS.length)],
+        color:   topic.phaseColor || COLORS[topic.phaseId % COLORS.length],
+        // Video resources (never hallucinated – always from catalog)
+        videoId,
+        embedUrl,
+        watchUrl,
+        resources: buildSessionResources(resource, topic)
+      });
+
+      sessionId++;
+      slotInDay++;
+      // Advance day when we've filled the hoursPerDay slots
+      if (slotInDay >= hoursPerDay) {
+        slotInDay = 0;
+        dayNum++;
+      }
+    }
+  }
+
+  return sessions;
+}
+
+/**
+ * Build resource array for a session from the catalog entry.
+ */
+function buildSessionResources(resource, topic) {
+  const resources = [];
+
+  if (resource?.video?.id) {
+    resources.push({
+      title:   resource.video.title,
+      type:    'video',
+      videoId: resource.video.id,
+      url:     buildWatchUrl(resource.video.id),
+      channel: resource.video.channel,
+      durationMin: resource.video.durationMin
+    });
+  }
+
+  if (resource?.documentation) {
+    resources.push({
+      title: resource.documentation.title,
+      type:  'article',
+      url:   resource.documentation.url
+    });
+  }
+
+  if (resource?.practice) {
+    resources.push({
+      title: resource.practice.title,
+      type:  'practice',
+      url:   resource.practice.url
+    });
+  }
+
+  if (resource?.project) {
+    resources.push({
+      title: resource.project.title,
+      type:  'course',
+      url:   resource.project.url
+    });
+  }
+
+  return resources;
+}
+
+/**
+ * Build milestone array from curriculum phases.
+ * Topics within each milestone carry their resource data.
+ */
+function buildMilestones(domains, resourcePerTopic) {
+  const milestones = [];
+  let   msId       = 1;
+
+  for (const domainKey of domains) {
+    const tree = curriculumTrees[domainKey];
+    if (!tree) continue;
+
+    for (const phase of tree.phases) {
+      const resource     = getResourceForTopic(phase.topics[0]?.topicKey);
+      const totalHours   = phase.topics.reduce((s, t) => s + t.estimatedHours, 0);
+      const durationWeeks= Math.max(1, Math.ceil(totalHours / 7)); // rough: 7h/week
+
+      const topics = phase.topics.map(t => {
+        const r = getResourceForTopic(t.topicKey);
+        return {
+          name:           t.name,
+          topicKey:       t.topicKey,
+          completed:      false,
+          duration:       `${t.estimatedHours}h`,
+          estimatedHours: t.estimatedHours
+        };
+      });
+
+      const phaseResources = phase.topics.map(t => {
+        const r = getResourceForTopic(t.topicKey);
+        const entries = [];
+        if (r?.video?.id) {
+          entries.push({
+            title:   r.video.title,
+            type:    'video',
+            videoId: r.video.id,
+            url:     buildWatchUrl(r.video.id),
+            channel: r.video.channel
+          });
+        }
+        if (r?.documentation) {
+          entries.push({ title: r.documentation.title, type: 'article', url: r.documentation.url });
+        }
+        return entries;
+      }).flat().slice(0, 6); // cap at 6 per milestone
+
+      milestones.push({
+        id:            msId,
+        title:         domains.length > 1 ? `[${domainLabel(domainKey)}] ${phase.title}` : phase.title,
+        subtitle:      phase.subtitle,
+        color:         COLORS[(msId - 1) % COLORS.length],
+        durationWeeks,
+        estimatedHours: totalHours,
+        status:        msId === 1 ? 'current' : 'locked',
+        progress:      0,
+        position:      YEARLY_POSITIONS[(msId - 1) % YEARLY_POSITIONS.length],
+        topics,
+        resources:     phaseResources,
+        domain:        domainKey
+      });
+
+      msId++;
+    }
+  }
+
+  return milestones;
 }
 
 // ─── Main function ────────────────────────────────────────────────────────────
 
 async function generateRoadmap(profile) {
-  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-  // ── Resolve domains (single or multiple) ────────────────────────────────────
+  // ── Resolve domains ──────────────────────────────────────────────────────────
   const rawDomains  = profile.domains || (profile.domain ? [profile.domain] : ['web_development']);
-  const domains     = rawDomains.filter(Boolean);
-  const isMulti     = domains.length > 1;
+  const domains     = rawDomains.filter(d => d && curriculumTrees[d]);
+  const fallback    = rawDomains.filter(d => d && !curriculumTrees[d]);
 
-  const domainLabels = domains.map(d => d.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+  // If user picked domains not in our tree yet, add web_development as default
+  const activeDomains = domains.length > 0 ? domains : ['web_development'];
 
-  const {
-    currentSkills,
-    targetDuration,
-    studyHoursPerDay: hpdRaw,
-    focusArea,
-    motivation,
-    frameworkExperience,
-    existingBaseline,
-    mathFoundation,
-    algorithmicCore,
-    preferredLanguage,
-    dsaLevel,
-    stackFocus
-  } = profile;
+  const hoursPerDay  = parseHoursPerDay(profile.studyHoursPerDay || profile.hpdRaw);
+  const totalWeeks   = parseTargetWeeks(profile.targetDuration);
+  const totalDays    = totalWeeks * 7;
 
-  const totalWeeks  = durationToWeeks(targetDuration);
-  const hpd         = hoursPerDay(hpdRaw);
-  const timeSlots   = buildTimeSlots(hpd);
+  // ── Build curriculum ─────────────────────────────────────────────────────────
+  const flatTopics    = flattenTopics(activeDomains);
+  const milestones    = buildMilestones(activeDomains, {});
+  const allSessions   = buildDailySessions(flatTopics, hoursPerDay);
 
-  // ── How many milestones per domain ──────────────────────────────────────────
-  // Single: 5–7 milestones.  Multi: 3–4 per domain (combined 6–8).
-  const msPerDomain = isMulti ? 3 : 6;
-  const totalMs     = isMulti ? msPerDomain * domains.length : msPerDomain;
+  // ── Display name ─────────────────────────────────────────────────────────────
+  const displayName = activeDomains.map(d => {
+    const tree = curriculumTrees[d];
+    return tree ? tree.displayName : domainLabel(d);
+  }).join(' + ');
 
-  const domainBlock = isMulti
-    ? `You MUST cover ALL of the following ${domains.length} domains in the roadmap:
-${domainLabels.map((l, i) => `  ${i + 1}. ${l}`).join('\n')}
+  // ── Stats ────────────────────────────────────────────────────────────────────
+  const stats = {
+    totalWeeks,
+    completedMilestones: 0,
+    xpScore:             0,
+    progressPercent:     0,
+    currentDay:          1,
+    totalDays,
+    daysLeft:            totalDays - 1,
+    totalSessions:       allSessions.length,
+    hoursPerDay
+  };
 
-Generate ${msPerDomain} milestones for EACH domain, for a total of ${totalMs} milestones.
-Prefix every milestone title with the domain name in brackets, e.g. "[Web Dev] HTML & CSS Basics" or "[DSA] Arrays & Strings".
-You may sequence them (all DSA first, then Web Dev) OR alternate them — choose the best learning order.`
-    : `Domain: ${domainLabels[0]}`;
+  console.log(`[RoadmapGenerator] Built roadmap: ${displayName} | ${milestones.length} phases | ${allSessions.length} sessions | ${hoursPerDay}h/day`);
 
-  const systemPrompt = `You are PathAI, an expert curriculum designer.
-Generate a personalized learning roadmap for a student in JSON format only.
-
-Student Profile:
-${domainBlock}
-- Skill Level: ${currentSkills || 'Beginner'}
-- Total Duration: ${targetDuration || '6 months'} (${totalWeeks} weeks)
-- Daily Study Hours: ${hpdRaw || '3 hours/day'}
-- Focus Area: ${focusArea || 'Not specified'}
-- Motivation: ${motivation || 'Career'}
-- Technology / Stack: ${frameworkExperience || stackFocus || preferredLanguage || 'Not specified'}
-- Existing Baseline: ${existingBaseline || mathFoundation || dsaLevel || 'None'}
-- Algorithmic Focus: ${algorithmicCore || 'General'}
-
-Requirements:
-1. Generate exactly ${totalMs} milestones total in a logical learning progression.
-2. Each milestone MUST have 3–6 specific topics and 2–4 curated resource links. For ANY video resource, you MUST provide a REAL, valid YouTube URL (e.g. https://www.youtube.com/watch?v=...).
-3. Generate ${timeSlots.length} daily session slots fitting within ${hpd} hours/day. Include 1-2 resources for each daily session.
-4. First milestone status: "current", rest: "locked". First milestone progress: 0.
-5. Topic durations should sum approximately to the milestone durationWeeks.
-6. Make milestones domain-appropriate, concrete, and actionable.
-
-Output ONLY this JSON (no markdown, no explanation):
-{
-  "displayName": "human-readable combined domain name",
-  "milestones": [
-    {
-      "id": 1,
-      "title": "[Domain] Phase title",
-      "subtitle": "Brief subtitle",
-      "durationWeeks": 4,
-      "topics": [
-        { "name": "Topic Name", "completed": false, "duration": "3 days" }
-      ],
-      "resources": [
-        { "title": "Resource Name", "url": "https://...", "type": "video|article|course|book|practice" }
-      ]
-    }
-  ],
-  "dailySessions": [
-    {
-      "id": 1,
-      "time": "09:00 - 10:00 AM",
-      "title": "Session Title",
-      "details": ["\u2022 Subtopic 1", "\u2022 Subtopic 2", "\u2022 Subtopic 3"],
-      "resources": [
-        { "title": "Session Video", "url": "https://www.youtube.com/watch?v=...", "type": "video" }
-      ],
-      "icon": "Code",
-      "color": "#3b82f6"
-    }
-  ]
-}`;
-
-  try {
-    const completion = await groq.chat.completions.create({
-      messages: [{ role: 'system', content: systemPrompt }],
-      model: 'llama-3.1-8b-instant',
-      temperature: 0.55,
-      max_tokens: isMulti ? 4000 : 2500,
-      response_format: { type: 'json_object' }
-    });
-
-    const raw = completion.choices[0]?.message?.content?.trim() || '{}';
-    const parsed = JSON.parse(raw);
-
-    // ── Post-process milestones ──
-    const milestones = (parsed.milestones || []).map((m, i) => ({
-      id:            i + 1,
-      title:         m.title || `Phase ${i + 1}`,
-      subtitle:      m.subtitle || '',
-      color:         COLORS[i % COLORS.length],
-      durationWeeks: m.durationWeeks || 4,
-      status:        i === 0 ? 'current' : 'locked',
-      progress:      0,
-      position:      YEARLY_POSITIONS[i] || { x: 50, y: 50 + i * 10 },
-      topics:        (m.topics || []).map(t => ({ ...t, completed: false })),
-      resources:     m.resources || []
-    }));
-
-    // ── Post-process daily sessions ──
-    const rawSessions  = parsed.dailySessions || [];
-    const slotCount    = Math.min(timeSlots.length, rawSessions.length || timeSlots.length);
-    const dailySessions = [];
-
-    for (let i = 0; i < slotCount; i++) {
-      const raw = rawSessions[i] || {};
-      const slot = timeSlots[i];
-      dailySessions.push({
-        id:      i + 1,
-        time:    raw.time || `${slot.start} - ${slot.end}`,
-        title:   raw.title || `Session ${i + 1}`,
-        details: raw.details || ['• Core concepts', '• Practice problems', '• Review'],
-        status:  i === 0 ? 'current' : 'locked',
-        icon:    ICON_OPTIONS.includes(raw.icon) ? raw.icon : ICON_OPTIONS[i % ICON_OPTIONS.length],
-        color:   raw.color || COLORS[i % COLORS.length],
-        resources: raw.resources || []
-      });
-    }
-
-    // ── Build stats ──
-    const totalDays = totalWeeks * 7;
-    const stats = {
-      totalWeeks,
-      completedMilestones: 0,
-      xpScore:             0,
-      progressPercent:     0,
-      currentDay:          1,
-      totalDays,
-      daysLeft:            totalDays - 1
-    };
-
-    return {
-      displayName:   parsed.displayName || domainLabels.join(' + '),
-      milestones,
-      dailySessions,
-      stats
-    };
-
-  } catch (err) {
-    console.error('Roadmap generation failed:', err.message);
-    // ── Fallback ──
-    return buildFallback(domainLabels.join(' + '), totalWeeks, timeSlots);
-  }
-}
-
-// ─── Fallback if Groq fails ───────────────────────────────────────────────────
-
-function buildFallback(name, totalWeeks, timeSlots) {
-  name = (name || 'Learning').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   return {
-    displayName: name,
-    milestones: [
-      { id: 1, title: 'Foundations',    subtitle: 'Core Concepts',      color: COLORS[0], durationWeeks: Math.ceil(totalWeeks * 0.2), status: 'current', progress: 0, position: YEARLY_POSITIONS[0], topics: [{ name: 'Basics',          completed: false, duration: '1 week' }], resources: [] },
-      { id: 2, title: 'Core Skills',    subtitle: 'Essential Tools',    color: COLORS[1], durationWeeks: Math.ceil(totalWeeks * 0.2), status: 'locked',  progress: 0, position: YEARLY_POSITIONS[1], topics: [{ name: 'Core Concepts',   completed: false, duration: '2 weeks' }], resources: [] },
-      { id: 3, title: 'Intermediate',   subtitle: 'Building Projects',  color: COLORS[2], durationWeeks: Math.ceil(totalWeeks * 0.25),status: 'locked',  progress: 0, position: YEARLY_POSITIONS[2], topics: [{ name: 'Projects',        completed: false, duration: '2 weeks' }], resources: [] },
-      { id: 4, title: 'Advanced',       subtitle: 'Complex Topics',     color: COLORS[3], durationWeeks: Math.ceil(totalWeeks * 0.2), status: 'locked',  progress: 0, position: YEARLY_POSITIONS[3], topics: [{ name: 'Advanced Topics', completed: false, duration: '2 weeks' }], resources: [] },
-      { id: 5, title: 'Mastery',        subtitle: 'Real-World Ready',   color: COLORS[4], durationWeeks: Math.ceil(totalWeeks * 0.15),status: 'locked',  progress: 0, position: YEARLY_POSITIONS[4], topics: [{ name: 'Portfolio',       completed: false, duration: '1 week' }], resources: [] },
-    ],
-    dailySessions: timeSlots.map((s, i) => ({
-      id:      i + 1,
-      time:    `${s.start} - ${s.end}`,
-      title:   `${name} — Session ${i + 1}`,
-      details: ['• Core concepts', '• Practice', '• Review'],
-      status:  i === 0 ? 'current' : 'locked',
-      icon:    ICON_OPTIONS[i % ICON_OPTIONS.length],
-      color:   COLORS[i % COLORS.length],
-      resources: []
-    })),
-    stats: {
-      totalWeeks, completedMilestones: 0, xpScore: 0,
-      progressPercent: 0, currentDay: 1,
-      totalDays: totalWeeks * 7, daysLeft: totalWeeks * 7 - 1
-    }
+    displayName,
+    milestones,
+    dailySessions: allSessions,
+    stats,
+    generatedBy: 'logic-engine-v2'
   };
 }
 

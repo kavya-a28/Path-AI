@@ -253,6 +253,7 @@ const RoadmapView = ({ userData, roadmapData: propRoadmapData, onTaskSelect }) =
   const [roadmap, setRoadmap]            = useState(propRoadmapData || null);
   const [isLoading, setIsLoading]        = useState(!propRoadmapData);
   const [error, setError]                = useState(null);
+  const [currentDayView, setCurrentDayView] = useState(null); // null = auto (today)
 
   // ── Fetch roadmap on mount if not supplied as prop ──────────────────────────
   useEffect(() => {
@@ -341,6 +342,20 @@ const RoadmapView = ({ userData, roadmapData: propRoadmapData, onTaskSelect }) =
     : timelineView === 'Daily'
     ? `${dailySessions.filter(s => s.status === 'completed').length}/${dailySessions.length}`
     : `${stats.completedMilestones || 0}/${milestones.length}`;
+
+  // ── Daily view: group sessions by day, navigate between days ────────────────
+  const allDayNumbers = [...new Set(dailySessions.map(s => s.day))].sort((a, b) => a - b);
+  const todayNumber   = dailySessions.find(s => s.status === 'current')?.day
+                     || dailySessions[0]?.day
+                     || 1;
+  const activeDayNum  = currentDayView ?? todayNumber;
+  const todaySessions = dailySessions.filter(s => s.day === activeDayNum);
+  const dayIndex      = allDayNumbers.indexOf(activeDayNum);
+  const hasPrev       = dayIndex > 0;
+  const hasNext       = dayIndex < allDayNumbers.length - 1;
+  const goToPrevDay   = () => setCurrentDayView(allDayNumbers[dayIndex - 1]);
+  const goToNextDay   = () => setCurrentDayView(allDayNumbers[dayIndex + 1]);
+  const goToToday     = () => setCurrentDayView(null);
 
   // ── Loading skeleton ─────────────────────────────────────────────────────────
   if (isLoading) {
@@ -586,126 +601,137 @@ const RoadmapView = ({ userData, roadmapData: propRoadmapData, onTaskSelect }) =
           {/* ════════════ DAILY VIEW ════════════ */}
           {timelineView === 'Daily' && (
             <div className="absolute inset-0 w-full h-full flex items-center justify-center">
+
               {/* Scenery */}
               <div className="absolute inset-0 z-0">
-                <SimpleTree x={10} y={45} scale={1.2} />
-                <PineTree   x={25} y={48} scale={0.8} />
-                <SimpleTree x={70} y={46} scale={1.0} />
-                <PineTree   x={90} y={45} scale={1.1} />
+                <SimpleTree x={8}  y={45} scale={1.2} />
+                <PineTree   x={22} y={48} scale={0.8} />
+                <SimpleTree x={72} y={46} scale={1.0} />
+                <PineTree   x={92} y={45} scale={1.1} />
               </div>
 
               {/* Ground */}
-              <div className="absolute bottom-0 left-0 right-0 h-[45%] bg-[#5c4033] border-t-8 border-[#8b5a2b] z-10 opacity-90">
+              <div className="absolute bottom-0 left-0 right-0 h-[42%] bg-[#5c4033] border-t-8 border-[#8b5a2b] z-10 opacity-90">
                 <div className="absolute inset-0 opacity-20"
                   style={{ backgroundImage: 'radial-gradient(#3e2723 2px, transparent 2px)', backgroundSize: '24px 24px' }} />
               </div>
 
-              {/* Progress line */}
-              <div className="absolute inset-0 w-full h-full z-20 pointer-events-none flex items-center justify-center">
-                <div className="absolute left-0 right-0 px-16 flex items-center" style={{ top: '30px', height: '0px' }}>
-                  <div className="w-full mx-[75px] relative h-0">
-                    <div className="absolute top-0 left-0 w-full border-t-4 border-dashed border-white/40 -translate-y-1/2" />
-                    {(() => {
-                      const activeIdx      = dailySessions.findIndex(d => d.status === 'current');
-                      const progressIdx    = activeIdx === -1 ? dailySessions.length - 1 : activeIdx;
-                      const totalSegs      = dailySessions.length - 1;
-                      const widthPct       = totalSegs > 0 ? (progressIdx / totalSegs) * 100 : 0;
-                      return (
-                        <motion.div initial={{ width: 0 }} animate={{ width: `${widthPct}%` }}
-                          transition={{ duration: 1, ease: 'easeOut' }}
-                          className="absolute top-0 left-0 border-t-4 border-solid border-[#8b5a2b] -translate-y-1/2 shadow-sm" />
-                      );
-                    })()}
-                  </div>
+              {/* Dashed track line between sessions */}
+              {todaySessions.length > 1 && (
+                <div className="absolute z-20 pointer-events-none"
+                  style={{ top: 'calc(45% - 10px)', left: '10%', right: '10%', height: '0px' }}>
+                  <div className="w-full border-t-4 border-dashed border-white/20" />
                 </div>
+              )}
+
+              {/* Today header badge */}
+              <div className="absolute top-6 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1.5">
+                <div className="bg-white/90 backdrop-blur-md px-6 py-2 rounded-2xl shadow-lg flex items-center gap-3">
+                  <span className="text-xl font-black text-slate-800">Day {todayNumber}</span>
+                  <span className="bg-emerald-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                    Today
+                  </span>
+                </div>
+                {todaySessions[0]?.phaseTitle && (
+                  <div className="bg-black/25 backdrop-blur-sm text-white/80 text-[11px] font-semibold px-4 py-1 rounded-full">
+                    {todaySessions[0].phaseTitle}
+                  </div>
+                )}
               </div>
 
-              {/* Session items */}
-              <div className="absolute inset-0 w-full h-full z-30 flex items-center px-8">
-                <div className="w-full flex justify-around items-center relative" style={{ top: '30px' }}>
-
-                  {/* "You are here" label */}
-                  {dailySessions.findIndex(d => d.status === 'current') >= 0 && (
-                    <div className="absolute -top-24 flex flex-col items-center pointer-events-none"
-                      style={{ left: `${((dailySessions.findIndex(d => d.status === 'current')) / Math.max(dailySessions.length - 1, 1)) * 90 + 5}%` }}>
-                      <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 2, repeat: Infinity }}
-                        className="text-white text-xs font-bold uppercase tracking-widest mb-2">
-                        You are here!
-                      </motion.div>
-                      <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-white" />
+              {/* Sessions */}
+              <div className="absolute inset-0 z-30 flex items-center px-12" style={{ paddingTop: '80px' }}>
+                {todaySessions.length === 0 ? (
+                  <div className="w-full flex items-center justify-center">
+                    <div className="bg-white/80 backdrop-blur-md rounded-3xl p-8 text-center shadow-xl">
+                      <p className="text-2xl mb-2">🎉</p>
+                      <p className="font-black text-slate-800 text-lg">All done for today!</p>
+                      <p className="text-slate-500 font-medium">No sessions scheduled.</p>
                     </div>
-                  )}
+                  </div>
+                ) : (
+                  <div
+                    className="w-full flex items-center"
+                    style={{
+                      justifyContent: todaySessions.length === 1 ? 'center' : 'space-around',
+                      top: '-10px'
+                    }}
+                  >
+                    {todaySessions.map((session, idx) => {
+                      const Icon      = resolveIcon(session.icon);
+                      const isComp    = session.status === 'completed';
+                      const isCurrent = session.status === 'current';
+                      const isLocked  = session.status === 'locked';
+                      return (
+                        <motion.div key={session.id}
+                          initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.1, type: 'spring' }}
+                          className="flex flex-col items-center cursor-pointer"
+                          style={{ flex: todaySessions.length === 1 ? '0 0 auto' : '1 1 0', maxWidth: '200px' }}
+                          onClick={() => {
+                            const sessionTopics = (session.details || []).map(d => ({
+                              name: d.replace(/^[•\-*]\s*/, '').trim(),
+                              completed: isComp,
+                              duration: '1h'
+                            }));
+                            setSelectedMilestone({
+                              ...session,
+                              subtitle:  `Day ${todayNumber} · ${session.time}`,
+                              topics:    sessionTopics,
+                              resources: session.resources || [],
+                              durationWeeks: undefined
+                            });
+                          }}
+                        >
+                          {/* Start Learning button – only on current */}
+                          {isCurrent && (
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                if (onTaskSelect) onTaskSelect({ ...session, milestoneId: session.phaseId });
+                              }}
+                              className="mb-3 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs px-5 py-2 rounded-full shadow-md uppercase tracking-wider transition-colors"
+                            >
+                              ▶ Start Learning
+                            </button>
+                          )}
 
-                  {dailySessions.map((session, idx) => {
-                    const Icon      = resolveIcon(session.icon);
-                    const isComp    = session.status === 'completed';
-                    const isCurrent = session.status === 'current';
-                    const isLocked  = session.status === 'locked';
-                    return (
-                      <motion.div key={session.id}
-                        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.15 }}
-                        className="flex flex-col items-center relative group cursor-pointer"
-                        style={{ width: `${Math.floor(88 / dailySessions.length)}%`, maxWidth: '150px' }}
-                        onClick={() => {
-                          // Convert session.details bullet strings → topics array for the modal
-                          const sessionTopics = (session.details || []).map((d, ti) => ({
-                            name: d.replace(/^[•\-\*]\s*/, '').trim(),
-                            completed: isComp,
-                            duration: '45 min'
-                          }));
-                          setSelectedMilestone({
-                            ...session,
-                            subtitle:      session.time,
-                            topics:        sessionTopics,
-                            resources:     [],
-                            durationWeeks: undefined
-                          });
-                        }}>
+                          {/* Icon box – no ping, no hover scale */}
+                          <div className="mb-5">
+                            <div className={`w-24 h-24 rounded-2xl flex items-center justify-center shadow-xl border-4 border-white relative z-10 ${
+                              isComp    ? 'bg-gradient-to-br from-green-400 to-emerald-600' :
+                              isCurrent ? 'bg-gradient-to-br from-blue-500 to-indigo-600' :
+                                          'bg-gradient-to-br from-slate-300 to-slate-400 grayscale'
+                            }`}>
+                              <Icon className="w-12 h-12 text-white drop-shadow-md" />
+                              {isComp && (
+                                <div className="absolute -right-2 -top-2 bg-white rounded-full p-1 shadow-sm">
+                                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                                </div>
+                              )}
+                            </div>
+                          </div>
 
-                        {/* Icon box */}
-                        <div className="mb-6 transform transition-transform group-hover:scale-110">
-                          <div className={`w-20 h-20 rounded-2xl flex items-center justify-center shadow-lg border-4 border-white relative z-10 ${
-                            isComp    ? 'bg-gradient-to-br from-green-400 to-emerald-600' :
-                            isCurrent ? 'bg-gradient-to-br from-amber-300 to-orange-500' :
-                                        'bg-gradient-to-br from-slate-300 to-slate-400 grayscale'
-                          }`}>
-                            <Icon className="w-10 h-10 text-white drop-shadow-md" />
-                            {isComp && (
-                              <div className="absolute -right-2 -top-2 bg-white rounded-full p-1 shadow-sm">
-                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                              </div>
+                          {/* Timeline dot – no ping */}
+                          <div className="relative mb-4">
+                            <div className={`w-6 h-6 rounded-full border-[5px] border-[#8b5a2b] shadow-sm relative z-10 ${isLocked ? 'bg-white' : 'bg-[#8b5a2b]'}`}>
+                              {!isLocked && <div className="w-full h-full rounded-full bg-[#8b5a2b]" />}
+                            </div>
+                          </div>
+
+                          {/* Text card */}
+                          <div className="text-center bg-black/25 backdrop-blur-sm rounded-2xl px-4 py-3 border border-white/10 max-w-[170px]">
+                            <h3 className="text-white font-black text-sm leading-tight mb-1 drop-shadow-md">{session.title}</h3>
+                            <p className="text-white/60 font-semibold text-[10px] uppercase tracking-wider mb-1">{session.time}</p>
+                            {session.topicPart && (
+                              <p className="text-white/50 text-[9px] font-semibold">{session.topicPart}</p>
                             )}
                           </div>
-                        </div>
-
-                        {/* Timeline dot */}
-                        <div className="relative mb-6">
-                          {isCurrent && <div className="absolute inset-0 rounded-full bg-amber-400 animate-ping opacity-75 blur-sm scale-150" />}
-                          <div className={`w-6 h-6 rounded-full border-[5px] border-[#8b5a2b] shadow-sm relative z-10 ${isLocked ? 'bg-white' : 'bg-[#8b5a2b]'}`}>
-                            {!isLocked && <div className="w-full h-full rounded-full bg-[#8b5a2b]" />}
-                          </div>
-                        </div>
-
-                        {/* Text */}
-                        <div className="text-center">
-                          <h3 className="text-white font-black text-sm leading-tight mb-1 drop-shadow-md">{session.title}</h3>
-                          <p className="text-amber-100/80 font-bold text-[10px] uppercase tracking-wider mb-2">{session.time}</p>
-                          <ul className={`text-left text-[10px] font-medium space-y-1 p-2 rounded-lg backdrop-blur-sm border ${
-                            isCurrent ? 'bg-black/30 border-amber-400/30 text-white' : 'bg-black/20 border-white/10 text-white/60'
-                          }`}>
-                            {session.details?.map((d, i) => <li key={i}>{d}</li>)}
-                          </ul>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-
-                  {/* Empty state for daily */}
-                  {dailySessions.length === 0 && (
-                    <div className="text-white/60 font-bold text-center">No sessions found</div>
-                  )}
-                </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           )}

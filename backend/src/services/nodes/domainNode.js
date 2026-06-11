@@ -9,7 +9,11 @@ const DOMAIN_PROMPTS = {
   cloud_devops: `Assess preferred cloud provider (AWS/GCP/Azure), Linux/scripting baseline, ops vs dev background, learning style, and consistency.`,
   data_science: `Assess goal role (Analyst/Scientist), current SQL/Python skills, stats background, learning style, and consistency.`,
   game_dev: `Assess engine preference (Unity/Unreal/Godot), 2D vs 3D goals, programming background, learning style, and consistency.`,
-  blockchain: `Assess core interest (Smart Contracts/DeFi/NFT), Solidity/JS background, conceptual understanding, learning style, and consistency.`
+  blockchain: `Assess core interest (Smart Contracts/DeFi/NFT), Solidity/JS background, conceptual understanding, learning style, and consistency.`,
+  competitive_programming: `Assess contest platform, current rating/problem level, preferred language, algorithm focus, practice style, and consistency.`,
+  ui_ux_design: `Assess design tool preference, research vs visual design focus, portfolio baseline, product thinking, learning style, and consistency.`,
+  system_design: `Assess backend/database baseline, scalability concepts, interview vs production goals, architecture depth, learning style, and consistency.`,
+  app_development: `Assess target platform, programming baseline, frontend/backend/mobile preference, project goals, learning style, and consistency.`
 };
 
 async function generateDomainQuestions(domain, userText) {

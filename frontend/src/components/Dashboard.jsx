@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Home, Map, BarChart3, Users, Briefcase, Settings, 
@@ -13,8 +13,8 @@ import AnalyticsView from './AnalyticsView';
 import CareerHub from './CareerHub';
 import SettingsView from './SettingsView';
 import NotificationDropdown from './Notification';
-import CommunityView from './CommunityView'; // <--- Added Import
-import { updateMilestone } from '../services/roadmapApi';
+import CommunityView from './CommunityView';
+import { updateSession, getDashboardStats, startSession } from '../services/roadmapApi';
 
 const Dashboard = ({ userData, roadmapData }) => { 
   // State to track which sidebar tab is active
@@ -25,6 +25,27 @@ const Dashboard = ({ userData, roadmapData }) => {
 
   // State for Notifications
   const [showNotifications, setShowNotifications] = useState(false);
+
+  // ── Live dashboard stats from backend ─────────────────────────────────────
+  const [dashStats, setDashStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  // Fetch live stats from /api/roadmap/dashboard/stats
+  const fetchStats = useCallback(async () => {
+    try {
+      const stats = await getDashboardStats();
+      setDashStats(stats);
+    } catch (err) {
+      console.warn('Dashboard stats fetch failed:', err.message);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
+
+  // Load on mount + whenever activeTab returns to dashboard
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   // Professional Emerald & Slate AI Theme
   const theme = {
@@ -45,60 +66,109 @@ const Dashboard = ({ userData, roadmapData }) => {
     { id: 'settings', icon: Settings, label: 'Settings' }
   ];
 
-  // Function to handle task start
-  const handleStartTask = (taskData) => {
+  // ── Start Learning: mark session as IN_PROGRESS in DB ─────────────────────
+  const handleStartTask = async (taskData) => {
+    // If task has a numeric id, mark it as current in the DB
+    if (taskData?.id && typeof taskData.id === 'number') {
+      try {
+        await startSession(taskData.id);
+      } catch (err) {
+        console.warn('Could not mark session as started:', err.message);
+      }
+    }
     setActiveTask(taskData);
+    // Refresh stats so Focus Zone updates immediately
+    fetchStats();
   };
 
-  // Function to handle task completion
+  // ── Mark Complete: save to DB, refresh stats ───────────────────────────────
   const handleTaskComplete = async (completedTask) => {
-    console.log('Task completed!', completedTask);
-    if (completedTask?.milestoneId) {
+    if (completedTask?.id && typeof completedTask.id === 'number') {
       try {
-        await updateMilestone(completedTask.milestoneId, { status: 'completed', progress: 100 });
-        // Note: For a full production app, we would also update the local roadmapData state here.
+        await updateSession(completedTask.id, { status: 'completed' });
       } catch (err) {
-        console.error('Failed to update milestone progress:', err);
+        console.error('Failed to mark session complete:', err.message);
       }
     }
     setActiveTask(null);
+    // Immediately refresh all dashboard stats
+    fetchStats();
   };
 
-  // Derive standard tasks from roadmapData
-  const activeSession = roadmapData?.dailySessions?.find(s => s.status === 'current') || 
-    roadmapData?.dailySessions?.[0] || {
-      id: 'task_1', title: 'Loading...', icon: 'Code', priority: 'high', duration: 45
-    };
+  // ── Derive display values: live stats > roadmapData fallback ──────────────
+  const weeklyGoal      = dashStats?.weeklyGoal      ?? Math.max(roadmapData?.stats?.progressPercent ?? 0, 12);
+  const studiedHours    = dashStats?.studiedHours     ?? (roadmapData?.stats?.currentDay ?? 1) * 2;
+  const masteryProgress = dashStats?.masteryProgress  ?? roadmapData?.stats?.progressPercent ?? 0;
+  const todayCompleted  = dashStats?.todayCompleted   ?? 0;
+  const todayPending    = dashStats?.todayPending     ?? 0;
+  const todayMissed     = dashStats?.todayMissed      ?? 0;
+  const completionPct   = dashStats?.completionPct    ?? 0;
 
-  const focusTask = {
-    ...activeSession,
-    index: 1,
-    total: roadmapData?.dailySessions?.length || 5,
-    difficulty: 3,
-    xp: 50,
-    duration: parseInt(activeSession.time) || 45,
-    icon: '🚀'
-  };
-
-  const upcomingSessions = roadmapData?.dailySessions?.filter(s => s.status === 'locked').slice(0, 2) || [];
-  const upcomingTasks = upcomingSessions.length > 0 ? upcomingSessions.map((s, i) => ({
-    id: s.id,
-    index: i + 2,
-    total: roadmapData?.dailySessions?.length || 5,
-    title: s.title,
-    icon: '⏰',
-    duration: 30,
-    due: `Due Next`,
-    priority: i === 0 ? 'medium' : 'low',
-    priorityColor: i === 0 ? 'from-[#f59e0b] to-[#ea580c]' : 'from-[#3b82f6] to-[#2563eb]'
-  })) : [
-    { title: 'Finish Current Milestone', due: 'Ongoing', priorityColor: 'from-[#3b82f6] to-[#2563eb]', icon: '🏁' }
-  ];
-
-  const stats = roadmapData?.stats || { progressPercent: 0, currentDay: 1, completedMilestones: 0 };
   const displayName = roadmapData?.displayName || 'Learning';
-  const userName = userData?.name || 'Explorer';
-  const estimatedHours = (stats.currentDay || 1) * 2;
+  const userName    = userData?.name || 'Explorer';
+  const level       = Math.floor(masteryProgress / 10) + 1;
+
+  // ── Focus Zone: real current/pending task from API ─────────────────────────
+  const focusTask = (() => {
+    if (dashStats?.currentTask) {
+      const t = dashStats.currentTask;
+      return {
+        ...t,
+        icon: '🚀',
+        duration: t.estimatedHours ? `${t.estimatedHours}h` : '1h',
+        subtitle: t.topicPart && t.topicPart !== 'Complete'
+          ? `${t.topicPart} · ${t.phaseTitle || ''}`
+          : t.phaseTitle || ''
+      };
+    }
+    // Fallback: derive from roadmapData
+    const activeSession = roadmapData?.dailySessions?.find(s => s.status === 'current') ||
+      roadmapData?.dailySessions?.[0] || {
+        id: null, title: 'No task yet', icon: 'Code', time: '—'
+      };
+    return {
+      ...activeSession,
+      icon: '🚀',
+      total: roadmapData?.dailySessions?.length || 5,
+      duration: activeSession.time || '1h',
+      subtitle: activeSession.topicPart || ''
+    };
+  })();
+
+  // ── Up Next: real pending/in-progress sessions from API ───────────────────
+  const upcomingTasks = (() => {
+    if (dashStats?.upNext?.length > 0) {
+      return dashStats.upNext.map((s, i) => ({
+        id:            s.id,
+        title:         s.title,
+        // Show phase name as subtitle so user knows context
+        due:           s.phaseTitle || 'Up Next',
+        icon:          '⏰',
+        priorityColor: i === 0
+          ? 'from-[#10b981] to-[#059669]'
+          : i === 1
+          ? 'from-[#f59e0b] to-[#ea580c]'
+          : 'from-[#3b82f6] to-[#2563eb]',
+        ...s
+      }));
+    }
+    // Fallback: derive from roadmapData — de-duplicate by topicKey
+    const seen = new Set();
+    return (roadmapData?.dailySessions || [])
+      .filter(s => {
+        if (s.status !== 'locked' && s.status !== 'current') return false;
+        if (seen.has(s.topicKey)) return false;
+        seen.add(s.topicKey);
+        return true;
+      })
+      .slice(0, 3)
+      .map((s, i) => ({
+        id: s.id, ...s,
+        icon: '⏰',
+        due: s.phaseTitle || 'Up Next',
+        priorityColor: i === 0 ? 'from-[#f59e0b] to-[#ea580c]' : 'from-[#3b82f6] to-[#2563eb]'
+      }));
+  })();
 
   return (
     <>
@@ -187,7 +257,7 @@ const Dashboard = ({ userData, roadmapData }) => {
 
               {/* === User Profile Button (Links to Settings) === */}
               <button 
-                onClick={() => setActiveTab('settings')} // <--- Opens Settings View
+                onClick={() => setActiveTab('settings')}
                 className="flex items-center gap-3 bg-white border border-white rounded-[20px] px-2 py-2 pr-5 shadow-sm hover:scale-105 transition-all cursor-pointer"
               >
                 <div className={`${theme.accent} w-9 h-9 rounded-xl flex items-center justify-center font-black text-white`}>K</div>
@@ -217,40 +287,68 @@ const Dashboard = ({ userData, roadmapData }) => {
                 >
                   
                   {/* Welcome Card */}
-                    <div className={`p-10 rounded-[40px] relative overflow-hidden bg-white/80 border border-white shadow-xl`}>
-                      <div className="relative z-10 grid md:grid-cols-2 gap-8">
-                        <div>
-                          <div className="bg-emerald-100 px-3 py-1 rounded-full text-[#059669] text-[10px] font-black uppercase inline-block mb-4">Level {stats.completedMilestones + 1}</div>
-                          <h2 className="text-4xl font-black text-slate-900 mb-6 leading-tight tracking-tight">
-                            Excellent progress, <br/> {userName}! 🚀
-                          </h2>
-                          <div className="flex gap-10">
-                            <div>
-                              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-1">Weekly Goal</p>
-                              <p className="text-2xl font-black text-[#059669]">{Math.max(stats.progressPercent, 12)}%</p>
-                            </div>
-                            <div>
-                              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-1">Studied</p>
-                              <p className="text-2xl font-black text-slate-800">{estimatedHours}h</p>
-                            </div>
-                          </div>
+                  <div className={`p-10 rounded-[40px] relative overflow-hidden bg-white/80 border border-white shadow-xl`}>
+                    <div className="relative z-10 grid md:grid-cols-2 gap-8">
+                      <div>
+                        <div className="bg-emerald-100 px-3 py-1 rounded-full text-[#059669] text-[10px] font-black uppercase inline-block mb-4">
+                          Level {level}
                         </div>
-                        <div className="flex flex-col justify-end">
-                          <div className="flex justify-between items-end mb-3">
-                            <span className="font-black text-slate-700 uppercase text-[10px] tracking-widest">{displayName} Mastery</span>
-                            <span className="text-[#3b82f6] font-black">{stats.progressPercent}%</span>
+                        <h2 className="text-4xl font-black text-slate-900 mb-6 leading-tight tracking-tight">
+                          Excellent progress, <br/> {userName}! 🚀
+                        </h2>
+                        <div className="flex gap-10">
+                          <div>
+                            <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-1">Weekly Goal</p>
+                            <p className="text-2xl font-black text-[#059669]">
+                              {statsLoading ? '—' : `${weeklyGoal}%`}
+                            </p>
                           </div>
-                          <div className="h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                            <motion.div 
-                              initial={{ width: 0 }} 
-                              animate={{ width: `${stats.progressPercent}%` }} 
-                              className="h-full bg-gradient-to-r from-[#10b981] to-[#3b82f6]" 
-                            />
+                          <div>
+                            <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-1">Studied</p>
+                            <p className="text-2xl font-black text-slate-800">
+                              {statsLoading ? '—' : `${studiedHours}h`}
+                            </p>
                           </div>
+                          {/* Today's Progress mini-stats */}
+                          {!statsLoading && dashStats && (
+                            <div>
+                              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-1">Today</p>
+                              <p className="text-2xl font-black text-slate-800">{completionPct}%</p>
+                            </div>
+                          )}
                         </div>
+
+                        {/* Today's breakdown */}
+                        {!statsLoading && dashStats && (todayCompleted + todayPending + todayMissed) > 0 && (
+                          <div className="mt-4 flex gap-4 text-xs font-bold">
+                            <span className="text-emerald-600">✓ {todayCompleted} done</span>
+                            <span className="text-slate-400">◷ {todayPending} pending</span>
+                            {todayMissed > 0 && <span className="text-red-400">✗ {todayMissed} missed</span>}
+                          </div>
+                        )}
                       </div>
-                      <Target className="absolute -bottom-10 -right-10 w-64 h-64 text-emerald-500/5 rotate-12" />
+                      <div className="flex flex-col justify-end">
+                        <div className="flex justify-between items-end mb-3">
+                          <span className="font-black text-slate-700 uppercase text-[10px] tracking-widest">{displayName} Mastery</span>
+                          <span className="text-[#3b82f6] font-black">{masteryProgress}%</span>
+                        </div>
+                        <div className="h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                          <motion.div 
+                            initial={{ width: 0 }} 
+                            animate={{ width: `${masteryProgress}%` }} 
+                            transition={{ duration: 0.8, ease: 'easeOut' }}
+                            className="h-full bg-gradient-to-r from-[#10b981] to-[#3b82f6]" 
+                          />
+                        </div>
+                        {!statsLoading && dashStats && (
+                          <p className="text-xs text-slate-400 mt-2 font-medium">
+                            {dashStats.completedSessions} of {dashStats.totalSessions} sessions completed
+                          </p>
+                        )}
+                      </div>
                     </div>
+                    <Target className="absolute -bottom-10 -right-10 w-64 h-64 text-emerald-500/5 rotate-12" />
+                  </div>
 
                   <div className="grid lg:grid-cols-3 gap-8">
                     {/* Focus Zone */}
@@ -263,18 +361,29 @@ const Dashboard = ({ userData, roadmapData }) => {
                           {focusTask.icon}
                         </div>
                         <div className="flex-1">
-                          <h4 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">
-                            {focusTask.title}
-                          </h4>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="text-2xl font-black text-slate-800 tracking-tight">
+                              {focusTask.title}
+                            </h4>
+                            {focusTask.status === 'current' && (
+                              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">In Progress</span>
+                            )}
+                          </div>
+                          {/* Session progress + phase context */}
+                          {focusTask.topicPart && (
+                            <p className="text-xs font-bold text-emerald-600 mb-1">{focusTask.topicPart} • {focusTask.phaseTitle || 'Current Phase'}</p>
+                          )}
                           <p className="text-slate-500 font-medium mb-6 text-sm">
-                            Part of your "{displayName}" roadmap. <br/> Estimated time: {focusTask.time || '45 minutes'}.
+                            Part of your "{displayName}" roadmap. &nbsp;
+                            Estimated time: {focusTask.duration || focusTask.time || '1h'}.
                           </p>
                           <div className="flex gap-3">
                             <button 
                               onClick={() => handleStartTask(focusTask)}
                               className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-bold flex items-center gap-2 hover:scale-105 transition-all cursor-pointer"
                             >
-                              <Play className="w-4 h-4 fill-white" /> Start Learning
+                              <Play className="w-4 h-4 fill-white" /> 
+                              {focusTask.status === 'current' ? 'Continue' : 'Start Learning'}
                             </button>
                             <button className="bg-slate-50 text-slate-600 px-6 py-3 rounded-2xl font-bold hover:bg-slate-100 transition-all">
                               Details
@@ -287,9 +396,9 @@ const Dashboard = ({ userData, roadmapData }) => {
                     {/* Upcoming Tasks */}
                     <div className="space-y-6">
                       <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Up Next</h3>
-                      {upcomingTasks.map((task, i) => (
+                      {upcomingTasks.length > 0 ? upcomingTasks.map((task, i) => (
                         <div 
-                          key={i} 
+                          key={task.id || i}
                           onClick={() => handleStartTask(task)}
                           className="bg-white border border-white p-6 rounded-[28px] shadow-sm flex items-center justify-between hover:shadow-md transition-all cursor-pointer"
                         >
@@ -304,7 +413,11 @@ const Dashboard = ({ userData, roadmapData }) => {
                           </div>
                           <ChevronRight className="w-5 h-5 text-slate-300" />
                         </div>
-                      ))}
+                      )) : (
+                        <div className="bg-white border border-white p-6 rounded-[28px] shadow-sm text-center text-slate-400 text-sm font-medium">
+                          🎉 All caught up!
+                        </div>
+                      )}
                     </div>
                   </div>
                 </motion.div>

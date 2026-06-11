@@ -6,8 +6,9 @@ import {
   Timer, Lightbulb, ExternalLink, Wifi, WifiOff,
   ChevronRight, Bookmark, Download, Highlighter, Sparkles,
   Volume2, Settings, Maximize, SkipForward, SkipBack, Star, Zap, Target,
-  Menu, Plus, Grid
+  Menu, Plus, Grid, AlertCircle, Loader2
 } from 'lucide-react';
+import { getTopicContent, updateSession } from '../services/roadmapApi';
 
 const TaskDetailView = ({ task, onBack, onComplete }) => {
   // ==================== STATE MANAGEMENT ====================
@@ -15,12 +16,16 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
   const [timeSpent, setTimeSpent] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isNotePanelOpen, setIsNotePanelOpen] = useState(false);
+
+  // Topic content from backend
+  const [topicContent, setTopicContent] = useState(null);
+  const [contentLoading, setContentLoading] = useState(true);
   
   // Chat State
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
-  const [chatSize, setChatSize] = useState({ width: 350, height: 500 }); // Compact default size
+  const [chatSize, setChatSize] = useState({ width: 350, height: 500 });
   
   const [notes, setNotes] = useState('');
   const [videoProgress, setVideoProgress] = useState(0);
@@ -30,6 +35,7 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
   const [isOnline, setIsOnline] = useState(true);
   const [showConfetti, setShowConfetti] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [userCode, setUserCode] = useState('');
   
   // New State for Floating Menu
   const [isFabOpen, setIsFabOpen] = useState(false);
@@ -39,43 +45,65 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
   const containerRef = useRef(null); // Reference for drag constraints
   const chatDragControls = useDragControls(); // For draggable chat
 
-  // Mock task data if not provided
+  // Task data with fallback
   const taskData = task || {
     icon: '🎯',
-    title: 'Master Binary Search Algorithm',
+    title: 'Learning Session',
     priority: 'high',
     difficulty: 3,
     xp: 150,
-    duration: 45,
+    duration: 60,
     index: 1,
     total: 10,
     id: 'task-1',
-    resources: []
+    resources: [],
+    topicKey: null,
+    domain: 'general',
+    videoId: null,
+    embedUrl: null
   };
 
-  // Helper to extract youtube URL
-  const getYoutubeEmbedUrl = () => {
-    const videoResource = taskData?.resources?.find(r => r.url && (r.url.includes('youtube.com') || r.url.includes('youtu.be')));
-    let embedUrl = '';
-    
-    if (videoResource) {
-      if (videoResource.url.includes('youtu.be')) {
-        const id = videoResource.url.split('youtu.be/')[1];
-        embedUrl = `https://www.youtube.com/embed/${id}`;
-      } else {
-        const match = videoResource.url.match(/[?&]v=([^&]+)/);
-        if (match && match[1]) {
-          embedUrl = `https://www.youtube.com/embed/${match[1]}`;
-        } else {
-          embedUrl = videoResource.url.replace('watch?v=', 'embed/');
+  // ── Fetch topic content from backend on mount ──────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setContentLoading(true);
+      try {
+        const content = await getTopicContent(
+          taskData.title,
+          taskData.domain || 'general',
+          taskData.topicKey || ''
+        );
+        if (!cancelled) {
+          setTopicContent(content);
+          // Pre-fill practice code from AI content
+          if (content?.practiceChallenge?.starterCode) {
+            setUserCode(content.practiceChallenge.starterCode);
+          }
         }
+      } catch (err) {
+        console.warn('Could not load topic content:', err.message);
+      } finally {
+        if (!cancelled) setContentLoading(false);
       }
-    } else {
-      // Default placeholder if no video provided
-      embedUrl = 'https://www.youtube.com/embed/PkZNo7MFNFg';
-    }
-    return embedUrl;
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [taskData.title, taskData.topicKey, taskData.domain]);
+
+  // ── Build embed URL from verified videoId ──────────────────────────────────
+  const getYoutubeEmbedUrl = () => {
+    // Priority 1: embedUrl already built by backend
+    if (taskData.embedUrl) return taskData.embedUrl;
+    // Priority 2: raw videoId from DB session
+    if (taskData.videoId) return `https://www.youtube.com/embed/${taskData.videoId}?rel=0&modestbranding=1`;
+    // Priority 3: videoId from fetched topic content
+    if (topicContent?.videoId) return `https://www.youtube.com/embed/${topicContent.videoId}?rel=0&modestbranding=1`;
+    // No video available — return empty string (handled in render)
+    return '';
   };
+
+  const hasVideo = () => !!getYoutubeEmbedUrl();
 
   // Define tabs configuration
   const tabs = [
@@ -142,12 +170,22 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
     }, 1000);
   };
 
-  const handleMarkComplete = () => {
+  const handleMarkComplete = async () => {
     setShowConfetti(true);
+    // ── Save completion to MongoDB ─────────────────────────────────────────
+    if (taskData?.id && typeof taskData.id === 'number') {
+      try {
+        await updateSession(taskData.id, { status: 'completed' });
+      } catch (err) {
+        console.error('Failed to save session completion:', err.message);
+        // Still proceed to show completion UI — don't block the user
+      }
+    }
     setTimeout(() => {
       onComplete && onComplete(taskData);
     }, 2000);
   };
+
 
   // Resize Logic for Chat
   const handleChatResizeMouseDown = (e) => {
@@ -325,18 +363,31 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
                 >
                   {/* VIDEO PLAYER SECTION */}
                   <div className="w-full h-[65vh] min-h-[400px] bg-slate-900 shadow-2xl relative z-10 group">
-                    <div className="w-full h-full relative"> 
-                      {/* Video Content */}
+                    <div className="w-full h-full relative">
                       <div className="absolute inset-0 bg-black">
-                        <iframe 
-                          width="100%" 
-                          height="100%" 
-                          src={getYoutubeEmbedUrl()} 
-                          title="YouTube video player" 
-                          frameBorder="0" 
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                          allowFullScreen
-                        ></iframe>
+                        {hasVideo() ? (
+                          <iframe
+                            key={getYoutubeEmbedUrl()}
+                            width="100%"
+                            height="100%"
+                            src={getYoutubeEmbedUrl()}
+                            title={taskData.title}
+                            frameBorder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center gap-4">
+                            {contentLoading ? (
+                              <><Loader2 className="w-12 h-12 text-slate-400 animate-spin" />
+                              <p className="text-slate-400 font-bold">Loading video...</p></>
+                            ) : (
+                              <><AlertCircle className="w-12 h-12 text-slate-500" />
+                              <p className="text-slate-400 font-bold text-lg">No video available for this topic</p>
+                              <p className="text-slate-500 text-sm">Check the documentation and practice tabs below</p></>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -353,17 +404,29 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
                           <div className="flex items-center gap-6 text-sm text-slate-600">
                             <span className="flex items-center gap-2 bg-white px-2 py-1 rounded-lg border border-slate-200 shadow-sm">
                               <div className="w-6 h-6 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-md flex items-center justify-center text-white font-bold text-[10px]">AI</div>
-                              <span className="font-bold text-slate-800">AI Instructor</span>
+                              <span className="font-bold text-slate-800">
+                                {topicContent?.videoChannel || 'PathAI Instructor'}
+                              </span>
                             </span>
-                            <span className="text-slate-300">•</span>
-                            <span className="font-medium text-slate-500">Updated {new Date().toLocaleDateString()}</span>
+                            {taskData.topicPart && (
+                              <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold border border-indigo-100">
+                                {taskData.topicPart}
+                              </span>
+                            )}
                           </div>
                         </div>
-                        
                         <div className="flex gap-2">
-                          <button className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Star className="w-6 h-6" /></button>
+                          {(topicContent?.watchUrl || taskData.watchUrl) && (
+                            <a
+                              href={topicContent?.watchUrl || taskData.watchUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-all border border-red-100 text-sm"
+                            >
+                              <Video className="w-4 h-4" /> Open on YouTube
+                            </a>
+                          )}
                           <button className="p-2.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all"><Bookmark className="w-6 h-6" /></button>
-                          <button className="p-2.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all"><ExternalLink className="w-6 h-6" /></button>
                         </div>
                       </div>
 
@@ -372,8 +435,10 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
                           <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><Clock className="w-6 h-6" /></div>
                           <div>
-                            <div className="text-slate-500 text-xs font-bold mb-1 uppercase tracking-wider">Duration</div>
-                            <div className="text-slate-900 font-black text-2xl">{taskData.duration || 45} min</div>
+                            <div className="text-slate-500 text-xs font-bold mb-1 uppercase tracking-wider">Est. Duration</div>
+                            <div className="text-slate-900 font-black text-2xl">
+                              {taskData.estimatedHours ? `${taskData.estimatedHours}h` : (topicContent?.videoTitle ? '60 min' : '45 min')}
+                            </div>
                           </div>
                         </div>
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
@@ -382,7 +447,7 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
                             <div className="text-slate-500 text-xs font-bold mb-1 uppercase tracking-wider">Difficulty</div>
                             <div className="text-amber-500 font-black text-2xl flex gap-0.5">
                               {'★'.repeat(taskData.difficulty || 3)}
-                              <span className="text-slate-200">{'★'.repeat(5-(taskData.difficulty || 3))}</span>
+                              <span className="text-slate-200">{'★'.repeat(5 - (taskData.difficulty || 3))}</span>
                             </div>
                           </div>
                         </div>
@@ -395,31 +460,63 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
                         </div>
                       </div>
 
+                      {/* What You'll Learn – Dynamic */}
                       <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
                         <h3 className="text-slate-900 font-black mb-6 flex items-center gap-2 text-lg">
                           What You'll Learn
                         </h3>
-                        <div className="grid grid-cols-2 gap-4 text-base">
-                          <div className="flex items-start gap-3 text-slate-700">
-                            <CheckCircle className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
-                            <span className="font-medium">Binary search fundamentals and theory</span>
+                        {contentLoading ? (
+                          <div className="grid grid-cols-2 gap-4">
+                            {[...Array(4)].map((_, i) => (
+                              <div key={i} className="h-6 bg-slate-100 rounded-lg animate-pulse" />
+                            ))}
                           </div>
-                          <div className="flex items-start gap-3 text-slate-700">
-                            <CheckCircle className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
-                            <span className="font-medium">Time complexity O(log n) analysis</span>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-4 text-base">
+                            {(topicContent?.whatYouWillLearn || [
+                              `Understand the basics of ${taskData.title}`,
+                              'Apply core concepts in practice',
+                              'Build a real project with this knowledge',
+                              'Master advanced use cases'
+                            ]).map((item, i) => (
+                              <div key={i} className="flex items-start gap-3 text-slate-700">
+                                <CheckCircle className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
+                                <span className="font-medium">{item}</span>
+                              </div>
+                            ))}
                           </div>
-                          <div className="flex items-start gap-3 text-slate-700">
-                            <CheckCircle className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
-                            <span className="font-medium">Step-by-step implementation</span>
-                          </div>
-                          <div className="flex items-start gap-3 text-slate-700">
-                            <CheckCircle className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
-                            <span className="font-medium">Common pitfalls and edge cases</span>
-                          </div>
-                        </div>
+                        )}
                       </div>
 
-                      <button 
+                      {/* Quick Resource Links */}
+                      {(topicContent?.documentation || topicContent?.practice) && (
+                        <div className="grid grid-cols-2 gap-4">
+                          {topicContent.documentation && (
+                            <a href={topicContent.documentation.url} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center gap-3 p-4 bg-blue-50 rounded-xl border border-blue-100 hover:bg-blue-100 transition-all group">
+                              <BookOpen className="w-5 h-5 text-blue-600" />
+                              <div>
+                                <p className="font-bold text-blue-800 text-sm group-hover:underline">{topicContent.documentation.title}</p>
+                                <p className="text-xs text-blue-500">Documentation</p>
+                              </div>
+                              <ExternalLink className="w-4 h-4 text-blue-400 ml-auto" />
+                            </a>
+                          )}
+                          {topicContent.practice && (
+                            <a href={topicContent.practice.url} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center gap-3 p-4 bg-purple-50 rounded-xl border border-purple-100 hover:bg-purple-100 transition-all group">
+                              <Code className="w-5 h-5 text-purple-600" />
+                              <div>
+                                <p className="font-bold text-purple-800 text-sm group-hover:underline">{topicContent.practice.title}</p>
+                                <p className="text-xs text-purple-500">Practice</p>
+                              </div>
+                              <ExternalLink className="w-4 h-4 text-purple-400 ml-auto" />
+                            </a>
+                          )}
+                        </div>
+                      )}
+
+                      <button
                         onClick={() => handleTabChange('read')}
                         className="w-full group bg-slate-900 text-white py-5 rounded-2xl font-black text-lg hover:bg-slate-800 transition-all shadow-xl hover:shadow-2xl flex items-center justify-center gap-3"
                       >
@@ -445,7 +542,7 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
                         {taskData.title}
                       </h2>
                       <div className="text-sm font-bold text-slate-500">
-                        {Math.round(readingProgress)}% complete
+                        {Math.round(readingProgress)}% read
                       </div>
                     </div>
 
@@ -457,69 +554,72 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
                       />
                     </div>
 
-                    {/* Article Content */}
-                    <div 
-                      ref={articleRef}
-                      className="bg-white/80 backdrop-blur-xl border border-white rounded-3xl p-8 shadow-lg prose prose-lg prose-slate max-w-none"
-                      onScroll={(e) => {
-                        const element = e.target;
-                        const scrolled = (element.scrollTop / (element.scrollHeight - element.clientHeight)) * 100;
-                        setReadingProgress(scrolled);
-                      }}
-                      style={{ maxHeight: '500px', overflowY: 'auto' }}
-                    >
-                      <p className="text-xl text-slate-600 leading-relaxed font-medium">
-                        Learn about {taskData.title} and explore core concepts, algorithms, and practical applications.
-                      </p>
-
-                      <h2 className="font-black">How It Works</h2>
-                      <p className="font-medium">
-                        Binary search compares the target value to the middle element of the array. 
-                        If they are not equal, the half in which the target cannot lie is eliminated 
-                        and the search continues on the remaining half.
-                      </p>
-
-                      <h3 className="font-black">Algorithm Steps:</h3>
-                      <ol className="font-medium">
-                        <li>Compare x with the middle element</li>
-                        <li>If x matches with the middle element, return the mid index</li>
-                        <li>Else if x is greater than the mid element, search in the right half</li>
-                        <li>Else search in the left half</li>
-                      </ol>
-
-                      <div className="bg-slate-900 text-emerald-400 p-6 rounded-2xl font-mono text-sm not-prose my-8">
-                        <pre className="text-emerald-400 overflow-x-auto">{`def binary_search(arr, target):
-    left, right = 0, len(arr) - 1
-    
-    while left <= right:
-        mid = (left + right) // 2
-        
-        if arr[mid] == target:
-            return mid
-        elif arr[mid] < target:
-            left = mid + 1
-        else:
-            right = mid - 1
-    
-    return -1  # Target not found`}</pre>
+                    {/* Article Content – Dynamic */}
+                    {contentLoading ? (
+                      <div className="space-y-4">
+                        {[...Array(6)].map((_, i) => (
+                          <div key={i} className={`h-4 bg-slate-100 rounded animate-pulse ${i % 3 === 2 ? 'w-3/4' : 'w-full'}`} />
+                        ))}
                       </div>
+                    ) : (
+                      <div
+                        ref={articleRef}
+                        className="bg-white/80 backdrop-blur-xl border border-white rounded-3xl p-8 shadow-lg prose prose-lg prose-slate max-w-none"
+                        onScroll={(e) => {
+                          const el = e.target;
+                          const scrolled = (el.scrollTop / (el.scrollHeight - el.clientHeight)) * 100;
+                          setReadingProgress(Math.min(100, scrolled));
+                        }}
+                        style={{ maxHeight: '520px', overflowY: 'auto' }}
+                      >
+                        <p className="text-xl text-slate-600 leading-relaxed font-medium">
+                          {topicContent?.readContent?.introduction || `Explore the core concepts of ${taskData.title} and how they apply in real-world scenarios.`}
+                        </p>
 
-                      <h2 className="font-black">Time Complexity</h2>
-                      <p className="font-medium">
-                        Binary search has a time complexity of <strong>O(log n)</strong> because 
-                        it divides the search space in half with each iteration.
-                      </p>
-                    </div>
+                        <h2 className="font-black">How It Works</h2>
+                        <p className="font-medium">
+                          {topicContent?.readContent?.howItWorks || `${taskData.title} is a fundamental concept that powers many real-world applications.`}
+                        </p>
+
+                        {topicContent?.readContent?.steps?.length > 0 && (
+                          <>
+                            <h3 className="font-black">Step-by-Step:</h3>
+                            <ol className="font-medium space-y-1">
+                              {topicContent.readContent.steps.map((step, i) => (
+                                <li key={i}>{step}</li>
+                              ))}
+                            </ol>
+                          </>
+                        )}
+
+                        {topicContent?.readContent?.codeExample && (
+                          <div className="bg-slate-900 text-emerald-400 p-6 rounded-2xl font-mono text-sm not-prose my-8">
+                            <div className="text-slate-400 text-xs mb-3 uppercase tracking-widest">
+                              {topicContent.readContent.codeLanguage || 'code'}
+                            </div>
+                            <pre className="text-emerald-400 overflow-x-auto whitespace-pre-wrap">
+                              {topicContent.readContent.codeExample}
+                            </pre>
+                          </div>
+                        )}
+
+                        {topicContent?.readContent?.keyTakeaway && (
+                          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 not-prose">
+                            <h4 className="font-black text-emerald-800 mb-2 flex items-center gap-2">
+                              <Lightbulb className="w-5 h-5" /> Key Takeaway
+                            </h4>
+                            <p className="text-emerald-700 font-medium">{topicContent.readContent.keyTakeaway}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Action Buttons */}
                     <div className="flex gap-3">
                       <button className="flex items-center gap-2 px-6 py-3 bg-white/80 backdrop-blur-xl border border-white text-slate-700 rounded-xl font-bold hover:bg-white transition-all shadow-sm">
                         <Bookmark className="w-4 h-4" /> Bookmark
                       </button>
-                      <button className="flex items-center gap-2 px-6 py-3 bg-white/80 backdrop-blur-xl border border-white text-slate-700 rounded-xl font-bold hover:bg-white transition-all shadow-sm">
-                        <Download className="w-4 h-4" /> PDF
-                      </button>
-                      <button 
+                      <button
                         onClick={() => handleTabChange('practice')}
                         className="flex-1 bg-slate-900 text-white py-3 rounded-2xl font-black hover:bg-slate-800 transition-all flex items-center justify-center gap-2 shadow-lg"
                       >
@@ -542,97 +642,112 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
                   <div className="max-w-5xl mx-auto space-y-6">
                     <div className="flex items-center justify-between mb-6">
                       <h2 className="text-3xl font-black text-slate-900 tracking-tight">
-                        Practice Problems
+                        Practice Challenge
                       </h2>
-                      <div className="text-sm font-bold text-slate-500">
-                        {problemsSolved} / 5 completed
+                      <div className="flex items-center gap-3">
+                        {topicContent?.project && (
+                          <a
+                            href={topicContent.project.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl font-bold text-sm border border-emerald-100 hover:bg-emerald-100 transition-all"
+                          >
+                            <Zap className="w-4 h-4" /> Project Challenge
+                          </a>
+                        )}
                       </div>
                     </div>
 
-                    {/* Progress Bar */}
-                    <div className="h-2 bg-white/80 backdrop-blur-xl border border-white rounded-full overflow-hidden shadow-sm">
-                      <motion.div
-                        animate={{ width: `${(problemsSolved / 5) * 100}%` }}
-                        className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
-                      />
-                    </div>
-
-                    {/* Problem Card */}
-                    <div className="bg-white/80 backdrop-blur-xl border border-white rounded-3xl p-8 shadow-lg">
-                      <div className="flex items-start justify-between mb-6">
-                        <div>
-                          <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">
-                            Problem 1: Two Sum
-                          </h3>
-                          <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold">
-                            EASY
-                          </span>
-                        </div>
-                        <a 
-                          href="https://leetcode.com" 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-bold"
-                        >
-                          LeetCode <ExternalLink className="w-4 h-4" />
-                        </a>
+                    {/* AI-Generated Practice Problem */}
+                    {contentLoading ? (
+                      <div className="space-y-4">
+                        {[...Array(4)].map((_, i) => (
+                          <div key={i} className="h-12 bg-slate-100 rounded-2xl animate-pulse" />
+                        ))}
                       </div>
-
-                      <div className="bg-gradient-to-br from-slate-50 to-blue-50 border border-slate-200 rounded-2xl p-6 mb-6">
-                        <h4 className="font-black text-slate-900 mb-3 text-sm flex items-center gap-2">
-                          <Lightbulb className="w-4 h-4 text-amber-500" />
-                          Problem Description
-                        </h4>
-                        <p className="text-slate-700 mb-4 leading-relaxed font-medium">
-                          Given an array of integers <code className="bg-white px-2 py-1 rounded text-sm text-emerald-600 font-mono">nums</code> and 
-                          an integer <code className="bg-white px-2 py-1 rounded text-sm text-emerald-600 font-mono">target</code>, return indices of 
-                          the two numbers such that they add up to target.
-                        </p>
-                        <div className="bg-white border border-slate-200 rounded-xl p-4 font-mono text-sm">
-                          <div className="text-slate-700 font-medium"><strong>Input:</strong> nums = [2,7,11,15], target = 9</div>
-                          <div className="text-slate-700 font-medium mt-1"><strong>Output:</strong> [0,1]</div>
-                          <div className="text-slate-500 text-xs mt-2">
-                            Explanation: Because nums[0] + nums[1] = 2 + 7 = 9
+                    ) : (
+                      <div className="bg-white/80 backdrop-blur-xl border border-white rounded-3xl p-8 shadow-lg">
+                        <div className="flex items-start justify-between mb-6">
+                          <div>
+                            <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">
+                              {topicContent?.practiceChallenge?.title || `${taskData.title} Challenge`}
+                            </h3>
+                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
+                              topicContent?.practiceChallenge?.difficulty === 'HARD'
+                                ? 'bg-red-100 text-red-700'
+                                : topicContent?.practiceChallenge?.difficulty === 'MEDIUM'
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-emerald-100 text-emerald-700'
+                            }`}>
+                              {topicContent?.practiceChallenge?.difficulty || 'EASY'}
+                            </span>
                           </div>
+                          {topicContent?.practice && (
+                            <a
+                              href={topicContent.practice.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-bold text-sm"
+                            >
+                              {topicContent.practice.title} <ExternalLink className="w-4 h-4" />
+                            </a>
+                          )}
+                        </div>
+
+                        <div className="bg-gradient-to-br from-slate-50 to-blue-50 border border-slate-200 rounded-2xl p-6 mb-6">
+                          <h4 className="font-black text-slate-900 mb-3 text-sm flex items-center gap-2">
+                            <Lightbulb className="w-4 h-4 text-amber-500" />
+                            Problem Description
+                          </h4>
+                          <p className="text-slate-700 mb-4 leading-relaxed font-medium">
+                            {topicContent?.practiceChallenge?.description || `Apply your knowledge of ${taskData.title} to solve this challenge.`}
+                          </p>
+                          {topicContent?.practiceChallenge?.example && (
+                            <div className="bg-white border border-slate-200 rounded-xl p-4 font-mono text-sm">
+                              <div className="text-slate-700 font-medium"><strong>Input:</strong> {topicContent.practiceChallenge.example.input}</div>
+                              <div className="text-slate-700 font-medium mt-1"><strong>Output:</strong> {topicContent.practiceChallenge.example.output}</div>
+                              {topicContent.practiceChallenge.example.explanation && (
+                                <div className="text-slate-500 text-xs mt-2">{topicContent.practiceChallenge.example.explanation}</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Code Editor */}
+                        <div className="bg-slate-900 rounded-2xl overflow-hidden mb-6 border border-slate-800">
+                          <div className="flex items-center justify-between bg-slate-800 px-6 py-3">
+                            <span className="text-emerald-400 font-bold flex items-center gap-2">
+                              <Code className="w-4 h-4" /> Your Solution
+                            </span>
+                            <span className="text-slate-400 text-sm font-mono">
+                              {topicContent?.practiceChallenge?.codeLanguage || 'code'}
+                            </span>
+                          </div>
+                          <textarea
+                            value={userCode}
+                            onChange={(e) => setUserCode(e.target.value)}
+                            className="w-full bg-slate-900 text-emerald-300 font-mono text-sm p-6 focus:outline-none min-h-[280px] resize-none"
+                            placeholder={`// Write your ${taskData.title} solution here`}
+                          />
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-3">
+                          <button className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition-all shadow-sm">
+                            <Play className="w-4 h-4" /> Run Code
+                          </button>
+                          <button className="flex items-center gap-2 px-6 py-3 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-xl font-bold transition-all border border-amber-200">
+                            <Lightbulb className="w-4 h-4" /> Get Hint
+                          </button>
+                          <button
+                            onClick={() => setProblemsSolved(prev => Math.min(prev + 1, 5))}
+                            className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg"
+                          >
+                            <CheckCircle className="w-5 h-5" /> Submit Solution
+                          </button>
                         </div>
                       </div>
-
-                      {/* Code Editor */}
-                      <div className="bg-slate-900 rounded-2xl overflow-hidden mb-6 border border-slate-800">
-                        <div className="flex items-center justify-between bg-slate-800 px-6 py-3">
-                          <span className="text-emerald-400 font-bold flex items-center gap-2">
-                            <Code className="w-4 h-4" />
-                            Your Solution
-                          </span>
-                          <select className="bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm border border-slate-600 focus:outline-none focus:border-emerald-500 font-semibold">
-                            <option>Python</option>
-                            <option>JavaScript</option>
-                            <option>Java</option>
-                            <option>C++</option>
-                          </select>
-                        </div>
-                        <textarea
-                          className="w-full bg-slate-900 text-emerald-300 font-mono text-sm p-6 focus:outline-none min-h-[280px] resize-none"
-                          placeholder="def twoSum(nums, target):&#10;    # Write your solution here&#10;    pass"
-                        />
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex gap-3">
-                        <button className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition-all shadow-sm">
-                          <Play className="w-4 h-4" /> Run Code
-                        </button>
-                        <button className="flex items-center gap-2 px-6 py-3 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-xl font-bold transition-all border border-amber-200">
-                          <Lightbulb className="w-4 h-4" /> Get Hint
-                        </button>
-                        <button 
-                          onClick={() => setProblemsSolved(prev => Math.min(prev + 1, 5))}
-                          className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg"
-                        >
-                          <CheckCircle className="w-5 h-5" /> Submit Solution
-                        </button>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </motion.div>
               )}

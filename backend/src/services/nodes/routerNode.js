@@ -2,7 +2,8 @@ const Groq = require('groq-sdk');
 
 const VALID_DOMAINS = [
   'web_development', 'cybersecurity', 'dsa', 'ai_ml', 
-  'mobile_dev', 'cloud_devops', 'data_science', 'game_dev', 'blockchain'
+  'mobile_dev', 'cloud_devops', 'data_science', 'game_dev', 'blockchain',
+  'competitive_programming', 'ui_ux_design', 'system_design', 'app_development'
 ];
 
 async function extractDomains(userText) {
@@ -18,6 +19,10 @@ ${VALID_DOMAINS.join(', ')}
 
 If they mention "flutter" or "android", output "mobile_dev".
 If they mention "react", "frontend", or "backend", output "web_development".
+If they mention "competitive programming", "Codeforces", or "ICPC", output "competitive_programming".
+If they mention "UI/UX", "product design", or "Figma", output "ui_ux_design".
+If they mention "system design", "architecture", or "scalability", output "system_design".
+If they mention general "app development", output "app_development".
 
 Output ONLY a JSON object in this exact format:
 {

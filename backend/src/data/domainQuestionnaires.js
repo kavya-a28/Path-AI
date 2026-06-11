@@ -695,6 +695,291 @@ const domainQuestionnaires = [
         ]
       }
     }
+  },
+
+  {
+    domainName:      'competitive_programming',
+    displayName:     'Competitive Programming',
+    description:     'Train for coding contests with algorithms, speed, and accuracy.',
+    startingPointId: 'cp_q1',
+    questions: {
+      cp_q1: {
+        id:    'cp_q1',
+        text:  'What is your current competitive programming level?',
+        field: 'currentSkills',
+        options: [
+          { text: 'Beginner - new to contests and problem solving', nextId: 'cp_q2' },
+          { text: 'Intermediate - solve Div 2 / medium problems',   nextId: 'cp_q2' },
+          { text: 'Advanced - regularly compete and upsolve',       nextId: 'cp_q2' }
+        ]
+      },
+      cp_q2: {
+        id:    'cp_q2',
+        text:  'What is your overall timeline to improve in contests?',
+        field: 'targetDuration',
+        options: [
+          { text: '3 months', nextId: 'cp_q3' },
+          { text: '6 months', nextId: 'cp_q3' },
+          { text: '1 year',   nextId: 'cp_q3' }
+        ]
+      },
+      cp_q3: {
+        id:    'cp_q3',
+        text:  'How many hours per day can you practice competitive programming?',
+        field: 'studyHoursPerDay',
+        options: [
+          { text: '1 hour/day',   nextId: 'cp_q4' },
+          { text: '3 hours/day',  nextId: 'cp_q4' },
+          { text: '5+ hours/day', nextId: 'cp_q4' }
+        ]
+      },
+      cp_q4: {
+        id:    'cp_q4',
+        text:  'Which competitive programming area do you want to focus on first?',
+        field: 'focusArea',
+        options: [
+          { text: 'Implementation, arrays, and strings', nextId: 'cp_q5' },
+          { text: 'Graphs, trees, and shortest paths',   nextId: 'cp_q5' },
+          { text: 'Dynamic programming and greedy',      nextId: 'cp_q5' },
+          { text: 'Number theory and combinatorics',     nextId: 'cp_q5' }
+        ]
+      },
+      cp_q5: {
+        id:    'cp_q5',
+        text:  'What is your main goal for competitive programming?',
+        field: 'motivation',
+        options: [
+          { text: 'Improve Codeforces / CodeChef rating', nextId: 'cp_q6' },
+          { text: 'Prepare for ICPC or college contests', nextId: 'cp_q6' },
+          { text: 'Strengthen interview problem solving', nextId: 'cp_q6' },
+          { text: 'Build speed and confidence',           nextId: 'cp_q6' }
+        ]
+      },
+      cp_q6: {
+        id:    'cp_q6',
+        text:  'Which language will you use for competitive programming?',
+        field: 'preferredLanguage',
+        options: [
+          { text: 'C++',    nextId: null },
+          { text: 'Java',   nextId: null },
+          { text: 'Python', nextId: null }
+        ]
+      }
+    }
+  },
+
+  {
+    domainName:      'ui_ux_design',
+    displayName:     'UI/UX Design',
+    description:     'Design usable, accessible, and polished digital product experiences.',
+    startingPointId: 'ux_q1',
+    questions: {
+      ux_q1: {
+        id:    'ux_q1',
+        text:  'What is your current UI/UX design experience level?',
+        field: 'currentSkills',
+        options: [
+          { text: 'Beginner - new to design tools and process', nextId: 'ux_q2' },
+          { text: 'Intermediate - made screens or case studies', nextId: 'ux_q2' },
+          { text: 'Advanced - designed shipped products',        nextId: 'ux_q2' }
+        ]
+      },
+      ux_q2: {
+        id:    'ux_q2',
+        text:  'How much total time do you have for your UI/UX goal?',
+        field: 'targetDuration',
+        options: [
+          { text: '3 months', nextId: 'ux_q3' },
+          { text: '6 months', nextId: 'ux_q3' },
+          { text: '1 year',   nextId: 'ux_q3' }
+        ]
+      },
+      ux_q3: {
+        id:    'ux_q3',
+        text:  'How many hours per day can you spend practicing design?',
+        field: 'studyHoursPerDay',
+        options: [
+          { text: '1 hour/day',   nextId: 'ux_q4' },
+          { text: '3 hours/day',  nextId: 'ux_q4' },
+          { text: '5+ hours/day', nextId: 'ux_q4' }
+        ]
+      },
+      ux_q4: {
+        id:    'ux_q4',
+        text:  'Which UI/UX area interests you the most?',
+        field: 'focusArea',
+        options: [
+          { text: 'User research and journey mapping', nextId: 'ux_q5' },
+          { text: 'Wireframes and interaction design', nextId: 'ux_q5' },
+          { text: 'Visual UI and design systems',      nextId: 'ux_q5' },
+          { text: 'Portfolio case studies',            nextId: 'ux_q5' }
+        ]
+      },
+      ux_q5: {
+        id:    'ux_q5',
+        text:  'What is your main reason for learning UI/UX design?',
+        field: 'motivation',
+        options: [
+          { text: 'Get a product design job',       nextId: 'ux_q6' },
+          { text: 'Improve my app or website design', nextId: 'ux_q6' },
+          { text: 'Freelance with design projects', nextId: 'ux_q6' },
+          { text: 'Build a stronger portfolio',     nextId: 'ux_q6' }
+        ]
+      },
+      ux_q6: {
+        id:    'ux_q6',
+        text:  'Which design tool do you want to learn or improve?',
+        field: 'toolPreference',
+        options: [
+          { text: 'Figma',             nextId: null },
+          { text: 'Adobe XD / Sketch', nextId: null },
+          { text: 'No preference yet', nextId: null }
+        ]
+      }
+    }
+  },
+
+  {
+    domainName:      'system_design',
+    displayName:     'System Design',
+    description:     'Design scalable, reliable, and maintainable software architectures.',
+    startingPointId: 'sd_q1',
+    questions: {
+      sd_q1: {
+        id:    'sd_q1',
+        text:  'What is your current system design experience level?',
+        field: 'currentSkills',
+        options: [
+          { text: 'Beginner - new to architecture concepts',      nextId: 'sd_q2' },
+          { text: 'Intermediate - know APIs, databases, caching', nextId: 'sd_q2' },
+          { text: 'Advanced - designed production systems',       nextId: 'sd_q2' }
+        ]
+      },
+      sd_q2: {
+        id:    'sd_q2',
+        text:  'What is your overall timeline for learning system design?',
+        field: 'targetDuration',
+        options: [
+          { text: '3 months', nextId: 'sd_q3' },
+          { text: '6 months', nextId: 'sd_q3' },
+          { text: '1 year',   nextId: 'sd_q3' }
+        ]
+      },
+      sd_q3: {
+        id:    'sd_q3',
+        text:  'How many hours per day can you study system design?',
+        field: 'studyHoursPerDay',
+        options: [
+          { text: '1 hour/day',   nextId: 'sd_q4' },
+          { text: '3 hours/day',  nextId: 'sd_q4' },
+          { text: '5+ hours/day', nextId: 'sd_q4' }
+        ]
+      },
+      sd_q4: {
+        id:    'sd_q4',
+        text:  'Which system design topic do you want to focus on?',
+        field: 'focusArea',
+        options: [
+          { text: 'Scalability and load balancing', nextId: 'sd_q5' },
+          { text: 'Databases, caching, and queues', nextId: 'sd_q5' },
+          { text: 'Microservices and APIs',         nextId: 'sd_q5' },
+          { text: 'Interview case studies',         nextId: 'sd_q5' }
+        ]
+      },
+      sd_q5: {
+        id:    'sd_q5',
+        text:  'What is your main goal for learning system design?',
+        field: 'motivation',
+        options: [
+          { text: 'Crack senior engineering interviews', nextId: 'sd_q6' },
+          { text: 'Design better production systems',    nextId: 'sd_q6' },
+          { text: 'Prepare for backend architecture work', nextId: 'sd_q6' },
+          { text: 'Understand large-scale products',     nextId: 'sd_q6' }
+        ]
+      },
+      sd_q6: {
+        id:    'sd_q6',
+        text:  'Do you have backend development or database experience?',
+        field: 'existingBaseline',
+        options: [
+          { text: 'Yes - comfortable with backend and databases', nextId: null },
+          { text: 'Some - built small APIs or apps',              nextId: null },
+          { text: 'No - need fundamentals first',                 nextId: null }
+        ]
+      }
+    }
+  },
+
+  {
+    domainName:      'app_development',
+    displayName:     'App Development',
+    description:     'Build complete software applications from idea to deployment.',
+    startingPointId: 'app_q1',
+    questions: {
+      app_q1: {
+        id:    'app_q1',
+        text:  'What is your current app development experience level?',
+        field: 'currentSkills',
+        options: [
+          { text: 'Beginner - never built a complete app', nextId: 'app_q2' },
+          { text: 'Intermediate - built small projects',   nextId: 'app_q2' },
+          { text: 'Advanced - shipped apps to users',      nextId: 'app_q2' }
+        ]
+      },
+      app_q2: {
+        id:    'app_q2',
+        text:  'How much total time do you have to build app development skills?',
+        field: 'targetDuration',
+        options: [
+          { text: '3 months', nextId: 'app_q3' },
+          { text: '6 months', nextId: 'app_q3' },
+          { text: '1 year',   nextId: 'app_q3' }
+        ]
+      },
+      app_q3: {
+        id:    'app_q3',
+        text:  'How many hours per day can you work on app development?',
+        field: 'studyHoursPerDay',
+        options: [
+          { text: '1 hour/day',   nextId: 'app_q4' },
+          { text: '3 hours/day',  nextId: 'app_q4' },
+          { text: '5+ hours/day', nextId: 'app_q4' }
+        ]
+      },
+      app_q4: {
+        id:    'app_q4',
+        text:  'Which app development path interests you most?',
+        field: 'focusArea',
+        options: [
+          { text: 'Web apps with frontend and backend', nextId: 'app_q5' },
+          { text: 'Mobile apps for Android or iOS',     nextId: 'app_q5' },
+          { text: 'Desktop apps and tools',             nextId: 'app_q5' },
+          { text: 'Full product development',           nextId: 'app_q5' }
+        ]
+      },
+      app_q5: {
+        id:    'app_q5',
+        text:  'What is your main motivation for app development?',
+        field: 'motivation',
+        options: [
+          { text: 'Get an app developer job',   nextId: 'app_q6' },
+          { text: 'Build my startup idea',      nextId: 'app_q6' },
+          { text: 'Freelance or client work',   nextId: 'app_q6' },
+          { text: 'Create personal projects',   nextId: 'app_q6' }
+        ]
+      },
+      app_q6: {
+        id:    'app_q6',
+        text:  'Which programming stack would you prefer for apps?',
+        field: 'preferredLanguage',
+        options: [
+          { text: 'JavaScript / TypeScript', nextId: null },
+          { text: 'Python',                  nextId: null },
+          { text: 'Dart / Flutter',          nextId: null },
+          { text: 'No preference yet',       nextId: null }
+        ]
+      }
+    }
   }
 
 ];

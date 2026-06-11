@@ -1,119 +1,164 @@
 /**
- * topicContentGenerator.js
+ * topicContentGenerator.js  (v4 – fixed)
  * ─────────────────────────────────────────────────────────────────────────────
- * Generates topic-specific learning content (read material, practice challenge,
- * YouTube query, etc.) via Groq AI.
+ * VIDEO STRATEGY (no more "fetchVideoMetadata is not defined"):
+ *   1. If catalog has a video ID  → use it directly (trusted, curated list)
+ *   2. If catalog has NO entry    → call YouTube Search API once to find one
+ *
+ * We do NOT validate catalog IDs on every request — that burns API quota
+ * (YouTube Search = 100 units each) and slows down every topic load.
+ * Bad catalog IDs are fixed directly in resourceCatalog.js instead.
+ *
+ * GROQ STRATEGY:
+ *   - Strict JSON prompt (no triple-quotes, no backticks, \n for newlines)
+ *   - max_tokens capped at 900 to avoid verbose/broken output
+ *   - Falls back to static text on any Groq error (rate-limit or JSON fail)
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 const Groq = require('groq-sdk');
+const { getResourceForTopic } = require('../data/resourceCatalog');
+const { buildEmbedUrl, buildWatchUrl, searchTopVideo } = require('./youtubeService');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-/**
- * Generate rich learning content for a specific topic.
- *
- * @param {string} topicName  – e.g. "HTML & CSS Basics"
- * @param {string} domain     – e.g. "web_development"
- * @returns {Promise<Object>} – structured content object
- */
-async function generateTopicContent(topicName, domain) {
-  try {
-    const prompt = `
-You are an expert programming tutor. Generate detailed learning content for the topic "${topicName}" in the "${domain}" domain.
+async function generateTopicContent(topicName, domain, topicKey) {
 
-Return a JSON object with exactly this structure:
+  // ── 1. Resolve video ──────────────────────────────────────────────────────
+  const catalogEntry = topicKey ? getResourceForTopic(topicKey) : null;
+  const catalogId    = catalogEntry?.video?.id || null;
+
+  let videoId  = null;
+  let embedUrl = null;
+  let watchUrl = null;
+
+  if (catalogId) {
+    // Trust the curated catalog ID directly — no API round-trip needed
+    videoId  = catalogId;
+    embedUrl = buildEmbedUrl(catalogId);
+    watchUrl = buildWatchUrl(catalogId);
+  } else {
+    // No catalog entry for this topic → search YouTube live
+    try {
+      const found = await searchTopVideo(`${topicName} programming tutorial`);
+      if (found?.id) {
+        videoId  = found.id;
+        embedUrl = found.embedUrl;
+        watchUrl = found.watchUrl;
+      }
+    } catch (e) {
+      console.warn('[TopicContent] YouTube search failed:', e.message);
+    }
+  }
+
+  // ── 2. Ask Groq for text content only ────────────────────────────────────
+  let aiContent = null;
+  try {
+    const prompt = `You are a programming tutor. Return ONLY a JSON object (no markdown, no extra text) for the topic "${topicName}" in ${domain.replace(/_/g, ' ')}.
+
+STRICT JSON RULES:
+- All string values must be on ONE line only
+- Use \\n for line breaks inside code strings, NOT actual newlines
+- NEVER use triple quotes (""") anywhere
+- NEVER use backticks anywhere
+- Keep codeExample under 300 characters total
+- Keep starterCode under 200 characters total
+
+JSON structure (fill every field):
 {
-  "youtubeSearchQuery": "a specific YouTube search query string optimized for finding a tutorial video on this exact topic",
-  "whatYouWillLearn": ["item1", "item2", "item3", "item4"],
+  "whatYouWillLearn": ["point 1 max 10 words", "point 2", "point 3", "point 4"],
   "readContent": {
-    "introduction": "2-3 sentence intro paragraph about this specific topic",
-    "howItWorks": "2-3 sentence explanation of the core concept",
-    "steps": ["step1", "step2", "step3", "step4", "step5"],
-    "codeExample": "a relevant code snippet as a string in the appropriate language for the domain",
-    "codeLanguage": "python or javascript or html etc.",
-    "keyTakeaway": "1-2 sentence summary"
+    "introduction": "2 sentences about ${topicName}",
+    "howItWorks": "2 sentences explaining the core concept",
+    "steps": ["step 1", "step 2", "step 3", "step 4", "step 5"],
+    "codeExample": "short code snippet using \\n for newlines",
+    "codeLanguage": "python",
+    "keyTakeaway": "1 sentence summary"
   },
   "practiceChallenge": {
-    "title": "challenge title",
-    "difficulty": "EASY or MEDIUM or HARD",
-    "description": "problem description",
+    "title": "challenge name",
+    "difficulty": "EASY",
+    "description": "one paragraph challenge description",
     "example": {
-      "input": "sample input",
-      "output": "sample output",
-      "explanation": "explanation of the example"
+      "input": "example input value",
+      "output": "example output value",
+      "explanation": "why this is the answer"
     },
-    "starterCode": "starter code template string",
-    "codeLanguage": "python or javascript etc."
+    "starterCode": "# starter code using \\n for newlines",
+    "codeLanguage": "python"
   }
-}
+}`;
 
-Make every field specific to "${topicName}". Do NOT use generic placeholder text.
-The whatYouWillLearn items should be concise (under 12 words each).
-The code example and starter code must be syntactically correct.
-Return ONLY valid JSON, no markdown fences.`;
-
-    const chatCompletion = await groq.chat.completions.create({
-      model: 'llama-3.1-8b-instant',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful programming tutor that returns structured JSON content.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      temperature: 0.6,
-      max_tokens: 2000,
+    const completion = await groq.chat.completions.create({
+      model:           'llama-3.1-8b-instant',
+      messages:        [{ role: 'user', content: prompt }],
+      temperature:     0.3,
+      max_tokens:      900,
       response_format: { type: 'json_object' }
     });
 
-    const raw = chatCompletion.choices[0]?.message?.content;
-    if (!raw) throw new Error('Empty response from Groq');
-
-    return JSON.parse(raw);
+    const raw = completion.choices[0]?.message?.content;
+    if (raw) {
+      const cleaned = raw.replace(/"""/g, '"').replace(/```/g, '');
+      aiContent = JSON.parse(cleaned);
+    }
   } catch (err) {
-    console.error('Groq topicContentGenerator error:', err.message);
-
-    // ── Fallback content ──────────────────────────────────────────────────
-    return {
-      youtubeSearchQuery: `${topicName} tutorial for beginners`,
-      whatYouWillLearn: [
-        `Understand the basics of ${topicName}`,
-        `Learn core concepts of ${topicName}`,
-        `Apply ${topicName} in practice`,
-        `Build projects using ${topicName}`
-      ],
-      readContent: {
-        introduction: `Content for: ${topicName}. This topic is an essential part of ${domain}. Understanding it will strengthen your overall knowledge.`,
-        howItWorks: `${topicName} works by applying fundamental principles of ${domain}. It is widely used in real-world applications and projects.`,
-        steps: [
-          `Learn the fundamentals of ${topicName}`,
-          `Study practical examples`,
-          `Practice with small exercises`,
-          `Build a mini project`,
-          `Review and solidify your understanding`
-        ],
-        codeExample: `// Example for ${topicName}\nconsole.log("Hello from ${topicName}!");`,
-        codeLanguage: 'javascript',
-        keyTakeaway: `${topicName} is a foundational topic in ${domain} that you will use throughout your career.`
-      },
-      practiceChallenge: {
-        title: `${topicName} Challenge`,
-        difficulty: 'EASY',
-        description: `Write a small program that demonstrates your understanding of ${topicName}.`,
-        example: {
-          input: 'N/A',
-          output: 'N/A',
-          explanation: `This challenge tests your knowledge of ${topicName}.`
-        },
-        starterCode: `// Start coding your ${topicName} solution here\n`,
-        codeLanguage: 'javascript'
-      }
-    };
+    const isRateLimit = err.message?.includes('429') || err.message?.includes('rate_limit');
+    console.warn(`[TopicContent] Groq ${isRateLimit ? 'rate-limited' : 'failed'} – using fallback text.`);
   }
+
+  // ── 3. Return merged result ───────────────────────────────────────────────
+  const domainLabel = domain.replace(/_/g, ' ');
+  return {
+    // Video
+    videoId,
+    embedUrl,
+    watchUrl,
+    videoTitle:   catalogEntry?.video?.title   || null,
+    videoChannel: catalogEntry?.video?.channel || null,
+    videoThumb:   videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null,
+
+    // Docs / practice from catalog
+    documentation: catalogEntry?.documentation || null,
+    practice:      catalogEntry?.practice      || null,
+    project:       catalogEntry?.project       || null,
+
+    // Learning content from Groq (or fallback)
+    whatYouWillLearn: aiContent?.whatYouWillLearn || [
+      `Understand the basics of ${topicName}`,
+      `Learn core concepts and how they work`,
+      `Apply ${topicName} in real projects`,
+      `Build confidence through hands-on practice`
+    ],
+
+    readContent: aiContent?.readContent || {
+      introduction: `${topicName} is a key part of ${domainLabel}. Understanding it will significantly strengthen your overall skills.`,
+      howItWorks:   `${topicName} works by applying core principles of ${domainLabel}. It is widely used across real-world projects.`,
+      steps: [
+        `Study the fundamentals of ${topicName}`,
+        `Go through examples and common use cases`,
+        `Practice with small focused exercises`,
+        `Build a mini-project using ${topicName}`,
+        `Review concepts and reinforce understanding`
+      ],
+      codeExample:  `# ${topicName} example\nprint("Hello from ${topicName}!")`,
+      codeLanguage: 'python',
+      keyTakeaway:  `${topicName} is a foundational skill you will use throughout your career.`
+    },
+
+    practiceChallenge: aiContent?.practiceChallenge || {
+      title:       `${topicName} Practice`,
+      difficulty:  'EASY',
+      description: `Write a short program that demonstrates your understanding of ${topicName}.`,
+      example: {
+        input:       'See problem description',
+        output:      'Your implementation output',
+        explanation: `This challenge tests your knowledge of ${topicName}.`
+      },
+      starterCode:  `# Write your ${topicName} solution here\n`,
+      codeLanguage: 'python'
+    }
+  };
 }
 
 module.exports = { generateTopicContent };
