@@ -441,17 +441,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                           )}
                           <p className="text-slate-500 font-medium mb-6 text-sm">
                             Part of your "{displayName}" roadmap. &nbsp;
-                            Estimated time: {focusTask.duration || focusTask.estimatedHours ? `${focusTask.estimatedHours}h` : '1h'}.
-                            {/* Calendar date label */}
-                            {(focusTask.dateLabel || focusTask.scheduledDate) && (
-                              <span className={`ml-2 inline-flex items-center gap-1 text-xs font-black px-2 py-0.5 rounded-full ${
-                                focusTask.dateLabel === 'Today'    ? 'bg-emerald-100 text-emerald-700' :
-                                focusTask.dateLabel === 'Tomorrow' ? 'bg-blue-100 text-blue-700' :
-                                'bg-slate-100 text-slate-600'
-                              }`}>
-                                📅 {focusTask.dateLabel || focusTask.scheduledDate}
-                              </span>
-                            )}
+                            Estimated time: {focusTask.duration || focusTask.time || '1h'}.
                           </p>
                           <div className="flex gap-3">
                             <button 
@@ -479,26 +469,18 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                         <div 
                           key={task.id || i}
                           onClick={() => handleStartTask(task)}
-                          className="bg-white rounded-[24px] p-5 flex items-center gap-4 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all border border-white"
+                          className="bg-white border border-white p-6 rounded-[28px] shadow-sm flex items-center justify-between hover:shadow-md transition-all cursor-pointer"
                         >
-                          <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${task.priorityColor || 'from-slate-400 to-slate-500'} flex items-center justify-center text-xl shadow-lg flex-shrink-0`}>
-                            {task.icon || '⏰'}
+                          <div className="flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${task.priorityColor} flex items-center justify-center shadow-lg opacity-80`}>
+                              <Clock className="w-6 h-6 text-white" />
+                            </div>
+                            <div>
+                              <h5 className="font-bold text-slate-800 text-sm">{task.title}</h5>
+                              <p className="text-[10px] text-slate-400 font-black uppercase">{task.due}</p>
+                            </div>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-black text-slate-800 text-sm truncate">{task.title}</p>
-                            <p className="text-xs text-slate-400 font-medium truncate">
-                              {task.dateLabel
-                                ? <span className={`font-bold ${
-                                    task.dateLabel === 'Today' ? 'text-emerald-600' :
-                                    task.dateLabel === 'Tomorrow' ? 'text-blue-600' :
-                                    'text-slate-400'
-                                  }`}>{task.dateLabel}</span>
-                                : task.due || 'Up Next'
-                              }
-                              {task.phaseTitle && ` · ${task.phaseTitle}`}
-                            </p>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-slate-300 flex-shrink-0" />
+                          <ChevronRight className="w-5 h-5 text-slate-300" />
                         </div>
                       )) : (
                         <div className="bg-white border border-white p-6 rounded-[28px] shadow-sm text-center text-slate-400 text-sm font-medium">

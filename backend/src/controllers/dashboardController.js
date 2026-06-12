@@ -7,7 +7,6 @@
 
 const Roadmap = require('../models/Roadmap');
 const { XP_PER_SESSION, XP_PER_MILESTONE } = require('../services/roadmapStats');
-const { relativeLabel, toDateStr } = require('../services/calendarScheduler');
 
 const formatSession = (s) => ({
   id:             s.id,
@@ -15,8 +14,6 @@ const formatSession = (s) => ({
   topicKey:       s.topicKey,
   phaseTitle:     s.phaseTitle,
   day:            s.day,
-  scheduledDate:  s.scheduledDate ? toDateStr(s.scheduledDate) : null,
-  dateLabel:      s.scheduledDate ? relativeLabel(s.scheduledDate) : null,
   status:         s.status,
   estimatedHours: s.estimatedHours,
   domain:         s.domain,

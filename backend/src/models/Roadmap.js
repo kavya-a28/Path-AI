@@ -50,8 +50,7 @@ const milestoneSchema = new mongoose.Schema(
 const dailySessionSchema = new mongoose.Schema(
   {
     id:             Number,
-    day:            Number,       // curriculum sequence number (1, 2, 3, ...)
-    scheduledDate:  { type: Date, default: null },  // real calendar date (e.g. 2026-06-12)
+    day:            Number,       // calendar day number (1, 2, 3, ...)
     time:           String,       // e.g. "9:00 AM - 10:00 AM"
     title:          String,       // topic name
     topicKey:       String,       // maps to resourceCatalog
@@ -87,13 +86,10 @@ const statsSchema = new mongoose.Schema(
     daysLeft:            Number,
     totalSessions:       Number,
     hoursPerDay:         Number,
-    // Calendar scheduling
-    scheduleStartDate:   { type: Date, default: null },   // date when roadmap started
-    lastScheduledDate:   { type: Date, default: null },   // last date with assigned sessions
     // Streak tracking
     streak:              { type: Number, default: 0 },
     longestStreak:       { type: Number, default: 0 },
-    lastCompletedDay:    { type: Number, default: 0 },
+    lastCompletedDay:    { type: Number, default: 0 }, // last day all sessions were completed
     // Completion tracking
     totalMissed:         { type: Number, default: 0 },
     totalCompleted:      { type: Number, default: 0 }

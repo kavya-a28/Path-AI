@@ -7,8 +7,6 @@
  *   recalculateStats(roadmap)               — recompute all stats
  */
 
-const { calculateStreakByDate } = require('./calendarScheduler');
-
 const XP_PER_SESSION   = 30;   // video watched + notes
 const XP_PER_MILESTONE = 250;
 
@@ -112,40 +110,37 @@ const recalculateStats = (roadmap) => {
   roadmap.stats.totalSessions = total;
 
   // ── Streak calculation ────────────────────────────────────────────────────
-  // Prefer date-based streak when sessions have scheduledDate;
-  // fall back to day-number-based for legacy roadmaps.
-  const hasDatedSessions = sessions.some(s => s.scheduledDate);
+  // Group completed sessions by day, find consecutive days without missed days in between
+  const completedDays = new Set(completed.map(s => s.day));
+  const missedDays    = new Set(missed.map(s => s.day));
+
+  // Build sorted list of all days that had any sessions
+  const allDays = [...new Set(sessions.map(s => s.day))].sort((a, b) => a - b);
 
   let streak        = 0;
   let longestStreak = roadmap.stats.longestStreak || 0;
+  let lastCompletedDay = roadmap.stats.lastCompletedDay || 0;
+  let currentStreak = 0;
 
-  if (hasDatedSessions) {
-    // Date-based (accurate)
-    const result = calculateStreakByDate(sessions);
-    streak        = result.streak;
-    longestStreak = Math.max(longestStreak, result.longestStreak);
-  } else {
-    // Legacy day-number-based fallback
-    const completedDays = new Set(completed.map(s => s.day));
-    const missedDays    = new Set(missed.map(s => s.day));
-    const allDays = [...new Set(sessions.map(s => s.day))].sort((a, b) => a - b);
+  // Walk days in order: if day is fully completed → streak++, if missed → reset
+  for (const day of allDays) {
+    const dayCompleted = getDayStatus(sessions, day) === 'completed';
+    const dayMissed    = missedDays.has(day);
 
-    let currentStreak = 0;
-    for (const day of allDays) {
-      const dayCompleted = getDayStatus(sessions, day) === 'completed';
-      const dayMissed    = missedDays.has(day);
-      if (dayCompleted) {
-        currentStreak++;
-        if (currentStreak > longestStreak) longestStreak = currentStreak;
-      } else if (dayMissed) {
-        currentStreak = 0;
-      }
+    if (dayCompleted) {
+      currentStreak++;
+      if (currentStreak > longestStreak) longestStreak = currentStreak;
+      lastCompletedDay = day;
+    } else if (dayMissed) {
+      // Missed day breaks streak
+      currentStreak = 0;
     }
-    streak = currentStreak;
+    // locked/current days (future) don't affect streak
   }
 
-  roadmap.stats.streak        = streak;
-  roadmap.stats.longestStreak = longestStreak;
+  roadmap.stats.streak          = currentStreak;
+  roadmap.stats.longestStreak   = longestStreak;
+  roadmap.stats.lastCompletedDay = lastCompletedDay;
 
   // ── currentDay: first day with incomplete sessions ────────────────────────
   const incompleteDays = [...new Set(remaining.map(s => s.day))].sort((a, b) => a - b);

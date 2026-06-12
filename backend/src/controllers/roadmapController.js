@@ -22,14 +22,6 @@ const {
   smartRepackWithCap,
   recalculateStats
 } = require('../services/roadmapStats');
-const {
-  markMissedByDate,
-  extendScheduleIfNeeded,
-  rescheduleFromDate,
-  addDays,
-  toDateStr,
-  relativeLabel
-} = require('../services/calendarScheduler');
 
 // ─── Generate & persist ───────────────────────────────────────────────────────
 
@@ -80,22 +72,11 @@ const generate = async (req, res) => {
 const getMyRoadmap = async (req, res) => {
   try {
     const userId = req.user._id;
-    const roadmap = await Roadmap.findOne({ userId, status: 'active' });
+    const roadmap = await Roadmap.findOne({ userId, status: 'active' }).lean();
     if (!roadmap) {
       return res.status(404).json({ success: false, message: 'No active roadmap found.' });
     }
-
-    // ── Calendar maintenance on every fetch (lazy rolling window) ─────────
-    const missedCount = markMissedByDate(roadmap);
-    const extended    = extendScheduleIfNeeded(roadmap);
-
-    if (missedCount > 0 || extended) {
-      syncRoadmap(roadmap);
-      await roadmap.save();
-      console.log(`[Roadmap] Maintenance: ${missedCount} missed, extended=${extended}`);
-    }
-
-    return res.status(200).json({ success: true, roadmap: roadmap.toObject() });
+    return res.status(200).json({ success: true, roadmap });
   } catch (err) {
     console.error('Get roadmap error:', err.message);
     return res.status(500).json({ success: false, message: err.message });
@@ -236,7 +217,7 @@ const updateSession = async (req, res) => {
   }
 };
 
-// ─── Dynamic rescheduling ─────────────────────────────────────────────
+// ─── Dynamic rescheduling ─────────────────────────────────────────────────
 
 const rescheduleRoadmap = async (req, res) => {
   try {
@@ -245,18 +226,16 @@ const rescheduleRoadmap = async (req, res) => {
     if (!roadmap) return res.status(404).json({ success: false, message: 'No active roadmap.' });
 
     // Count missed sessions before reschedule
-    const missedBefore  = roadmap.dailySessions.filter(s => s.status === 'missed').length;
+    const missedBefore = roadmap.dailySessions.filter(s => s.status === 'missed').length;
     const pendingBefore = roadmap.dailySessions.filter(s => s.status === 'locked' || s.status === 'current').length;
 
-    // Smart reschedule using real calendar dates, starting from tomorrow
-    const tomorrow = addDays(new Date(), 1);
-    const result   = rescheduleFromDate(roadmap, tomorrow, 1);
+    // Smart repack: spread overload at +1h/day, preserving curriculum order
+    const result = smartRepackWithCap(roadmap, null, 1);
     syncRoadmap(roadmap);
 
     await roadmap.save();
 
     // Build user-friendly message
-    const startLabel = toDateStr(tomorrow);
     let message;
     if (missedBefore === 0) {
       message = `Roadmap optimised — ${pendingBefore} remaining sessions repacked.`;
