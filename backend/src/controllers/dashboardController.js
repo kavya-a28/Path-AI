@@ -2,21 +2,33 @@
  * dashboardController.js
  * ─────────────────────────────────────────────────────────────────────────────
  * GET /api/roadmap/dashboard/stats
- *
- * Returns all dashboard statistics computed live from MongoDB:
- *   weeklyGoal        – completed tasks this week ÷ total scheduled this week × 100
- *   studiedHours      – sum of estimatedHours for all completed sessions
- *   masteryProgress   – completed sessions ÷ total sessions × 100
- *   todayCompleted    – sessions completed on currentDay
- *   todayPending      – sessions locked/current on currentDay
- *   todayMissed       – sessions missed on currentDay
- *   completionPct     – todayCompleted ÷ (todayCompleted + todayPending + todayMissed) × 100
- *   currentTask       – IN_PROGRESS session first, else earliest PENDING
- *   upNext            – next 3 PENDING/IN_PROGRESS sessions after currentTask
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 const Roadmap = require('../models/Roadmap');
+const { XP_PER_SESSION, XP_PER_MILESTONE } = require('../services/roadmapStats');
+const { relativeLabel, toDateStr } = require('../services/calendarScheduler');
+
+const formatSession = (s) => ({
+  id:             s.id,
+  title:          s.title,
+  topicKey:       s.topicKey,
+  phaseTitle:     s.phaseTitle,
+  day:            s.day,
+  scheduledDate:  s.scheduledDate ? toDateStr(s.scheduledDate) : null,
+  dateLabel:      s.scheduledDate ? relativeLabel(s.scheduledDate) : null,
+  status:         s.status,
+  estimatedHours: s.estimatedHours,
+  domain:         s.domain,
+  completedAt:    s.completedAt || null,
+  topicPart:      s.topicPart,
+  time:           s.time,
+  embedUrl:       s.embedUrl,
+  watchUrl:       s.watchUrl,
+  videoId:        s.videoId,
+  color:          s.color,
+  icon:           s.icon
+});
 
 const getDashboardStats = async (req, res) => {
   try {
@@ -32,43 +44,39 @@ const getDashboardStats = async (req, res) => {
     const currentDay  = roadmap.stats?.currentDay || 1;
     const hoursPerDay = roadmap.stats?.hoursPerDay || 3;
 
-    // ── Mastery: completed ÷ total ────────────────────────────────────────────
     const completedSessions = sessions.filter(s => s.status === 'completed');
+    const pendingSessions   = sessions.filter(s => s.status === 'missed');
     const masteryProgress   = totalSessions > 0
       ? Math.round((completedSessions.length / totalSessions) * 100)
       : 0;
 
-    // ── Studied Hours: sum estimatedHours of completed sessions ───────────────
     const studiedHours = completedSessions.reduce((sum, s) => sum + (s.estimatedHours || 1), 0);
 
-    // ── Weekly Goal: completed this week ÷ scheduled this week ───────────────
-    // "This week" = sessions whose day falls within [currentDay-6, currentDay]
     const weekStart = Math.max(1, currentDay - 6);
-    const thisWeekSessions  = sessions.filter(s => s.day >= weekStart && s.day <= currentDay);
-    const weekCompleted     = thisWeekSessions.filter(s => s.status === 'completed').length;
-    const weeklyGoal        = thisWeekSessions.length > 0
+    const thisWeekSessions = sessions.filter(s => s.day >= weekStart && s.day <= currentDay);
+    const weekCompleted    = thisWeekSessions.filter(s => s.status === 'completed').length;
+    const weeklyGoal       = thisWeekSessions.length > 0
       ? Math.round((weekCompleted / thisWeekSessions.length) * 100)
       : 0;
 
-    // ── Today's stats: sessions for currentDay ────────────────────────────────
-    const todaySessions   = sessions.filter(s => s.day === currentDay);
-    const todayCompleted  = todaySessions.filter(s => s.status === 'completed').length;
-    const todayPending    = todaySessions.filter(s => s.status === 'locked' || s.status === 'current').length;
-    const todayMissed     = todaySessions.filter(s => s.status === 'missed').length;
-    const todayTotal      = todayCompleted + todayPending + todayMissed;
-    const completionPct   = todayTotal > 0 ? Math.round((todayCompleted / todayTotal) * 100) : 0;
+    const todaySessions  = sessions.filter(s => s.day === currentDay);
+    const todayCompleted = todaySessions.filter(s => s.status === 'completed').length;
+    const todayPending   = todaySessions.filter(s => s.status === 'locked' || s.status === 'current').length;
+    const todayMissed    = todaySessions.filter(s => s.status === 'missed').length;
+    const todayTotal     = todayCompleted + todayPending + todayMissed;
+    const completionPct  = todayTotal > 0 ? Math.round((todayCompleted / todayTotal) * 100) : 0;
 
-    // ── Current Task: today's IN_PROGRESS first, else today's first PENDING ──
-    const todayInProgress = todaySessions.find(s => s.status === 'current');
-    const todayFirstPending = todaySessions.find(s => s.status === 'locked');
-    // Fallback: any in-progress session, then any pending session across all days
+    // Current task: current session first, then first locked with prerequisites met
     const anyInProgress = sessions.find(s => s.status === 'current');
-    const anyPending    = sessions.find(s => s.status === 'locked');
-    const currentTask   = todayInProgress || todayFirstPending || anyInProgress || anyPending || null;
+    const anyPending    = sessions.find(s => {
+      if (s.status !== 'locked') return false;
+      const prev = sessions.find(p => p.id === s.id - 1);
+      return !prev || prev.status === 'completed';
+    });
+    const todayInProgress   = todaySessions.find(s => s.status === 'current');
+    const todayFirstPending = todaySessions.find(s => s.status === 'locked');
+    const currentTask = todayInProgress || todayFirstPending || anyInProgress || anyPending || null;
 
-    // ── Up Next: next unique topics (different topicKey), skip currentTask ─────
-    // We want to show the FIRST session of each upcoming unique topic.
-    // e.g. if 13 sessions are "Python for ML", show only 1 entry for it.
     const seenTopicKeys = new Set();
     if (currentTask?.topicKey) seenTopicKeys.add(currentTask.topicKey);
 
@@ -77,39 +85,24 @@ const getDashboardStats = async (req, res) => {
       if (upNext.length >= 3) break;
       if (s.status !== 'locked' && s.status !== 'current') continue;
       if (s.id === currentTask?.id) continue;
-      // Skip duplicate topics — only show the first session of each unique topic
       if (seenTopicKeys.has(s.topicKey)) continue;
       seenTopicKeys.add(s.topicKey);
-      upNext.push({
-        id:             s.id,
-        title:          s.title,
-        phaseTitle:     s.phaseTitle,
-        day:            s.day,
-        status:         s.status,
-        estimatedHours: s.estimatedHours,
-        topicKey:       s.topicKey,
-        domain:         s.domain
-      });
+      upNext.push(formatSession(s));
     }
 
-    // ── Format currentTask for response ──────────────────────────────────────
-    const currentTaskFormatted = currentTask ? {
-      id:           currentTask.id,
-      title:        currentTask.title,
-      phaseTitle:   currentTask.phaseTitle,
-      day:          currentTask.day,
-      status:       currentTask.status,
-      estimatedHours: currentTask.estimatedHours,
-      topicKey:     currentTask.topicKey,
-      domain:       currentTask.domain,
-      topicPart:    currentTask.topicPart,
-      time:         currentTask.time,
-      embedUrl:     currentTask.embedUrl,
-      watchUrl:     currentTask.watchUrl,
-      videoId:      currentTask.videoId,
-      color:        currentTask.color,
-      icon:         currentTask.icon
-    } : null;
+    const completedMilestones = (roadmap.milestones || []).filter(m => m.status === 'completed').length;
+    const xpScore = completedSessions.length * XP_PER_SESSION + completedMilestones * XP_PER_MILESTONE;
+
+    const remaining = sessions.filter(s => s.status !== 'completed');
+    const remainingHours = remaining.reduce((sum, s) => sum + (s.estimatedHours || 1), 0);
+    const daysLeft = remaining.length > 0
+      ? Math.max(1, Math.ceil(remainingHours / hoursPerDay))
+      : 0;
+
+    const missedSessions    = sessions.filter(s => s.status === 'missed');
+    const completionRate    = (completedSessions.length + missedSessions.length) > 0
+      ? Math.round((completedSessions.length / (completedSessions.length + missedSessions.length)) * 100)
+      : 100;
 
     return res.status(200).json({
       success: true,
@@ -125,10 +118,26 @@ const getDashboardStats = async (req, res) => {
         totalSessions,
         currentDay,
         hoursPerDay,
-        currentTask:  currentTaskFormatted,
+        xpScore:           roadmap.stats?.xpScore       ?? xpScore,
+        daysLeft,
+        progressPercent:   roadmap.stats?.progressPercent ?? masteryProgress,
+        // Streak
+        streak:            roadmap.stats?.streak        ?? 0,
+        longestStreak:     roadmap.stats?.longestStreak  ?? 0,
+        // Completion tracking
+        completionRate,
+        missedTotal:       missedSessions.length,
+        completedTotal:    completedSessions.length,
+        pendingCount:      sessions.filter(s => s.status === 'locked' || s.status === 'current').length,
+        pendingSessions:   missedSessions.map(formatSession),
+        completedList:     completedSessions
+          .sort((a, b) => (a.completedAt || 0) - (b.completedAt || 0))
+          .map(formatSession),
+        currentTask: currentTask ? formatSession(currentTask) : null,
         upNext
       }
     });
+
   } catch (err) {
     console.error('Dashboard stats error:', err.message);
     return res.status(500).json({ success: false, message: err.message });

@@ -19,6 +19,7 @@
 const curriculumTrees   = require('../data/curriculumTrees');
 const { getResourceForTopic } = require('../data/resourceCatalog');
 const { buildEmbedUrl, buildWatchUrl } = require('./youtubeService');
+const { assignDates, toDateStr } = require('./calendarScheduler');
 
 // ─── Colour palette for milestone segments ────────────────────────────────────
 const COLORS = [
@@ -306,33 +307,47 @@ async function generateRoadmap(profile) {
   const milestones    = buildMilestones(activeDomains, {});
   const allSessions   = buildDailySessions(flatTopics, hoursPerDay);
 
+  // ── Assign real calendar dates: first 7 days only (rolling window) ────────
+  const today = new Date();
+  const todayStr = toDateStr(today);
+
+  // Build a temporary roadmap-like object to pass to assignDates
+  const tempRoadmap = {
+    dailySessions: allSessions,
+    stats: { hoursPerDay, scheduleStartDate: null, lastScheduledDate: null }
+  };
+  assignDates(tempRoadmap, today, 7);
+
   // ── Display name ─────────────────────────────────────────────────────────────
   const displayName = activeDomains.map(d => {
     const tree = curriculumTrees[d];
     return tree ? tree.displayName : domainLabel(d);
   }).join(' + ');
 
-  // ── Stats ────────────────────────────────────────────────────────────────────
+  // ── Stats ─────────────────────────────────────────────────────────────────────
+  const scheduledCount = allSessions.filter(s => s.scheduledDate).length;
   const stats = {
     totalWeeks,
-    completedMilestones: 0,
-    xpScore:             0,
-    progressPercent:     0,
-    currentDay:          1,
+    completedMilestones:  0,
+    xpScore:              0,
+    progressPercent:      0,
+    currentDay:           1,
     totalDays,
-    daysLeft:            totalDays - 1,
-    totalSessions:       allSessions.length,
-    hoursPerDay
+    daysLeft:             totalDays - 1,
+    totalSessions:        allSessions.length,
+    hoursPerDay,
+    scheduleStartDate:    tempRoadmap.stats.scheduleStartDate || today,
+    lastScheduledDate:    tempRoadmap.stats.lastScheduledDate || null
   };
 
-  console.log(`[RoadmapGenerator] Built roadmap: ${displayName} | ${milestones.length} phases | ${allSessions.length} sessions | ${hoursPerDay}h/day`);
+  console.log(`[RoadmapGenerator] Built roadmap: ${displayName} | ${milestones.length} phases | ${allSessions.length} sessions | ${hoursPerDay}h/day | ${scheduledCount} sessions dated from ${todayStr}`);
 
   return {
     displayName,
     milestones,
     dailySessions: allSessions,
     stats,
-    generatedBy: 'logic-engine-v2'
+    generatedBy: 'logic-engine-v3-calendar'
   };
 }
 

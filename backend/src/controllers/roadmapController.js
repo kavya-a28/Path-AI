@@ -5,6 +5,7 @@
  * GET  /api/roadmap/me               →  fetch user's active roadmap
  * PATCH /api/roadmap/milestone        →  update milestone progress/status
  * PATCH /api/roadmap/session/:id      →  update session status
+ * POST /api/roadmap/reschedule       →  dynamic rescheduling
  * GET  /api/roadmap/topic-content    →  AI text + catalog resources for topic
  * GET  /api/roadmap/topic-resources  →  catalog resources only (no AI)
  * ─────────────────────────────────────────────────────────────────────────────
@@ -15,6 +16,20 @@ const { generateRoadmap }           = require('../services/roadmapGenerator');
 const { generateTopicContent }      = require('../services/topicContentGenerator');
 const { getResourceForTopic }       = require('../data/resourceCatalog');
 const { buildEmbedUrl, buildWatchUrl } = require('../services/youtubeService');
+const {
+  syncRoadmap,
+  repackRemainingSessions,
+  smartRepackWithCap,
+  recalculateStats
+} = require('../services/roadmapStats');
+const {
+  markMissedByDate,
+  extendScheduleIfNeeded,
+  rescheduleFromDate,
+  addDays,
+  toDateStr,
+  relativeLabel
+} = require('../services/calendarScheduler');
 
 // ─── Generate & persist ───────────────────────────────────────────────────────
 
@@ -23,7 +38,6 @@ const generate = async (req, res) => {
     const userId  = req.user._id;
     const profile = req.body.profile || req.body;
 
-    // Accept either single domain or domains array
     const domains = profile.domains || (profile.domain ? [profile.domain] : null);
     if (!domains || domains.length === 0) {
       return res.status(400).json({
@@ -32,7 +46,6 @@ const generate = async (req, res) => {
       });
     }
 
-    // Normalise profile for generator
     const normProfile = { ...profile, domains, domain: domains[0] };
 
     const { displayName, milestones, dailySessions, stats, generatedBy } =
@@ -67,11 +80,22 @@ const generate = async (req, res) => {
 const getMyRoadmap = async (req, res) => {
   try {
     const userId = req.user._id;
-    const roadmap = await Roadmap.findOne({ userId, status: 'active' }).lean();
+    const roadmap = await Roadmap.findOne({ userId, status: 'active' });
     if (!roadmap) {
       return res.status(404).json({ success: false, message: 'No active roadmap found.' });
     }
-    return res.status(200).json({ success: true, roadmap });
+
+    // ── Calendar maintenance on every fetch (lazy rolling window) ─────────
+    const missedCount = markMissedByDate(roadmap);
+    const extended    = extendScheduleIfNeeded(roadmap);
+
+    if (missedCount > 0 || extended) {
+      syncRoadmap(roadmap);
+      await roadmap.save();
+      console.log(`[Roadmap] Maintenance: ${missedCount} missed, extended=${extended}`);
+    }
+
+    return res.status(200).json({ success: true, roadmap: roadmap.toObject() });
   } catch (err) {
     console.error('Get roadmap error:', err.message);
     return res.status(500).json({ success: false, message: err.message });
@@ -94,26 +118,31 @@ const updateMilestone = async (req, res) => {
     if (progress !== undefined) ms.progress = progress;
     if (status   !== undefined) ms.status   = status;
 
-    // Unlock next milestone when current is completed
     if (status === 'completed') {
       const next = roadmap.milestones.find(m => m.id === milestoneId + 1);
       if (next && next.status === 'locked') next.status = 'current';
     }
 
-    const total    = roadmap.milestones.length;
-    const completed= roadmap.milestones.filter(m => m.status === 'completed').length;
-    const avg      = roadmap.milestones.reduce((s, m) => s + m.progress, 0) / total;
-
-    roadmap.stats.completedMilestones = completed;
-    roadmap.stats.progressPercent     = Math.round(avg);
-    roadmap.stats.xpScore             = completed * 250 + Math.round(avg) * 5;
-
+    syncRoadmap(roadmap);
     await roadmap.save();
     return res.status(200).json({ success: true, roadmap: roadmap.toObject() });
   } catch (err) {
     console.error('Update milestone error:', err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
+};
+
+// ─── Check if a session can be started ───────────────────────────────────────
+
+const canStartSession = (roadmap, session) => {
+  if (session.status === 'completed') return false;
+  if (session.status === 'current') return true;
+  if (session.status === 'missed') return true;
+
+  // locked: allow if previous session (by id) is completed, or this is the first incomplete
+  const prev = roadmap.dailySessions.find(s => s.id === session.id - 1);
+  if (!prev) return true;
+  return prev.status === 'completed';
 };
 
 // ─── Mark session as started (IN_PROGRESS) ───────────────────────────────────
@@ -129,13 +158,27 @@ const startSession = async (req, res) => {
     const session = roadmap.dailySessions.find(s => s.id === sessionId);
     if (!session) return res.status(404).json({ success: false, message: 'Session not found.' });
 
-    // Only move to 'current' if it was locked (don't downgrade completed)
-    if (session.status === 'locked') {
-      session.status = 'current';
-      await roadmap.save();
+    if (session.status === 'completed') {
+      return res.status(400).json({ success: false, message: 'Session already completed.' });
     }
 
-    return res.status(200).json({ success: true, session });
+    if (!canStartSession(roadmap, session)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Complete the previous session first.'
+      });
+    }
+
+    // Demote other current sessions to locked
+    roadmap.dailySessions.forEach(s => {
+      if (s.status === 'current' && s.id !== sessionId) s.status = 'locked';
+    });
+
+    session.status = 'current';
+    syncRoadmap(roadmap);
+    await roadmap.save();
+
+    return res.status(200).json({ success: true, session, roadmap: roadmap.toObject() });
   } catch (err) {
     console.error('Start session error:', err.message);
     return res.status(500).json({ success: false, message: err.message });
@@ -150,6 +193,11 @@ const updateSession = async (req, res) => {
     const sessionId = parseInt(req.params.id, 10);
     const { status } = req.body;
 
+    const validStatuses = ['completed', 'current', 'locked', 'missed'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status.' });
+    }
+
     const roadmap = await Roadmap.findOne({ userId, status: 'active' });
     if (!roadmap) return res.status(404).json({ success: false, message: 'No active roadmap.' });
 
@@ -159,33 +207,77 @@ const updateSession = async (req, res) => {
     session.status = status;
 
     if (status === 'completed') {
-      // Record exact completion time
       session.completedAt = new Date();
 
-      // Unlock next locked session
+      // Auto-unlock next session
       const next = roadmap.dailySessions.find(s => s.id === sessionId + 1);
-      if (next && next.status === 'locked') next.status = 'locked'; // stays locked until user clicks start
+      if (next && next.status !== 'completed') {
+        roadmap.dailySessions.forEach(s => {
+          if (s.status === 'current' && s.id !== next.id) s.status = 'locked';
+        });
+        next.status = 'current';
+      }
 
-      // Advance currentDay if ALL sessions for this day are done
-      const sessionDay = session.day;
+      // Advance currentDay when all sessions on this day are done
+      const sessionDay   = session.day;
       const daysSessions = roadmap.dailySessions.filter(s => s.day === sessionDay);
-      const allDayDone   = daysSessions.every(s => s.status === 'completed' || s.id === sessionId);
+      const allDayDone   = daysSessions.every(s => s.status === 'completed');
       if (allDayDone && roadmap.stats.currentDay <= sessionDay) {
         roadmap.stats.currentDay = sessionDay + 1;
       }
-
-      // Recalculate overall mastery progress
-      const totalSessions     = roadmap.dailySessions.length;
-      const completedCount    = roadmap.dailySessions.filter(s => s.status === 'completed').length + 1; // +1 for this one
-      roadmap.stats.progressPercent = totalSessions > 0
-        ? Math.round((completedCount / totalSessions) * 100)
-        : 0;
     }
 
+    syncRoadmap(roadmap);
     await roadmap.save();
     return res.status(200).json({ success: true, roadmap: roadmap.toObject() });
   } catch (err) {
     console.error('Update session error:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─── Dynamic rescheduling ─────────────────────────────────────────────
+
+const rescheduleRoadmap = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const roadmap = await Roadmap.findOne({ userId, status: 'active' });
+    if (!roadmap) return res.status(404).json({ success: false, message: 'No active roadmap.' });
+
+    // Count missed sessions before reschedule
+    const missedBefore  = roadmap.dailySessions.filter(s => s.status === 'missed').length;
+    const pendingBefore = roadmap.dailySessions.filter(s => s.status === 'locked' || s.status === 'current').length;
+
+    // Smart reschedule using real calendar dates, starting from tomorrow
+    const tomorrow = addDays(new Date(), 1);
+    const result   = rescheduleFromDate(roadmap, tomorrow, 1);
+    syncRoadmap(roadmap);
+
+    await roadmap.save();
+
+    // Build user-friendly message
+    const startLabel = toDateStr(tomorrow);
+    let message;
+    if (missedBefore === 0) {
+      message = `Roadmap optimised — ${pendingBefore} remaining sessions repacked.`;
+    } else {
+      const extraDays = Math.ceil(missedBefore / (roadmap.stats.hoursPerDay || 3));
+      message = `${missedBefore} missed session(s) rescheduled across ~${extraDays} extra day(s) (+1h/day cap).`;
+    }
+
+    return res.status(200).json({
+      success: true,
+      roadmap:  roadmap.toObject(),
+      message,
+      summary: {
+        missedRescheduled: missedBefore,
+        totalRescheduled:  result.rescheduledCount,
+        startDay:          result.startDay,
+        extraCapPerDay:    result.extraCapPerDay
+      }
+    });
+  } catch (err) {
+    console.error('Reschedule roadmap error:', err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -220,7 +312,6 @@ const getTopicResources = async (req, res) => {
     }
     const resource = getResourceForTopic(topicKey);
 
-    // Enrich video with embed/watch URLs
     const enriched = {
       ...resource,
       video: resource.video ? {
@@ -244,6 +335,7 @@ module.exports = {
   updateMilestone,
   startSession,
   updateSession,
+  rescheduleRoadmap,
   getTopicContent,
   getTopicResources
 };

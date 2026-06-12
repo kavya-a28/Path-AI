@@ -251,7 +251,11 @@ function App() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
           >
-            <Dashboard userData={userData} roadmapData={roadmapData} />
+            <Dashboard
+              userData={userData}
+              roadmapData={roadmapData}
+              onRoadmapUpdate={setRoadmapData}
+            />
           </motion.div>
         )}
 

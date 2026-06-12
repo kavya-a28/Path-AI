@@ -14,9 +14,9 @@ import CareerHub from './CareerHub';
 import SettingsView from './SettingsView';
 import NotificationDropdown from './Notification';
 import CommunityView from './CommunityView';
-import { updateSession, getDashboardStats, startSession } from '../services/roadmapApi';
+import { getDashboardStats, startSession, getMyRoadmap, rescheduleRoadmap } from '../services/roadmapApi';
 
-const Dashboard = ({ userData, roadmapData }) => { 
+const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => { 
   // State to track which sidebar tab is active
   const [activeTab, setActiveTab] = useState('dashboard');
   
@@ -29,18 +29,48 @@ const Dashboard = ({ userData, roadmapData }) => {
   // ── Live dashboard stats from backend ─────────────────────────────────────
   const [dashStats, setDashStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [roadmapFilter, setRoadmapFilter] = useState('all');
+  const [rescheduling, setRescheduling] = useState(false);
+  const [toast, setToast] = useState(null);
 
-  // Fetch live stats from /api/roadmap/dashboard/stats
-  const fetchStats = useCallback(async () => {
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  const refreshAll = useCallback(async () => {
     try {
-      const stats = await getDashboardStats();
+      const [stats, roadmap] = await Promise.all([
+        getDashboardStats(),
+        getMyRoadmap()
+      ]);
       setDashStats(stats);
+      if (roadmap && onRoadmapUpdate) onRoadmapUpdate(roadmap);
+      return { stats, roadmap };
     } catch (err) {
-      console.warn('Dashboard stats fetch failed:', err.message);
+      console.warn('Refresh failed:', err.message);
+      return null;
     } finally {
       setStatsLoading(false);
     }
-  }, []);
+  }, [onRoadmapUpdate]);
+
+  const fetchStats = useCallback(async () => {
+    await refreshAll();
+  }, [refreshAll]);
+
+  const handleReschedule = async () => {
+    setRescheduling(true);
+    try {
+      const { message } = await rescheduleRoadmap();
+      await refreshAll();
+      showToast(message || 'Roadmap rescheduled successfully');
+    } catch (err) {
+      showToast(err.message || 'Reschedule failed');
+    } finally {
+      setRescheduling(false);
+    }
+  };
 
   // Load on mount + whenever activeTab returns to dashboard
   useEffect(() => {
@@ -81,18 +111,10 @@ const Dashboard = ({ userData, roadmapData }) => {
     fetchStats();
   };
 
-  // ── Mark Complete: save to DB, refresh stats ───────────────────────────────
-  const handleTaskComplete = async (completedTask) => {
-    if (completedTask?.id && typeof completedTask.id === 'number') {
-      try {
-        await updateSession(completedTask.id, { status: 'completed' });
-      } catch (err) {
-        console.error('Failed to mark session complete:', err.message);
-      }
-    }
+  // ── Mark Complete: TaskDetailView already saved — just refresh ─────────────
+  const handleTaskComplete = async () => {
     setActiveTask(null);
-    // Immediately refresh all dashboard stats
-    fetchStats();
+    await refreshAll();
   };
 
   // ── Derive display values: live stats > roadmapData fallback ──────────────
@@ -103,6 +125,17 @@ const Dashboard = ({ userData, roadmapData }) => {
   const todayPending    = dashStats?.todayPending     ?? 0;
   const todayMissed     = dashStats?.todayMissed      ?? 0;
   const completionPct   = dashStats?.completionPct    ?? 0;
+  const streak          = dashStats?.streak           ?? roadmapData?.stats?.streak ?? 0;
+  const completionRate  = dashStats?.completionRate   ?? 100;
+  const xpScore         = dashStats?.xpScore          ?? roadmapData?.stats?.xpScore ?? 0;
+  const pendingCount    = dashStats?.pendingCount     ?? 0;
+  const completedCount  = dashStats?.completedCount   ?? dashStats?.completedSessions ?? 0;
+  const daysLeft        = dashStats?.daysLeft         ?? roadmapData?.stats?.daysLeft ?? '—';
+
+  const goToRoadmap = (filter = 'all') => {
+    setRoadmapFilter(filter);
+    setActiveTab('roadmap');
+  };
 
   const displayName = roadmapData?.displayName || 'Learning';
   const userName    = userData?.name || 'Explorer';
@@ -217,9 +250,14 @@ const Dashboard = ({ userData, roadmapData }) => {
                   <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Active Streak</span>
                 </div>
                 <div className="flex items-end gap-2">
-                  <span className="text-4xl font-black text-slate-800 leading-none">12</span>
+                  <span className="text-4xl font-black text-slate-800 leading-none">
+                    {statsLoading ? '—' : streak}
+                  </span>
                   <span className="text-sm font-bold text-slate-400 mb-1 tracking-tighter">DAYS</span>
                 </div>
+                {!statsLoading && dashStats?.longestStreak > 0 && (
+                  <p className="text-[10px] text-slate-400 mt-1">Best: {dashStats.longestStreak} days</p>
+                )}
               </div>
               <button className="w-full bg-[#0f172a] text-white py-4 rounded-2xl font-black shadow-lg flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-800 transition-colors">
                 <MessageCircle className="w-5 h-5" /> AI Mentor
@@ -309,21 +347,33 @@ const Dashboard = ({ userData, roadmapData }) => {
                               {statsLoading ? '—' : `${studiedHours}h`}
                             </p>
                           </div>
-                          {/* Today's Progress mini-stats */}
-                          {!statsLoading && dashStats && (
-                            <div>
-                              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-1">Today</p>
-                              <p className="text-2xl font-black text-slate-800">{completionPct}%</p>
-                            </div>
-                          )}
+                          {/* Completion Rate */}
+                          <div>
+                            <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-1">Completion</p>
+                            <p className={`text-2xl font-black ${completionRate >= 80 ? 'text-emerald-600' : completionRate >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
+                              {statsLoading ? '—' : `${completionRate}%`}
+                            </p>
+                          </div>
                         </div>
 
-                        {/* Today's breakdown */}
-                        {!statsLoading && dashStats && (todayCompleted + todayPending + todayMissed) > 0 && (
-                          <div className="mt-4 flex gap-4 text-xs font-bold">
-                            <span className="text-emerald-600">✓ {todayCompleted} done</span>
-                            <span className="text-slate-400">◷ {todayPending} pending</span>
-                            {todayMissed > 0 && <span className="text-red-400">✗ {todayMissed} missed</span>}
+                        {/* Global done / pending — clickable */}
+                        {!statsLoading && dashStats && (
+                          <div className="mt-4 flex flex-wrap gap-3 text-xs font-bold">
+                            <button
+                              onClick={() => goToRoadmap('done')}
+                              className="text-emerald-600 hover:text-emerald-700 hover:underline cursor-pointer"
+                            >
+                              ✓ {completedCount} done
+                            </button>
+                            <button
+                              onClick={() => goToRoadmap('pending')}
+                              className={`hover:underline cursor-pointer ${pendingCount > 0 ? 'text-amber-600 hover:text-amber-700' : 'text-slate-400 hover:text-slate-500'}`}
+                            >
+                              ◷ {pendingCount} pending
+                            </button>
+                            {todayMissed > 0 && (
+                              <span className="text-red-400">✗ {todayMissed} missed today</span>
+                            )}
                           </div>
                         )}
                       </div>
@@ -353,9 +403,25 @@ const Dashboard = ({ userData, roadmapData }) => {
                   <div className="grid lg:grid-cols-3 gap-8">
                     {/* Focus Zone */}
                     <div className="lg:col-span-2 space-y-6">
-                      <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
-                        <Zap className="w-5 h-5 text-[#10b981]" /> Focus Zone
-                      </h3>
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
+                          <Zap className="w-5 h-5 text-[#10b981]" /> Focus Zone
+                        </h3>
+                        {pendingCount > 0 && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-full">
+                              ⚠ {pendingCount} Pending
+                            </span>
+                            <button
+                              onClick={handleReschedule}
+                              disabled={rescheduling}
+                              className="text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 px-3 py-1.5 rounded-full transition-colors disabled:opacity-50"
+                            >
+                              {rescheduling ? 'Rescheduling…' : 'Reschedule'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
                       <div className="bg-white rounded-[32px] p-8 border border-white shadow-xl flex flex-col md:flex-row items-center gap-8">
                         <div className={`w-24 h-24 rounded-3xl ${theme.cardIcon} flex items-center justify-center text-4xl shadow-xl shadow-emerald-100`}>
                           {focusTask.icon}
@@ -375,7 +441,17 @@ const Dashboard = ({ userData, roadmapData }) => {
                           )}
                           <p className="text-slate-500 font-medium mb-6 text-sm">
                             Part of your "{displayName}" roadmap. &nbsp;
-                            Estimated time: {focusTask.duration || focusTask.time || '1h'}.
+                            Estimated time: {focusTask.duration || focusTask.estimatedHours ? `${focusTask.estimatedHours}h` : '1h'}.
+                            {/* Calendar date label */}
+                            {(focusTask.dateLabel || focusTask.scheduledDate) && (
+                              <span className={`ml-2 inline-flex items-center gap-1 text-xs font-black px-2 py-0.5 rounded-full ${
+                                focusTask.dateLabel === 'Today'    ? 'bg-emerald-100 text-emerald-700' :
+                                focusTask.dateLabel === 'Tomorrow' ? 'bg-blue-100 text-blue-700' :
+                                'bg-slate-100 text-slate-600'
+                              }`}>
+                                📅 {focusTask.dateLabel || focusTask.scheduledDate}
+                              </span>
+                            )}
                           </p>
                           <div className="flex gap-3">
                             <button 
@@ -385,7 +461,10 @@ const Dashboard = ({ userData, roadmapData }) => {
                               <Play className="w-4 h-4 fill-white" /> 
                               {focusTask.status === 'current' ? 'Continue' : 'Start Learning'}
                             </button>
-                            <button className="bg-slate-50 text-slate-600 px-6 py-3 rounded-2xl font-bold hover:bg-slate-100 transition-all">
+                            <button
+                              onClick={() => handleStartTask(focusTask)}
+                              className="bg-slate-50 text-slate-600 px-6 py-3 rounded-2xl font-bold hover:bg-slate-100 transition-all"
+                            >
                               Details
                             </button>
                           </div>
@@ -400,18 +479,26 @@ const Dashboard = ({ userData, roadmapData }) => {
                         <div 
                           key={task.id || i}
                           onClick={() => handleStartTask(task)}
-                          className="bg-white border border-white p-6 rounded-[28px] shadow-sm flex items-center justify-between hover:shadow-md transition-all cursor-pointer"
+                          className="bg-white rounded-[24px] p-5 flex items-center gap-4 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all border border-white"
                         >
-                          <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${task.priorityColor} flex items-center justify-center shadow-lg opacity-80`}>
-                              <Clock className="w-6 h-6 text-white" />
-                            </div>
-                            <div>
-                              <h5 className="font-bold text-slate-800 text-sm">{task.title}</h5>
-                              <p className="text-[10px] text-slate-400 font-black uppercase">{task.due}</p>
-                            </div>
+                          <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${task.priorityColor || 'from-slate-400 to-slate-500'} flex items-center justify-center text-xl shadow-lg flex-shrink-0`}>
+                            {task.icon || '⏰'}
                           </div>
-                          <ChevronRight className="w-5 h-5 text-slate-300" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-black text-slate-800 text-sm truncate">{task.title}</p>
+                            <p className="text-xs text-slate-400 font-medium truncate">
+                              {task.dateLabel
+                                ? <span className={`font-bold ${
+                                    task.dateLabel === 'Today' ? 'text-emerald-600' :
+                                    task.dateLabel === 'Tomorrow' ? 'text-blue-600' :
+                                    'text-slate-400'
+                                  }`}>{task.dateLabel}</span>
+                                : task.due || 'Up Next'
+                              }
+                              {task.phaseTitle && ` · ${task.phaseTitle}`}
+                            </p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-slate-300 flex-shrink-0" />
                         </div>
                       )) : (
                         <div className="bg-white border border-white p-6 rounded-[28px] shadow-sm text-center text-slate-400 text-sm font-medium">
@@ -432,7 +519,15 @@ const Dashboard = ({ userData, roadmapData }) => {
                   exit={{ opacity: 0, x: -20 }} 
                   className="mt-6"
                 >
-                  <RoadmapView userData={userData} roadmapData={roadmapData} onTaskSelect={handleStartTask} />
+                  <RoadmapView
+                    userData={userData}
+                    roadmapData={roadmapData}
+                    onTaskSelect={handleStartTask}
+                    onRoadmapUpdate={onRoadmapUpdate}
+                    initialFilter={roadmapFilter}
+                    onReschedule={handleReschedule}
+                    rescheduling={rescheduling}
+                  />
                 </motion.div>
               )}
 
@@ -492,6 +587,13 @@ const Dashboard = ({ userData, roadmapData }) => {
           </main>
         </div>
       </div>
+
+      {/* Toast notification */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-[100] bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-semibold max-w-sm">
+          {toast}
+        </div>
+      )}
 
       {/* TASK DETAIL VIEW OVERLAY */}
       {activeTask && (

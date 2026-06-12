@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Map as MapIcon, Settings, CheckCircle2, Lock,
-  Zap, Star, BookOpen, Code, Rocket, X, Flag, ChevronDown,
+  Map as MapIcon, CheckCircle2, Lock, AlertCircle,
+  Zap, Star, BookOpen, Code, Rocket, X, Flag, ChevronDown, ChevronLeft, ChevronRight,
   Laptop, Server, Database, Shield, Globe, Loader2,
-  RefreshCw, ExternalLink, PlayCircle
+  RefreshCw, ExternalLink, PlayCircle, Plus
 } from 'lucide-react';
-import { getMyRoadmap } from '../services/roadmapApi';
+import { getMyRoadmap, rescheduleRoadmap } from '../services/roadmapApi';
 
 // ─── Icon resolver ────────────────────────────────────────────────────────────
 const ICON_MAP = {
@@ -247,23 +247,54 @@ const MilestoneModal = ({ milestone, onClose, onTaskSelect }) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
-const RoadmapView = ({ userData, roadmapData: propRoadmapData, onTaskSelect }) => {
+/** Derive day status from actual session data */
+const getDayStatusFromSessions = (sessions, day) => {
+  const daySessions = sessions.filter(s => s.day === day);
+  if (daySessions.length === 0) return 'locked';
+  if (daySessions.every(s => s.status === 'completed')) return 'completed';
+  if (daySessions.some(s => s.status === 'missed')) return 'missed';
+  if (daySessions.some(s => s.status === 'current' || s.status === 'completed')) return 'current';
+  return 'locked';
+};
+
+const RoadmapView = ({
+  userData,
+  roadmapData: propRoadmapData,
+  onTaskSelect,
+  onRoadmapUpdate,
+  initialFilter = 'all',
+  onReschedule,
+  rescheduling: externalRescheduling
+}) => {
   const [selectedMilestone, setSelectedMilestone] = useState(null);
   const [timelineView, setTimelineView]  = useState('Daily');
   const [roadmap, setRoadmap]            = useState(propRoadmapData || null);
   const [isLoading, setIsLoading]        = useState(!propRoadmapData);
   const [error, setError]                = useState(null);
-  const [currentDayView, setCurrentDayView] = useState(null); // null = auto (today)
+  const [currentDayView, setCurrentDayView] = useState(null);
+  const [filterTab, setFilterTab]        = useState(initialFilter);
+  const [localRescheduling, setLocalRescheduling] = useState(false);
+  const [toast, setToast]                = useState(null);
 
-  // ── Fetch roadmap on mount if not supplied as prop ──────────────────────────
+  const isRescheduling = externalRescheduling || localRescheduling;
+
+  useEffect(() => { setFilterTab(initialFilter); }, [initialFilter]);
+
   useEffect(() => {
     if (propRoadmapData) {
       setRoadmap(propRoadmapData);
       setIsLoading(false);
-      return;
     }
-    fetchRoadmap();
   }, [propRoadmapData]);
+
+  useEffect(() => {
+    if (!propRoadmapData) fetchRoadmap();
+  }, []);
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const fetchRoadmap = useCallback(async () => {
     setIsLoading(true);
@@ -271,12 +302,40 @@ const RoadmapView = ({ userData, roadmapData: propRoadmapData, onTaskSelect }) =
     try {
       const data = await getMyRoadmap();
       setRoadmap(data);
+      if (data && onRoadmapUpdate) onRoadmapUpdate(data);
     } catch (err) {
       setError(err.message);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [onRoadmapUpdate]);
+
+  const handleRefresh = async () => {
+    if (onReschedule) {
+      await onReschedule();
+      return;
+    }
+    setLocalRescheduling(true);
+    try {
+      const { roadmap: updated, message } = await rescheduleRoadmap();
+      setRoadmap(updated);
+      if (onRoadmapUpdate) onRoadmapUpdate(updated);
+      setCurrentDayView(null);
+      showToast(message || 'Roadmap rescheduled');
+    } catch (err) {
+      showToast(err.message || 'Reschedule failed');
+    } finally {
+      setLocalRescheduling(false);
+    }
+  };
+
+  const handlePendingReschedule = async () => {
+    if (onReschedule) {
+      await onReschedule();
+      return;
+    }
+    await handleRefresh();
+  };
 
   // ── Derive display data from roadmap ────────────────────────────────────────
   const milestones    = roadmap?.milestones    || [];
@@ -306,7 +365,7 @@ const RoadmapView = ({ userData, roadmapData: propRoadmapData, onTaskSelect }) =
     return MONTHLY_POSITIONS.slice(0, dayCount).map((pos, idx) => {
       const day    = idx + 1;
       const ms     = dayMilestoneMap[idx];
-      const status = day < currentDay ? 'completed' : day === currentDay ? 'current' : 'locked';
+      const status = getDayStatusFromSessions(dailySessions, day);
       const msColor = ms?.color || '#94a3b8';
 
       // Each day inherits the milestone's topics & resources so the modal is rich
@@ -345,10 +404,15 @@ const RoadmapView = ({ userData, roadmapData: propRoadmapData, onTaskSelect }) =
 
   // ── Daily view: group sessions by day, navigate between days ────────────────
   const allDayNumbers = [...new Set(dailySessions.map(s => s.day))].sort((a, b) => a - b);
+  const scheduleDay   = stats.currentDay || 1;
   const todayNumber   = dailySessions.find(s => s.status === 'current')?.day
-                     || dailySessions[0]?.day
-                     || 1;
+                     || scheduleDay;
   const activeDayNum  = currentDayView ?? todayNumber;
+  const isViewingToday = activeDayNum === scheduleDay;
+
+  const missedSessions   = dailySessions.filter(s => s.status === 'missed');
+  const pendingSessions  = dailySessions.filter(s => s.status === 'locked' || s.status === 'current');
+  const completedSessions = dailySessions.filter(s => s.status === 'completed');
   const todaySessions = dailySessions.filter(s => s.day === activeDayNum);
   const dayIndex      = allDayNumbers.indexOf(activeDayNum);
   const hasPrev       = dayIndex > 0;
@@ -395,11 +459,121 @@ const RoadmapView = ({ userData, roadmapData: propRoadmapData, onTaskSelect }) =
                   <p className="text-sm font-bold text-blue-600 mt-1">Your personalised AI learning path</p>
                 </div>
               </div>
-              <button onClick={fetchRoadmap}
-                className="p-3 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all" title="Refresh">
-                <RefreshCw className="w-5 h-5 text-slate-600" />
+              <button
+                onClick={handleRefresh}
+                disabled={isRescheduling}
+                className="p-3 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all disabled:opacity-50"
+                title="Reschedule remaining tasks"
+              >
+                <RefreshCw className={`w-5 h-5 text-slate-600 ${isRescheduling ? 'animate-spin' : ''}`} />
               </button>
             </div>
+
+            {/* Filter tabs: All / Pending / Done / Missed */}
+            <div className="flex gap-2 mb-6 flex-wrap">
+              {[
+                { id: 'all',     label: 'All',
+                  activeClass: 'bg-blue-600 text-white' },
+                { id: 'pending', label: `Pending (${pendingSessions.length})`,
+                  activeClass: 'bg-amber-500 text-white' },
+                { id: 'done',    label: `Done (${completedSessions.length})`,
+                  activeClass: 'bg-emerald-500 text-white' },
+                { id: 'missed',  label: `Missed (${missedSessions.length})`,
+                  activeClass: 'bg-red-500 text-white' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setFilterTab(tab.id)}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                    filterTab === tab.id ? tab.activeClass : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Pending panel — upcoming tasks not yet started */}
+            {filterTab === 'pending' && (
+              <div className="mb-6 bg-amber-50 border-2 border-amber-200 rounded-2xl p-5 max-h-64 overflow-y-auto">
+                {pendingSessions.length === 0 ? (
+                  <p className="text-sm font-medium text-amber-700">No pending tasks — you're on track! 🎉</p>
+                ) : (
+                  <div className="space-y-2">
+                    {pendingSessions.map(s => (
+                      <div key={s.id} className="flex items-center justify-between bg-white rounded-xl p-3 border border-amber-100">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-slate-800 truncate">{s.title}</p>
+                          <p className="text-xs text-slate-400">{s.phaseTitle} · Day {s.day} · {s.estimatedHours || 1}h</p>
+                        </div>
+                        <span className="text-[10px] font-black text-amber-600 uppercase ml-3 flex-shrink-0">
+                          {s.status === 'current' ? '▶ In Progress' : '⏳ Pending'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Missed panel — overdue tasks with reschedule CTA */}
+            {filterTab === 'missed' && (
+              <div className="mb-6 bg-red-50 border-2 border-red-200 rounded-2xl p-5 max-h-64 overflow-y-auto">
+                {missedSessions.length === 0 ? (
+                  <p className="text-sm font-medium text-red-700">No missed tasks — great consistency! 🔥</p>
+                ) : (
+                  <div className="space-y-2">
+                    {missedSessions.map(s => (
+                      <div key={s.id} className="flex items-center justify-between bg-white rounded-xl p-3 border border-red-100">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-slate-800 truncate">{s.title}</p>
+                          <p className="text-xs text-slate-400">{s.phaseTitle} · Was Day {s.day} · {s.estimatedHours || 1}h</p>
+                        </div>
+                        <span className="text-[10px] font-black text-red-500 uppercase ml-3 flex-shrink-0">✗ Missed</span>
+                      </div>
+                    ))}
+                    <button
+                      onClick={handlePendingReschedule}
+                      disabled={isRescheduling}
+                      className="w-full mt-2 text-sm font-bold text-white bg-red-500 hover:bg-red-600 py-2.5 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${isRescheduling ? 'animate-spin' : ''}`} />
+                      {isRescheduling ? 'Rescheduling…' : `Reschedule ${missedSessions.length} missed session(s)`}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+
+            {/* Done panel */}
+            {filterTab === 'done' && (
+              <div className="mb-6 bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-5 max-h-64 overflow-y-auto">
+                {completedSessions.length === 0 ? (
+                  <p className="text-sm font-medium text-emerald-700">No completed topics yet — start learning!</p>
+                ) : (
+                  <div className="space-y-2">
+                    {completedSessions.map(s => (
+                      <div
+                        key={s.id}
+                        onClick={() => onTaskSelect && onTaskSelect({ ...s, reviewMode: true })}
+                        className="flex items-center gap-3 bg-white rounded-xl p-3 border border-emerald-100 cursor-pointer hover:bg-emerald-50 transition-colors"
+                      >
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-slate-800 truncate">{s.title}</p>
+                          <p className="text-xs text-slate-400">
+                            {s.phaseTitle} · {s.estimatedHours || 1}h
+                            {s.completedAt && ` · ${new Date(s.completedAt).toLocaleDateString()}`}
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-black text-emerald-600 uppercase flex-shrink-0">Review</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -412,11 +586,11 @@ const RoadmapView = ({ userData, roadmapData: propRoadmapData, onTaskSelect }) =
                 <p className="text-xs font-bold text-slate-600 uppercase">Progress</p>
               </div>
               <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl p-5 border-2 border-purple-200">
-                <p className="text-3xl font-black text-slate-800">{stats.daysLeft ?? stats.totalDays ?? '—'}</p>
+                <p className="text-3xl font-black text-slate-800">{stats.daysLeft ?? '—'}</p>
                 <p className="text-xs font-bold text-slate-600 uppercase">Days Left</p>
               </div>
               <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl p-5">
-                <p className="text-3xl font-black text-white">{stats.xpScore || 0}</p>
+                <p className="text-3xl font-black text-white">{stats.xpScore ?? 0}</p>
                 <p className="text-xs font-bold text-white/90 uppercase">XP Score</p>
               </div>
             </div>
@@ -584,14 +758,21 @@ const RoadmapView = ({ userData, roadmapData: propRoadmapData, onTaskSelect }) =
                   </div>
 
                   <div className={`w-7 h-7 rounded-full shadow-md border-2 flex items-center justify-center transition-transform group-hover:scale-125 ${
-                    day.status === 'locked' ? 'bg-slate-200 border-slate-300 text-slate-400' : 'bg-white text-slate-700'
-                  }`} style={day.status !== 'locked' ? { borderColor: day.topicColor } : {}}>
+                    day.status === 'completed' ? 'bg-emerald-500 border-emerald-600 text-white' :
+                    day.status === 'missed'    ? 'bg-amber-400 border-amber-500 text-white' :
+                    day.status === 'current'   ? 'bg-white text-slate-700' :
+                                                 'bg-slate-200 border-slate-300 text-slate-400'
+                  }`} style={day.status === 'current' ? { borderColor: day.topicColor } : {}}>
                     {day.status === 'locked'
                       ? <Lock className="w-3 h-3" />
+                      : day.status === 'completed'
+                      ? <CheckCircle2 className="w-3.5 h-3.5" />
+                      : day.status === 'missed'
+                      ? <AlertCircle className="w-3.5 h-3.5" />
                       : <span className="font-bold text-[10px]">{day.id}</span>}
                   </div>
                   {day.status === 'current' && (
-                    <div className="absolute inset-0 rounded-full bg-white animate-ping opacity-50 -z-10" />
+                    <div className="absolute inset-0 rounded-full bg-blue-400 animate-ping opacity-40 -z-10" />
                   )}
                 </motion.div>
               ))}
@@ -624,13 +805,37 @@ const RoadmapView = ({ userData, roadmapData: propRoadmapData, onTaskSelect }) =
                 </div>
               )}
 
-              {/* Today header badge */}
+              {/* Day header with navigation */}
               <div className="absolute top-6 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1.5">
-                <div className="bg-white/90 backdrop-blur-md px-6 py-2 rounded-2xl shadow-lg flex items-center gap-3">
-                  <span className="text-xl font-black text-slate-800">Day {todayNumber}</span>
-                  <span className="bg-emerald-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                    Today
-                  </span>
+                <div className="bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg flex items-center gap-2">
+                  <button
+                    onClick={goToPrevDay}
+                    disabled={!hasPrev}
+                    className="p-1 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-slate-600" />
+                  </button>
+                  <span className="text-xl font-black text-slate-800 min-w-[80px] text-center">Day {activeDayNum}</span>
+                  {isViewingToday && (
+                    <span className="bg-emerald-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                      Today
+                    </span>
+                  )}
+                  <button
+                    onClick={goToNextDay}
+                    disabled={!hasNext}
+                    className="p-1 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <ChevronRight className="w-5 h-5 text-slate-600" />
+                  </button>
+                  {!isViewingToday && (
+                    <button
+                      onClick={goToToday}
+                      className="text-[10px] font-bold text-blue-600 hover:underline ml-1"
+                    >
+                      Go to today
+                    </button>
+                  )}
                 </div>
                 {todaySessions[0]?.phaseTitle && (
                   <div className="bg-black/25 backdrop-blur-sm text-white/80 text-[11px] font-semibold px-4 py-1 rounded-full">
@@ -661,6 +866,7 @@ const RoadmapView = ({ userData, roadmapData: propRoadmapData, onTaskSelect }) =
                       const Icon      = resolveIcon(session.icon);
                       const isComp    = session.status === 'completed';
                       const isCurrent = session.status === 'current';
+                      const isMissed  = session.status === 'missed';
                       const isLocked  = session.status === 'locked';
                       return (
                         <motion.div key={session.id}
@@ -683,16 +889,23 @@ const RoadmapView = ({ userData, roadmapData: propRoadmapData, onTaskSelect }) =
                             });
                           }}
                         >
-                          {/* Start Learning button – only on current */}
-                          {isCurrent && (
+                          {/* Action buttons */}
+                          {isComp && (
+                            <span className="mb-3 bg-emerald-100 text-emerald-700 font-black text-[10px] px-4 py-1.5 rounded-full uppercase tracking-wider">
+                              ✓ Completed
+                            </span>
+                          )}
+                          {(isCurrent || isMissed) && (
                             <button
                               onClick={e => {
                                 e.stopPropagation();
                                 if (onTaskSelect) onTaskSelect({ ...session, milestoneId: session.phaseId });
                               }}
-                              className="mb-3 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs px-5 py-2 rounded-full shadow-md uppercase tracking-wider transition-colors"
+                              className={`mb-3 text-white font-black text-xs px-5 py-2 rounded-full shadow-md uppercase tracking-wider transition-colors ${
+                                isMissed ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-500 hover:bg-emerald-600'
+                              }`}
                             >
-                              ▶ Start Learning
+                              ▶ {isMissed ? 'Resume' : 'Start Learning'}
                             </button>
                           )}
 
@@ -701,6 +914,7 @@ const RoadmapView = ({ userData, roadmapData: propRoadmapData, onTaskSelect }) =
                             <div className={`w-24 h-24 rounded-2xl flex items-center justify-center shadow-xl border-4 border-white relative z-10 ${
                               isComp    ? 'bg-gradient-to-br from-green-400 to-emerald-600' :
                               isCurrent ? 'bg-gradient-to-br from-blue-500 to-indigo-600' :
+                              isMissed  ? 'bg-gradient-to-br from-amber-400 to-orange-500' :
                                           'bg-gradient-to-br from-slate-300 to-slate-400 grayscale'
                             }`}>
                               <Icon className="w-12 h-12 text-white drop-shadow-md" />
@@ -749,6 +963,12 @@ const RoadmapView = ({ userData, roadmapData: propRoadmapData, onTaskSelect }) =
 
         </div>
       </div>
+
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-[100] bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-semibold max-w-sm">
+          {toast}
+        </div>
+      )}
     </div>
   );
 };

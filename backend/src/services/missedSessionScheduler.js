@@ -2,44 +2,57 @@
  * missedSessionScheduler.js
  * ─────────────────────────────────────────────────────────────────────────────
  * Runs every hour after server startup.
- * Marks sessions as 'missed' if:
- *   - Their scheduled day < the roadmap's currentDay (they are in the past)
- *   - Their status is still 'locked' or 'current' (not completed)
  *
- * This implements Feature: "If task date passes and status is PENDING or
- * IN_PROGRESS, scheduler automatically changes it to MISSED."
+ * Marks sessions as 'missed' if:
+ *   - session.scheduledDate < today  AND  status != completed   (date-based)
+ *   - OR: session.day < currentDay AND no scheduledDate         (legacy fallback)
+ *
+ * Also auto-extends the 7-day rolling window when it's running low.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 const Roadmap = require('../models/Roadmap');
+const {
+  markMissedByDate,
+  extendScheduleIfNeeded
+} = require('./calendarScheduler');
+const { syncRoadmap } = require('./roadmapStats');
 
-async function markMissedSessions() {
+async function runSchedulerCycle() {
   try {
     const roadmaps = await Roadmap.find({ status: 'active' });
-    let totalMarked = 0;
+    let totalMarked   = 0;
+    let totalExtended = 0;
 
     for (const roadmap of roadmaps) {
-      const currentDay = roadmap.stats?.currentDay || 1;
       let changed = false;
 
-      for (const session of roadmap.dailySessions) {
-        if (
-          session.day < currentDay &&
-          (session.status === 'locked' || session.status === 'current')
-        ) {
-          session.status = 'missed';
-          changed = true;
-          totalMarked++;
-        }
+      // 1. Mark overdue sessions as missed (date-based)
+      const marked = markMissedByDate(roadmap);
+      if (marked > 0) {
+        totalMarked += marked;
+        changed = true;
       }
 
+      // 2. Extend rolling window if < 3 future days remain
+      const extended = extendScheduleIfNeeded(roadmap);
+      if (extended) {
+        totalExtended++;
+        changed = true;
+      }
+
+      // 3. Sync stats + save if anything changed
       if (changed) {
+        syncRoadmap(roadmap);
         await roadmap.save();
       }
     }
 
-    if (totalMarked > 0) {
-      console.log(`[MissedScheduler] Marked ${totalMarked} session(s) as missed across ${roadmaps.length} roadmap(s)`);
+    if (totalMarked > 0 || totalExtended > 0) {
+      console.log(
+        `[MissedScheduler] Marked ${totalMarked} session(s) as missed. ` +
+        `Extended window for ${totalExtended} roadmap(s).`
+      );
     }
   } catch (err) {
     console.error('[MissedScheduler] Error:', err.message);
@@ -51,9 +64,9 @@ async function markMissedSessions() {
  * Runs immediately on start, then every hour.
  */
 function startMissedSessionScheduler() {
-  console.log('[MissedScheduler] Started — checking for missed sessions every hour');
-  markMissedSessions(); // run immediately on startup
-  setInterval(markMissedSessions, 60 * 60 * 1000); // then every hour
+  console.log('[MissedScheduler] Started — date-based missed detection, runs every hour');
+  runSchedulerCycle();                               // run immediately on startup
+  setInterval(runSchedulerCycle, 60 * 60 * 1000);   // then every hour
 }
 
 module.exports = { startMissedSessionScheduler };

@@ -124,3 +124,19 @@ export async function startSession(sessionId) {
   if (!res.ok || !data.success) throw new Error(data.message || 'Failed to start session');
   return data.session;
 }
+
+/**
+ * Reschedule the roadmap — spreads missed sessions using smart +1h/day cap.
+ * Returns { roadmap, message, summary }.
+ */
+export async function rescheduleRoadmap() {
+  const res = await fetch(`${API_URL}/roadmap/reschedule`, {
+    method:  'POST',
+    headers: authHeaders()
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.message || 'Failed to reschedule roadmap');
+  return data; // { roadmap, message, summary }
+}
+
+
