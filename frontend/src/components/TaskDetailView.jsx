@@ -8,14 +8,25 @@ import {
   Volume2, Settings, Maximize, SkipForward, SkipBack, Star, Zap, Target,
   Menu, Plus, Grid, AlertCircle, Loader2
 } from 'lucide-react';
-import { getTopicContent, updateSession } from '../services/roadmapApi';
+import { getTopicContent, updateSession, updateSessionTracking, startPractice, submitPractice } from '../services/roadmapApi';
+import {
+  getSessionTimeBudget,
+  formatDuration,
+  formatHoursLabel,
+  isOvertime
+} from '../utils/sessionTimeUtils';
 
 const TaskDetailView = ({ task, onBack, onComplete }) => {
   // ==================== STATE MANAGEMENT ====================
   const [activeTab, setActiveTab] = useState('watch');
-  const [timeSpent, setTimeSpent] = useState(0);
+  const [learningTimeSeconds, setLearningTimeSeconds] = useState(0);
+  const [practiceTimeSeconds, setPracticeTimeSeconds] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isNotePanelOpen, setIsNotePanelOpen] = useState(false);
+  const [practiceCompleted, setPracticeCompleted] = useState(false);
+  const [practiceFeedback, setPracticeFeedback] = useState(null);
+  const [practiceSubmitting, setPracticeSubmitting] = useState(false);
+  const [completeError, setCompleteError] = useState(null);
 
   // Topic content from backend
   const [topicContent, setTopicContent] = useState(null);
@@ -41,6 +52,10 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
   const [isFabOpen, setIsFabOpen] = useState(false);
 
   const timerRef = useRef(null);
+  const syncRef = useRef(null);
+  const practiceStartedRef = useRef(false);
+  const learningSecondsRef = useRef(0);
+  const practiceSecondsRef = useRef(0);
   const articleRef = useRef(null);
   const containerRef = useRef(null); // Reference for drag constraints
   const chatDragControls = useDragControls(); // For draggable chat
@@ -62,6 +77,18 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
     videoId: null,
     embedUrl: null
   };
+
+  const timeBudget = getSessionTimeBudget(taskData);
+  const learningOvertime = isOvertime(learningTimeSeconds, timeBudget.learning);
+  const practiceOvertime = isOvertime(practiceTimeSeconds, timeBudget.practice);
+
+  // Restore persisted tracking from session data
+  useEffect(() => {
+    setLearningTimeSeconds(taskData.actualLearningSeconds || 0);
+    setPracticeTimeSeconds(taskData.actualPracticeSeconds || 0);
+    setPracticeCompleted(!!taskData.practiceCompleted);
+    practiceStartedRef.current = !!taskData.practiceStartedAt;
+  }, [taskData.id, taskData.actualLearningSeconds, taskData.actualPracticeSeconds, taskData.practiceCompleted, taskData.practiceStartedAt]);
 
   // ── Fetch topic content from backend on mount ──────────────────────────────
   useEffect(() => {
@@ -116,11 +143,51 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
   useEffect(() => {
     if (!isPaused && activeTab) {
       timerRef.current = setInterval(() => {
-        setTimeSpent(prev => prev + 1);
+        if (activeTab === 'watch' || activeTab === 'read') {
+          setLearningTimeSeconds(prev => prev + 1);
+        } else if (activeTab === 'practice') {
+          setPracticeTimeSeconds(prev => prev + 1);
+        }
       }, 1000);
     }
     return () => clearInterval(timerRef.current);
   }, [isPaused, activeTab]);
+
+  // Keep refs in sync for interval/cleanup handlers
+  useEffect(() => {
+    learningSecondsRef.current = learningTimeSeconds;
+    practiceSecondsRef.current = practiceTimeSeconds;
+  }, [learningTimeSeconds, practiceTimeSeconds]);
+
+  // Periodically sync time tracking to backend
+  useEffect(() => {
+    if (!taskData?.id || typeof taskData.id !== 'number') return undefined;
+
+    syncRef.current = setInterval(async () => {
+      try {
+        await updateSessionTracking(taskData.id, {
+          actualLearningSeconds: learningSecondsRef.current,
+          actualPracticeSeconds: practiceSecondsRef.current
+        });
+      } catch (err) {
+        console.warn('Time sync failed:', err.message);
+      }
+    }, 30000);
+
+    return () => clearInterval(syncRef.current);
+  }, [taskData.id]);
+
+  // Final sync when leaving the learning page
+  useEffect(() => {
+    return () => {
+      if (taskData?.id && typeof taskData.id === 'number') {
+        updateSessionTracking(taskData.id, {
+          actualLearningSeconds: learningSecondsRef.current,
+          actualPracticeSeconds: practiceSecondsRef.current
+        }).catch(() => {});
+      }
+    };
+  }, [taskData.id]);
 
   useEffect(() => {
     const autoSave = setInterval(() => {
@@ -141,17 +208,21 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
   }, []);
 
   // ==================== HELPER FUNCTIONS ====================
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const handleTabChange = (tab) => {
+  const handleTabChange = async (tab) => {
     setActiveTab(tab);
     if (tab === 'watch') setCurrentStep(1);
     if (tab === 'read') setCurrentStep(2);
-    if (tab === 'practice') setCurrentStep(3);
+    if (tab === 'practice') {
+      setCurrentStep(3);
+      if (taskData?.id && typeof taskData.id === 'number' && !practiceStartedRef.current) {
+        practiceStartedRef.current = true;
+        try {
+          await startPractice(taskData.id);
+        } catch (err) {
+          console.warn('Could not record practice start:', err.message);
+        }
+      }
+    }
   };
 
   const handleSendMessage = async () => {
@@ -170,15 +241,62 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
     }, 1000);
   };
 
+  const handleSubmitPractice = async () => {
+    if (!userCode.trim()) {
+      setPracticeFeedback({ valid: false, message: 'Please write a solution before submitting.' });
+      return;
+    }
+
+    if (!taskData?.id || typeof taskData.id !== 'number') {
+      setPracticeFeedback({ valid: false, message: 'Session not linked — cannot submit practice.' });
+      return;
+    }
+
+    setPracticeSubmitting(true);
+    setPracticeFeedback(null);
+
+    try {
+      const result = await submitPractice(taskData.id, {
+        solution: userCode,
+        actualPracticeSeconds: practiceTimeSeconds,
+        starterCode: topicContent?.practiceChallenge?.starterCode
+      });
+
+      if (result.valid) {
+        setPracticeCompleted(true);
+        setPracticeFeedback({ valid: true, message: result.feedback || 'Correct! Practice completed.' });
+      } else {
+        setPracticeFeedback({ valid: false, message: result.feedback || 'Incorrect solution. Try again.' });
+      }
+    } catch (err) {
+      setPracticeFeedback({ valid: false, message: err.message || 'Submission failed. Try again.' });
+    } finally {
+      setPracticeSubmitting(false);
+    }
+  };
+
   const handleMarkComplete = async () => {
+    if (!practiceCompleted) {
+      setCompleteError('Complete the practice challenge with a correct solution first.');
+      handleTabChange('practice');
+      return;
+    }
+
+    setCompleteError(null);
     setShowConfetti(true);
-    // ── Save completion to MongoDB ─────────────────────────────────────────
+
     if (taskData?.id && typeof taskData.id === 'number') {
       try {
+        await updateSessionTracking(taskData.id, {
+          actualLearningSeconds: learningTimeSeconds,
+          actualPracticeSeconds: practiceTimeSeconds
+        });
         await updateSession(taskData.id, { status: 'completed' });
       } catch (err) {
         console.error('Failed to save session completion:', err.message);
-        // Still proceed to show completion UI — don't block the user
+        setCompleteError(err.message);
+        setShowConfetti(false);
+        return;
       }
     }
     setTimeout(() => {
@@ -259,22 +377,22 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
       </AnimatePresence>
 
       {/* ==================== TOP HEADER ==================== */}
-      <header className="relative bg-white/70 backdrop-blur-xl border-b border-white/80 px-8 py-4 flex items-center justify-between flex-shrink-0 z-20 shadow-sm h-[72px]">
+      <header className="relative min-h-[72px] bg-white/95 backdrop-blur-xl border-b border-slate-200 px-4 py-2 flex items-center gap-3 flex-shrink-0 z-20 shadow-sm">
         
         {/* Left Side: Back & Title */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <button 
             onClick={onBack}
-            className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors font-bold"
+            className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors font-bold flex-shrink-0"
           >
             <ArrowLeft className="w-5 h-5" />
             <span>Back</span>
           </button>
           
-          <div className="h-8 w-px bg-slate-200"></div>
+          <div className="h-8 w-px bg-slate-200 flex-shrink-0"></div>
           
-          <div>
-            <h1 className="text-slate-900 font-black text-xl leading-none mb-1">
+          <div className="min-w-0">
+            <h1 className="text-slate-900 font-black text-lg xl:text-xl leading-tight mb-0.5 truncate">
               {taskData.icon || '🎯'} {taskData.title}
             </h1>
             <div className="flex items-center gap-2 text-xs">
@@ -287,13 +405,13 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
         </div>
 
         {/* Center: Navigation Tabs */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-          <div className="flex items-center p-1 bg-slate-100/80 backdrop-blur-md rounded-xl border border-slate-200 shadow-inner">
+        <div className="flex-shrink-0">
+          <div className="flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200">
             {tabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all text-sm ${
+                className={`flex items-center justify-center gap-1.5 min-w-[88px] xl:min-w-[96px] px-3 py-2 rounded-lg font-bold transition-all text-sm ${
                   activeTab === tab.id
                     ? `bg-white text-slate-900 shadow-sm ring-1 ring-black/5`
                     : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
@@ -301,7 +419,7 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
               >
                 <tab.icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-emerald-500' : ''}`} />
                 <span>{tab.label}</span>
-                {currentStep > tab.step && (
+                {tab.id === 'practice' && practiceCompleted && (
                    <CheckCircle className="w-3 h-3 text-emerald-500" />
                 )}
               </button>
@@ -309,12 +427,52 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
           </div>
         </div>
 
-        {/* Right Side: Stats & Actions */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-white/80 border border-white px-4 py-2.5 rounded-xl shadow-sm">
-            <Clock className="w-4 h-4 text-emerald-500" />
-            <span className="text-slate-900 font-black text-sm">{formatTime(timeSpent)}</span>
-            <span className="text-slate-400 text-xs font-bold">/ {taskData.estimatedHours ? `${taskData.estimatedHours}h` : (taskData.duration || '8h')}</span>
+        {/* Right Side: Contextual Timer & Actions */}
+        <div className="flex items-center justify-end gap-2 flex-shrink-0">
+          <div className={`flex flex-col gap-0.5 px-3 py-1.5 rounded-xl border shadow-sm min-w-[128px] ${
+            activeTab === 'practice'
+              ? practiceOvertime
+                ? 'bg-red-50 border-red-300'
+                : 'bg-purple-50 border-purple-200'
+              : learningOvertime
+                ? 'bg-red-50 border-red-300'
+                : 'bg-blue-50 border-blue-200'
+          }`}>
+            <div className="flex items-center gap-1.5">
+              {activeTab === 'practice' ? (
+                <Code className={`w-3.5 h-3.5 ${practiceOvertime ? 'text-red-500' : 'text-purple-500'}`} />
+              ) : (
+                <Clock className={`w-3.5 h-3.5 ${learningOvertime ? 'text-red-500' : 'text-blue-500'}`} />
+              )}
+              <span className={`text-[10px] font-black uppercase tracking-wider ${
+                (activeTab === 'practice' ? practiceOvertime : learningOvertime)
+                  ? 'text-red-600'
+                  : 'text-slate-500'
+              }`}>
+                {activeTab === 'practice' ? 'Practice Timer' : 'Overall Timer'}
+              </span>
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className={`font-black text-sm ${
+                (activeTab === 'practice' ? practiceOvertime : learningOvertime)
+                  ? 'text-red-700'
+                  : 'text-slate-900'
+              }`}>
+                {formatDuration(activeTab === 'practice' ? practiceTimeSeconds : learningTimeSeconds)}
+              </span>
+              <span className={`text-xs font-bold ${
+                (activeTab === 'practice' ? practiceOvertime : learningOvertime)
+                  ? 'text-red-400'
+                  : 'text-slate-400'
+              }`}>
+                / {formatHoursLabel(activeTab === 'practice' ? timeBudget.practice : timeBudget.learning)}
+              </span>
+            </div>
+            {(activeTab === 'practice' ? practiceOvertime : learningOvertime) && (
+              <span className="text-[10px] font-bold text-red-600 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" /> Overtime
+              </span>
+            )}
           </div>
 
           {!isOnline && (
@@ -326,7 +484,7 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
 
           <button
             onClick={() => setIsPaused(!isPaused)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white/80 border border-white hover:bg-white text-slate-700 rounded-xl transition-all font-bold shadow-sm"
+            className="flex items-center gap-2 px-3 py-2.5 bg-white/80 border border-slate-200 hover:bg-white text-slate-700 rounded-xl transition-all font-bold shadow-sm"
           >
             {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
             <span className="text-sm">{isPaused ? 'Resume' : 'Pause'}</span>
@@ -334,11 +492,20 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
           
           <button
             onClick={handleMarkComplete}
-            className={`flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r ${theme[activeTab]} text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all`}
+            disabled={!practiceCompleted}
+            title={!practiceCompleted ? 'Complete the practice challenge first' : 'Mark session complete'}
+            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl font-bold shadow-lg transition-all whitespace-nowrap ${
+              practiceCompleted
+                ? `bg-gradient-to-r ${theme[activeTab]} text-white hover:shadow-xl`
+                : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+            }`}
           >
             <CheckCircle className="w-4 h-4" />
-            <span className="text-sm">Complete</span>
+            <span className="text-sm">{practiceCompleted ? 'Complete' : 'Practice First'}</span>
           </button>
+          {completeError && (
+            <span className="text-xs font-bold text-red-600 max-w-[160px]">{completeError}</span>
+          )}
         </div>
       </header>
 
@@ -437,7 +604,10 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
                           <div>
                             <div className="text-slate-500 text-xs font-bold mb-1 uppercase tracking-wider">Est. Duration</div>
                             <div className="text-slate-900 font-black text-2xl">
-                              {taskData.estimatedHours ? `${taskData.estimatedHours}h` : (topicContent?.videoTitle ? '60 min' : '45 min')}
+                              {timeBudget.total}h
+                            </div>
+                            <div className="text-xs text-slate-400 font-bold mt-1">
+                              {formatHoursLabel(timeBudget.learning)} learning · {formatHoursLabel(timeBudget.practice)} practice
                             </div>
                           </div>
                         </div>
@@ -516,12 +686,23 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
                         </div>
                       )}
 
-                      <button
-                        onClick={() => handleTabChange('read')}
-                        className="w-full group bg-slate-900 text-white py-5 rounded-2xl font-black text-lg hover:bg-slate-800 transition-all shadow-xl hover:shadow-2xl flex items-center justify-center gap-3"
-                      >
-                        Continue to Reading Material <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
-                      </button>
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <button
+                          onClick={() => handleTabChange('read')}
+                          className="flex-1 group bg-white border-2 border-slate-200 text-slate-700 py-4 rounded-2xl font-bold text-base hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+                        >
+                          Continue to Reading <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                        </button>
+                        <button
+                          onClick={() => handleTabChange('practice')}
+                          className="flex-1 group bg-slate-900 text-white py-4 rounded-2xl font-black text-base hover:bg-slate-800 transition-all shadow-xl flex items-center justify-center gap-2"
+                        >
+                          Skip to Practice <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                        </button>
+                      </div>
+                      <p className="text-center text-xs text-slate-400 font-medium">
+                        Watch and Read are optional — Practice is required to complete this session.
+                      </p>
                     </div>
                   </div>
                 </motion.div>
@@ -623,9 +804,12 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
                         onClick={() => handleTabChange('practice')}
                         className="flex-1 bg-slate-900 text-white py-3 rounded-2xl font-black hover:bg-slate-800 transition-all flex items-center justify-center gap-2 shadow-lg"
                       >
-                        Next: Practice <ChevronRight className="w-5 h-5" />
+                        Go to Practice <ChevronRight className="w-5 h-5" />
                       </button>
                     </div>
+                    <p className="text-center text-xs text-slate-400 font-medium">
+                      Reading is optional — you can skip directly to Practice.
+                    </p>
                   </div>
                 </motion.div>
               )}
@@ -731,6 +915,33 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
                           />
                         </div>
 
+                        {/* Practice feedback */}
+                        {practiceFeedback && (
+                          <div className={`rounded-xl p-4 mb-4 border ${
+                            practiceFeedback.valid
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                              : 'bg-red-50 border-red-200 text-red-800'
+                          }`}>
+                            <p className="font-bold text-sm flex items-center gap-2">
+                              {practiceFeedback.valid
+                                ? <CheckCircle className="w-4 h-4" />
+                                : <AlertCircle className="w-4 h-4" />}
+                              {practiceFeedback.message}
+                            </p>
+                          </div>
+                        )}
+
+                        {practiceOvertime && (
+                          <div className="rounded-xl p-4 mb-4 border bg-red-50 border-red-200">
+                            <p className="font-black text-red-700 text-sm flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4" /> Overtime
+                            </p>
+                            <p className="text-red-600 text-sm mt-1">
+                              Expected: {formatHoursLabel(timeBudget.practice)} · Actual: {formatDuration(practiceTimeSeconds)}
+                            </p>
+                          </div>
+                        )}
+
                         {/* Action Buttons */}
                         <div className="flex gap-3">
                           <button className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition-all shadow-sm">
@@ -740,12 +951,28 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
                             <Lightbulb className="w-4 h-4" /> Get Hint
                           </button>
                           <button
-                            onClick={() => setProblemsSolved(prev => Math.min(prev + 1, 5))}
-                            className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg"
+                            onClick={handleSubmitPractice}
+                            disabled={practiceSubmitting || practiceCompleted}
+                            className={`flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg ${
+                              practiceCompleted
+                                ? 'bg-emerald-100 text-emerald-700 cursor-default'
+                                : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white'
+                            }`}
                           >
-                            <CheckCircle className="w-5 h-5" /> Submit Solution
+                            {practiceSubmitting ? (
+                              <><Loader2 className="w-5 h-5 animate-spin" /> Validating...</>
+                            ) : practiceCompleted ? (
+                              <><CheckCircle className="w-5 h-5" /> Practice Completed</>
+                            ) : (
+                              <><CheckCircle className="w-5 h-5" /> Submit Solution</>
+                            )}
                           </button>
                         </div>
+                        {!practiceCompleted && (
+                          <p className="text-center text-xs text-slate-400 font-medium mt-2">
+                            Submit a correct solution to unlock session completion.
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>

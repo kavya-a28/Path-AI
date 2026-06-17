@@ -55,6 +55,7 @@ export async function updateMilestone(milestoneId, { progress, status }) {
 
 /**
  * Update session status (e.g., mark as completed).
+ * Requires practiceCompleted on the backend before status=completed succeeds.
  */
 export async function updateSession(sessionId, { status }) {
   const res = await fetch(`${API_URL}/roadmap/session/${sessionId}`, {
@@ -65,6 +66,50 @@ export async function updateSession(sessionId, { status }) {
   const data = await res.json();
   if (!res.ok || !data.success) throw new Error(data.message || 'Failed to update session');
   return data.roadmap;
+}
+
+/**
+ * Sync active learning/practice seconds to the backend.
+ */
+export async function updateSessionTracking(sessionId, payload) {
+  const res = await fetch(`${API_URL}/roadmap/session/${sessionId}/tracking`, {
+    method:  'PATCH',
+    headers: authHeaders(),
+    body:    JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.message || 'Failed to sync time tracking');
+  return data;
+}
+
+/**
+ * Record that the user opened the Practice tab.
+ */
+export async function startPractice(sessionId) {
+  const res = await fetch(`${API_URL}/roadmap/session/${sessionId}/practice/start`, {
+    method:  'PATCH',
+    headers: authHeaders()
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.message || 'Failed to start practice');
+  return data;
+}
+
+/**
+ * Submit a practice solution for validation.
+ * Returns { valid, feedback, session, roadmap }.
+ */
+export async function submitPractice(sessionId, { solution, actualPracticeSeconds, starterCode }) {
+  const res = await fetch(`${API_URL}/roadmap/session/${sessionId}/practice/submit`, {
+    method:  'POST',
+    headers: authHeaders(),
+    body:    JSON.stringify({ solution, actualPracticeSeconds, starterCode })
+  });
+  const data = await res.json();
+  if (!res.ok && res.status !== 400) {
+    throw new Error(data.message || 'Failed to submit practice');
+  }
+  return data;
 }
 
 /**

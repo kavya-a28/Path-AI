@@ -7,25 +7,40 @@
 
 const Roadmap = require('../models/Roadmap');
 const { XP_PER_SESSION, XP_PER_MILESTONE } = require('../services/roadmapStats');
+const { enrichSessionTimeFields } = require('../utils/timeSplit');
 
-const formatSession = (s) => ({
-  id:             s.id,
-  title:          s.title,
-  topicKey:       s.topicKey,
-  phaseTitle:     s.phaseTitle,
-  day:            s.day,
-  status:         s.status,
-  estimatedHours: s.estimatedHours,
-  domain:         s.domain,
-  completedAt:    s.completedAt || null,
-  topicPart:      s.topicPart,
-  time:           s.time,
-  embedUrl:       s.embedUrl,
-  watchUrl:       s.watchUrl,
-  videoId:        s.videoId,
-  color:          s.color,
-  icon:           s.icon
-});
+const formatSession = (s) => {
+  enrichSessionTimeFields(s);
+  return {
+    id:             s.id,
+    title:          s.title,
+    topicKey:       s.topicKey,
+    phaseTitle:     s.phaseTitle,
+    day:            s.day,
+    status:         s.status,
+    estimatedHours: s.estimatedHours,
+    estimatedLearningHours: s.estimatedLearningHours,
+    estimatedPracticeHours: s.estimatedPracticeHours,
+    domain:         s.domain,
+    completedAt:    s.completedAt || null,
+    topicPart:      s.topicPart,
+    time:           s.time,
+    embedUrl:       s.embedUrl,
+    watchUrl:       s.watchUrl,
+    videoId:        s.videoId,
+    color:          s.color,
+    icon:           s.icon,
+    practiceCompleted:    s.practiceCompleted || false,
+    practiceStartedAt:    s.practiceStartedAt || null,
+    practiceCompletedAt:  s.practiceCompletedAt || null,
+    actualLearningSeconds: s.actualLearningSeconds || 0,
+    actualPracticeSeconds: s.actualPracticeSeconds || 0,
+    actualLearningHours:   s.actualLearningHours || 0,
+    actualPracticeHours:   s.actualPracticeHours || 0,
+    learningOvertime:      s.learningOvertime || false,
+    practiceOvertime:      s.practiceOvertime || false
+  };
+};
 
 const getDashboardStats = async (req, res) => {
   try {

@@ -14,8 +14,15 @@
 const Roadmap                       = require('../models/Roadmap');
 const { generateRoadmap }           = require('../services/roadmapGenerator');
 const { generateTopicContent }      = require('../services/topicContentGenerator');
+const { validatePracticeSolution }  = require('../services/practiceValidator');
 const { getResourceForTopic }       = require('../data/resourceCatalog');
 const { buildEmbedUrl, buildWatchUrl } = require('../services/youtubeService');
+const {
+  secondsToHours,
+  isOvertime,
+  enrichSessionTimeFields,
+  enrichRoadmapSessions
+} = require('../utils/timeSplit');
 const {
   syncRoadmap,
   repackRemainingSessions,
@@ -76,6 +83,7 @@ const getMyRoadmap = async (req, res) => {
     if (!roadmap) {
       return res.status(404).json({ success: false, message: 'No active roadmap found.' });
     }
+    enrichRoadmapSessions(roadmap);
     return res.status(200).json({ success: true, roadmap });
   } catch (err) {
     console.error('Get roadmap error:', err.message);
@@ -156,12 +164,156 @@ const startSession = async (req, res) => {
     });
 
     session.status = 'current';
+    if (!session.learningStartedAt) {
+      session.learningStartedAt = new Date();
+    }
+    enrichSessionTimeFields(session);
     syncRoadmap(roadmap);
     await roadmap.save();
 
     return res.status(200).json({ success: true, session, roadmap: roadmap.toObject() });
   } catch (err) {
     console.error('Start session error:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─── Sync active time tracking ───────────────────────────────────────────────
+
+const updateSessionTracking = async (req, res) => {
+  try {
+    const userId    = req.user._id;
+    const sessionId = parseInt(req.params.id, 10);
+    const {
+      actualLearningSeconds,
+      actualPracticeSeconds
+    } = req.body;
+
+    const roadmap = await Roadmap.findOne({ userId, status: 'active' });
+    if (!roadmap) return res.status(404).json({ success: false, message: 'No active roadmap.' });
+
+    const session = roadmap.dailySessions.find(s => s.id === sessionId);
+    if (!session) return res.status(404).json({ success: false, message: 'Session not found.' });
+
+    enrichSessionTimeFields(session);
+
+    if (actualLearningSeconds !== undefined) {
+      session.actualLearningSeconds = Math.max(0, Number(actualLearningSeconds) || 0);
+      session.actualLearningHours   = secondsToHours(session.actualLearningSeconds);
+      session.learningOvertime      = isOvertime(
+        session.actualLearningSeconds,
+        session.estimatedLearningHours
+      );
+    }
+
+    if (actualPracticeSeconds !== undefined) {
+      session.actualPracticeSeconds = Math.max(0, Number(actualPracticeSeconds) || 0);
+      session.actualPracticeHours   = secondsToHours(session.actualPracticeSeconds);
+      session.practiceOvertime      = isOvertime(
+        session.actualPracticeSeconds,
+        session.estimatedPracticeHours
+      );
+    }
+
+    await roadmap.save();
+    return res.status(200).json({ success: true, session, roadmap: roadmap.toObject() });
+  } catch (err) {
+    console.error('Update session tracking error:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─── Mark practice tab opened ─────────────────────────────────────────────────
+
+const startPractice = async (req, res) => {
+  try {
+    const userId    = req.user._id;
+    const sessionId = parseInt(req.params.id, 10);
+
+    const roadmap = await Roadmap.findOne({ userId, status: 'active' });
+    if (!roadmap) return res.status(404).json({ success: false, message: 'No active roadmap.' });
+
+    const session = roadmap.dailySessions.find(s => s.id === sessionId);
+    if (!session) return res.status(404).json({ success: false, message: 'Session not found.' });
+
+    if (!session.practiceStartedAt) {
+      session.practiceStartedAt = new Date();
+    }
+    enrichSessionTimeFields(session);
+
+    await roadmap.save();
+    return res.status(200).json({ success: true, session, roadmap: roadmap.toObject() });
+  } catch (err) {
+    console.error('Start practice error:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─── Submit & validate practice solution ─────────────────────────────────────
+
+const submitPractice = async (req, res) => {
+  try {
+    const userId    = req.user._id;
+    const sessionId = parseInt(req.params.id, 10);
+    const { solution, actualPracticeSeconds, starterCode } = req.body;
+
+    const roadmap = await Roadmap.findOne({ userId, status: 'active' });
+    if (!roadmap) return res.status(404).json({ success: false, message: 'No active roadmap.' });
+
+    const session = roadmap.dailySessions.find(s => s.id === sessionId);
+    if (!session) return res.status(404).json({ success: false, message: 'Session not found.' });
+
+    enrichSessionTimeFields(session);
+    session.practiceAttempts = (session.practiceAttempts || 0) + 1;
+
+    if (!session.practiceStartedAt) {
+      session.practiceStartedAt = new Date();
+    }
+
+    const content = await generateTopicContent(
+      session.title,
+      session.domain || 'general',
+      session.topicKey || null
+    );
+
+    const result = await validatePracticeSolution({
+      topicName:   session.title,
+      challenge:   content.practiceChallenge,
+      solution,
+      starterCode: starterCode || content.practiceChallenge?.starterCode
+    });
+
+    if (!result.valid) {
+      await roadmap.save();
+      return res.status(400).json({
+        success:  false,
+        valid:    false,
+        feedback: result.feedback,
+        session
+      });
+    }
+
+    if (actualPracticeSeconds !== undefined) {
+      session.actualPracticeSeconds = Math.max(0, Number(actualPracticeSeconds) || 0);
+    }
+    session.actualPracticeHours = secondsToHours(session.actualPracticeSeconds);
+    session.practiceOvertime    = isOvertime(
+      session.actualPracticeSeconds,
+      session.estimatedPracticeHours
+    );
+    session.practiceCompleted   = true;
+    session.practiceCompletedAt = new Date();
+
+    await roadmap.save();
+    return res.status(200).json({
+      success:  true,
+      valid:    true,
+      feedback: result.feedback,
+      session,
+      roadmap:  roadmap.toObject()
+    });
+  } catch (err) {
+    console.error('Submit practice error:', err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -184,6 +336,15 @@ const updateSession = async (req, res) => {
 
     const session = roadmap.dailySessions.find(s => s.id === sessionId);
     if (!session) return res.status(404).json({ success: false, message: 'Session not found.' });
+
+    enrichSessionTimeFields(session);
+
+    if (status === 'completed' && !session.practiceCompleted) {
+      return res.status(400).json({
+        success: false,
+        message: 'Complete the practice challenge with a correct solution before marking this session done.'
+      });
+    }
 
     session.status = status;
 
@@ -313,6 +474,9 @@ module.exports = {
   getMyRoadmap,
   updateMilestone,
   startSession,
+  updateSessionTracking,
+  startPractice,
+  submitPractice,
   updateSession,
   rescheduleRoadmap,
   getTopicContent,

@@ -57,6 +57,9 @@ const dailySessionSchema = new mongoose.Schema(
     topicPart:      String,       // e.g. "50h" (estimated duration)
     totalParts:     Number,
     estimatedHours: Number,
+    // Dual time allocation (learning = watch + read, practice = mandatory)
+    estimatedLearningHours: Number,
+    estimatedPracticeHours: Number,
     domain:         String,
     phaseId:        Number,
     phaseTitle:     String,
@@ -70,7 +73,20 @@ const dailySessionSchema = new mongoose.Schema(
     videoId:        String,
     embedUrl:       String,
     watchUrl:       String,
-    resources:      [resourceSchema]
+    resources:      [resourceSchema],
+    // Active time tracking
+    learningStartedAt:    { type: Date, default: null },
+    practiceStartedAt:    { type: Date, default: null },
+    practiceCompletedAt:  { type: Date, default: null },
+    actualLearningSeconds:{ type: Number, default: 0 },
+    actualPracticeSeconds:{ type: Number, default: 0 },
+    actualLearningHours:  { type: Number, default: 0 },
+    actualPracticeHours:  { type: Number, default: 0 },
+    learningOvertime:     { type: Boolean, default: false },
+    practiceOvertime:     { type: Boolean, default: false },
+    // Practice completion (required before session can be marked completed)
+    practiceCompleted:    { type: Boolean, default: false },
+    practiceAttempts:     { type: Number, default: 0 }
   },
   { _id: false }
 );

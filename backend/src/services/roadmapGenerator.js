@@ -19,6 +19,7 @@
 const curriculumTrees   = require('../data/curriculumTrees');
 const { getResourceForTopic } = require('../data/resourceCatalog');
 const { buildEmbedUrl, buildWatchUrl } = require('./youtubeService');
+const { splitEstimatedTime } = require('../utils/timeSplit');
 
 // ─── Colour palette for milestone segments ────────────────────────────────────
 const COLORS = [
@@ -133,6 +134,7 @@ function buildDailySessions(flatTopics, hoursPerDay) {
     const embedUrl       = videoId ? buildEmbedUrl(videoId) : null;
     const watchUrl       = videoId ? buildWatchUrl(videoId) : null;
     const time           = buildSessionTime(slotInDay, hoursPerDay);
+    const timeSplit      = splitEstimatedTime(topic.estimatedHours);
 
     sessions.push({
       id:         sessionId,
@@ -143,6 +145,8 @@ function buildDailySessions(flatTopics, hoursPerDay) {
       topicPart:  `${topic.estimatedHours}h`,
       totalParts: 1,
       estimatedHours: topic.estimatedHours,
+      estimatedLearningHours: timeSplit.estimatedLearningHours,
+      estimatedPracticeHours: timeSplit.estimatedPracticeHours,
       domain:     topic.domain,
       phaseId:    topic.phaseId,
       phaseTitle: topic.phaseTitle,
