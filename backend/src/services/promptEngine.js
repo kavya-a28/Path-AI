@@ -148,8 +148,7 @@ async function generateNextQuestion({ extractedProfile, missingFields, topicsCov
       allDetectedDomains.push({ domain: d, label });
     }
   }
-  
-    // Build domain guidance for ALL detected domains
+// Build domain guidance for ALL detected domains
   let domainGuidanceText = '';
   if (allDetectedDomains.length > 0) {
     domainGuidanceText = allDetectedDomains
@@ -394,3 +393,4 @@ function generateFallbackSuggestions(targetField, primaryDomain) {
 }
 
 module.exports = { generateNextQuestion, generateFallbackSuggestions, detectAllDomains };
+

@@ -106,7 +106,15 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
         console.warn('Could not mark session as started:', err.message);
       }
     }
-    setActiveTask(taskData);
+    // Inject preferredLanguage from roadmap profile so TaskDetailView
+    // can pass it to the content generator for language-specific content
+    const enrichedTask = {
+      ...taskData,
+      preferredLanguage: taskData.preferredLanguage
+        || roadmapData?.profile?.preferredLanguage
+        || ''
+    };
+    setActiveTask(enrichedTask);
     // Refresh stats so Focus Zone updates immediately
     fetchStats();
   };

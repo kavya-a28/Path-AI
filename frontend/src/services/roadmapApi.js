@@ -114,12 +114,13 @@ export async function submitPractice(sessionId, { solution, actualPracticeSecond
 
 /**
  * Get AI-generated text content + catalog video for a topic.
- * @param {string} topicName  – e.g. "HTML Basics"
- * @param {string} domain     – e.g. "web_development"
- * @param {string} topicKey   – e.g. "html_basics"
+ * @param {string} topicName       – e.g. "HTML Basics"
+ * @param {string} domain          – e.g. "web_development"
+ * @param {string} topicKey        – e.g. "html_basics"
+ * @param {string} preferredLanguage – e.g. "cpp", "java", "python"
  */
-export async function getTopicContent(topicName, domain = 'general', topicKey = '') {
-  const params = new URLSearchParams({ topicName, domain, topicKey });
+export async function getTopicContent(topicName, domain = 'general', topicKey = '', preferredLanguage = '') {
+  const params = new URLSearchParams({ topicName, domain, topicKey, preferredLanguage });
   const res = await fetch(`${API_URL}/roadmap/topic-content?${params}`, {
     headers: { Authorization: `Bearer ${getToken()}` }
   });

@@ -8,9 +8,7 @@ const WELCOME_MESSAGE = "Hey there! I'm your AI mentor at PathAI. Instead of a b
 
 const WELCOME_SUGGESTIONS = ['FAANG placements', 'Build web apps', 'Explore AI/ML'];
 
-/**
- * Generate a personalized completion message using Groq based on the student's full profile
- */
+
 async function generateCompletionMessage(profile) {
   try {
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -132,7 +130,7 @@ const handleMessage = async (req, res) => {
       });
     }
 
-    // Pop the next question from the queue
+    
     const nextQ = session.questionQueue.shift();
     await session.save();
 
@@ -146,7 +144,7 @@ const handleMessage = async (req, res) => {
 
     if (aiResponse.targetField && !session.topicsCovered.includes(aiResponse.targetField)) {
       session.topicsCovered.push(aiResponse.targetField);
-      // Also push the plain field name (without domain prefix) for profile extraction compatibility
+      
       const plainField = aiResponse.targetField.includes(':') ? aiResponse.targetField.split(':')[1] : aiResponse.targetField;
       if (plainField && !session.topicsCovered.includes(plainField)) {
         session.topicsCovered.push(plainField);

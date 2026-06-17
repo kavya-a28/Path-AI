@@ -12,6 +12,7 @@
  */
 
 const Roadmap                       = require('../models/Roadmap');
+const User                          = require('../models/User');
 const { generateRoadmap }           = require('../services/roadmapGenerator');
 const { generateTopicContent }      = require('../services/topicContentGenerator');
 const { validatePracticeSolution }  = require('../services/practiceValidator');
@@ -270,10 +271,23 @@ const submitPractice = async (req, res) => {
       session.practiceStartedAt = new Date();
     }
 
+    // Language resolution (3-tier):
+    // 1. roadmap.profile.preferredLanguage (set at generation time)
+    // 2. User.profile.preferredLanguage in DB (fallback for old roadmaps)
+    // 3. Domain default inside generateTopicContent
+    let resolvedLang = roadmap.profile?.preferredLanguage || '';
+    if (!resolvedLang) {
+      try {
+        const user = await User.findById(req.user._id).select('profile').lean();
+        resolvedLang = user?.profile?.preferredLanguage || '';
+      } catch (_) { /* non-fatal */ }
+    }
+
     const content = await generateTopicContent(
       session.title,
       session.domain || 'general',
-      session.topicKey || null
+      session.topicKey || null,
+      resolvedLang
     );
 
     const result = await validatePracticeSolution({
@@ -426,14 +440,30 @@ const rescheduleRoadmap = async (req, res) => {
 
 const getTopicContent = async (req, res) => {
   try {
-    const { topicName, domain, topicKey } = req.query;
+    const { topicName, domain, topicKey, preferredLanguage } = req.query;
     if (!topicName) {
       return res.status(400).json({ success: false, message: 'topicName is required.' });
     }
+
+    // Language resolution (3-tier):
+    // 1. What the frontend sent (from roadmap.profile or taskData)
+    // 2. Fallback: read from User.profile in the DB (handles old roadmaps)
+    // 3. Fallback: domain default inside generateTopicContent
+    let resolvedLang = preferredLanguage || '';
+    if (!resolvedLang) {
+      try {
+        const user = await User.findById(req.user._id).select('profile').lean();
+        resolvedLang = user?.profile?.preferredLanguage || '';
+      } catch (_) { /* non-fatal */ }
+    }
+
+    console.log(`[RoadmapCtrl] getTopicContent: topic="${topicName}" lang="${resolvedLang}"`);
+
     const content = await generateTopicContent(
       topicName,
       domain || 'general',
-      topicKey || null
+      topicKey || null,
+      resolvedLang
     );
     return res.status(200).json({ success: true, content });
   } catch (err) {

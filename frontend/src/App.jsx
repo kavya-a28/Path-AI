@@ -88,22 +88,33 @@ function App() {
       console.log('[PathAI] Detected domains:', domains);
 
       // Build flat profile for the generator
+      // finalizeSession returns PLAIN values (not {value:...} objects)
+      // so we need to handle both: plain string OR {value: string}
+      const pick = (field) => {
+        const v = profile?.[field];
+        if (v == null) return '';
+        if (typeof v === 'object' && !Array.isArray(v) && 'value' in v) return v.value ?? '';
+        return v;
+      };
+
       const flatProfile = {
         domains,                // ← multi-domain array
         domain:  domains[0],   // keep for backward compat
-        currentSkills:      profile?.currentSkills?.value      || profile?.currentSkills      || 'Beginner',
-        targetDuration:     profile?.targetDuration?.value     || profile?.targetDuration     || '6 months',
-        studyHoursPerDay:   profile?.studyHoursPerDay?.value   || profile?.studyHoursPerDay   || '3 hours/day',
-        focusArea:          profile?.stackFocus?.value         || profile?.focusArea?.value   || '',
-        motivation:         profile?.motivation?.value         || profile?.motivation         || '',
-        frameworkExperience: profile?.frameworkExperience?.value || '',
-        existingBaseline:   profile?.existingBaseline?.value   || '',
-        mathFoundation:     profile?.mathFoundation?.value     || '',
-        algorithmicCore:    profile?.algorithmicCore?.value    || '',
-        preferredLanguage:  profile?.preferredLanguage?.value  || '',
-        dsaLevel:           profile?.dsaLevel?.value           || '',
-        stackFocus:         profile?.stackFocus?.value         || '',
+        currentSkills:       pick('currentSkills')       || 'Beginner',
+        targetDuration:      pick('targetDuration')      || pick('timeline') || '6 months',
+        studyHoursPerDay:    pick('studyHoursPerDay')    || '3 hours/day',
+        focusArea:           pick('stackFocus')          || pick('focusArea') || '',
+        motivation:          pick('motivation')          || '',
+        frameworkExperience: pick('frameworkExperience') || '',
+        existingBaseline:    pick('existingBaseline')    || '',
+        mathFoundation:      pick('mathFoundation')      || '',
+        algorithmicCore:     pick('algorithmicCore')     || '',
+        preferredLanguage:   pick('preferredLanguage')   || '',   // ← fix: was reading .value on a plain string
+        dsaLevel:            pick('dsaLevel')            || '',
+        stackFocus:          pick('stackFocus')          || '',
       };
+
+      console.log('[PathAI] flatProfile.preferredLanguage =', flatProfile.preferredLanguage);
 
       setAnalyzeStep(1);
       const roadmap = await generateRoadmap(flatProfile);
