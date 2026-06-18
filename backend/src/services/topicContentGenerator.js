@@ -17,11 +17,16 @@
 const Groq = require('groq-sdk');
 const { getResourceForTopic } = require('../data/resourceCatalog');
 const { buildEmbedUrl, buildWatchUrl, searchTopVideo } = require('./youtubeService');
+const {
+  normalizePreferredLanguage,
+  getLanguageDisplay
+} = require('../utils/languagePreferences');
+const { buildPracticeChallenge, publicChallenge } = require('./practiceEngine');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // ── Language code → display name ────────────────────────────────────────────
-const LANGUAGE_DISPLAY = {
+const LEGACY_LANGUAGE_DISPLAY = {
   python:     'Python',
   java:       'Java',
   cpp:        'C++',
@@ -39,7 +44,7 @@ const LANGUAGE_DISPLAY = {
 };
 
 // ── Domain → sensible default language when none is selected ────────────────
-const DOMAIN_DEFAULT_LANG = {
+const LEGACY_DOMAIN_DEFAULT_LANG = {
   dsa:                    'cpp',        // competitive DSA world uses C++ heavily
   competitive_programming:'cpp',
   web_development:        'javascript',
@@ -139,20 +144,13 @@ function isSolutionCode(code) {
 
 async function generateTopicContent(topicName, domain, topicKey, preferredLanguage) {
   // ── Resolve language ──────────────────────────────────────────────────────
-  // Normalise: strip non-alpha chars, lowercase
-  const rawLang = (preferredLanguage || '').toLowerCase().replace(/[^a-z]/g, '');
-
-  // If the cleaned key is a known language, use it.
-  // Otherwise fall back to domain default, then python.
-  const langKey     = LANGUAGE_DISPLAY[rawLang]
-    ? rawLang
-    : (DOMAIN_DEFAULT_LANG[domain] || 'python');
-  const langDisplay  = LANGUAGE_DISPLAY[langKey] || 'Python';
+  const langKey      = normalizePreferredLanguage(preferredLanguage, domain);
+  const langDisplay  = getLanguageDisplay(langKey);
 
   console.log(`[TopicContent] topic="${topicName}" domain="${domain}" raw_lang="${preferredLanguage}" → langKey="${langKey}" (${langDisplay})`);
 
   // ── 1. Resolve video ──────────────────────────────────────────────────────
-  const catalogEntry = topicKey ? getResourceForTopic(topicKey) : null;
+  const catalogEntry = topicKey ? getResourceForTopic(topicKey, langKey, domain) : null;
   const catalogId    = catalogEntry?.video?.id || null;
 
   let videoId  = null;
@@ -284,6 +282,12 @@ Required JSON shape:
 
   // ── 3. Return merged result ───────────────────────────────────────────────
   const domainLabel = domain.replace(/_/g, ' ');
+  const generatedPracticeChallenge = publicChallenge(buildPracticeChallenge(
+    { title: topicName, topicKey, domain, preferredLanguage: langKey },
+    {},
+    langKey
+  ));
+
   return {
     // Video
     videoId,
@@ -325,18 +329,7 @@ Required JSON shape:
       keyTakeaway:  `${topicName} in ${langDisplay} is a foundational skill you'll use throughout your career.`
     },
 
-    practiceChallenge: aiContent?.practiceChallenge || {
-      title:       `${topicName} Practice`,
-      difficulty:  'EASY',
-      description: `Write a ${langDisplay} program that demonstrates your understanding of ${topicName}.`,
-      example: {
-        input:       'See problem description',
-        output:      'Your implementation output',
-        explanation: `This challenge tests your knowledge of ${topicName} in ${langDisplay}.`
-      },
-      starterCode:  buildStarterCodeFallback(topicName, langKey),
-      codeLanguage: langKey
-    }
+    practiceChallenge: generatedPracticeChallenge
   };
 }
 

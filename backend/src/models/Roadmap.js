@@ -24,7 +24,9 @@ const resourceSchema = new mongoose.Schema(
     videoId:    String, // YouTube video ID (no full URL stored)
     channel:    String,
     type:       { type: String, enum: ['video', 'article', 'course', 'book', 'practice'] },
-    durationMin:Number
+    durationMin:Number,
+    language:   String,
+    languageDisplay: String
   },
   { _id: false }
 );
@@ -42,7 +44,9 @@ const milestoneSchema = new mongoose.Schema(
     position:       { x: { type: Number, default: 50 }, y: { type: Number, default: 50 } },
     topics:         [topicSchema],
     resources:      [resourceSchema],
-    domain:         String
+    domain:         String,
+    preferredLanguage: String,
+    preferredLanguageDisplay: String
   },
   { _id: false }
 );
@@ -61,6 +65,8 @@ const dailySessionSchema = new mongoose.Schema(
     estimatedLearningHours: Number,
     estimatedPracticeHours: Number,
     domain:         String,
+    preferredLanguage: String,
+    preferredLanguageDisplay: String,
     phaseId:        Number,
     phaseTitle:     String,
     details:        [String],

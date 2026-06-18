@@ -6,6 +6,7 @@ const {
   startSession,
   updateSessionTracking,
   startPractice,
+  runPractice,
   submitPractice,
   updateSession,
   rescheduleRoadmap,
@@ -24,6 +25,7 @@ router.patch('/milestone',            protect, updateMilestone);
 router.patch('/session/:id/start',    protect, startSession);   // mark IN_PROGRESS
 router.patch('/session/:id/tracking', protect, updateSessionTracking);
 router.patch('/session/:id/practice/start', protect, startPractice);
+router.post('/session/:id/practice/run', protect, runPractice);
 router.post('/session/:id/practice/submit', protect, submitPractice);
 router.patch('/session/:id',          protect, updateSession);  // mark COMPLETED / MISSED
 router.post('/reschedule',            protect, rescheduleRoadmap);

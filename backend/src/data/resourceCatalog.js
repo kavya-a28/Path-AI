@@ -15,6 +15,14 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
+const {
+  normalizePreferredLanguage,
+  getLanguageDisplay
+} = require('../utils/languagePreferences');
+
+const LANGUAGE_SENSITIVE_DOMAINS = new Set(['dsa', 'competitive_programming']);
+const LANGUAGE_SENSITIVE_PREFIXES = ['dsa_', 'cp_', 'cpp_'];
+
 const resourceCatalog = {
 
   // ═══════════ WEB DEVELOPMENT ═══════════
@@ -1174,17 +1182,78 @@ const resourceCatalog = {
   }
 };
 
+function isLanguageSensitiveTopic(topicKey, domain) {
+  return LANGUAGE_SENSITIVE_DOMAINS.has(domain)
+    || LANGUAGE_SENSITIVE_PREFIXES.some(prefix => String(topicKey || '').startsWith(prefix));
+}
+
+function withLanguage(resource, langKey, topicKey) {
+  if (!resource) return resource;
+  const langDisplay = getLanguageDisplay(langKey);
+  const topicLabel = String(topicKey || 'topic').replace(/_/g, ' ');
+  const clone = JSON.parse(JSON.stringify(resource));
+
+  clone.language = langKey;
+  clone.languageDisplay = langDisplay;
+
+  if (clone.video?.id) {
+    clone.video.language = langKey;
+    clone.video.languageDisplay = langDisplay;
+    clone.video.title = `${clone.video.title} (${langDisplay})`;
+  }
+
+  clone.documentation = clone.documentation || {
+    title: `${langDisplay} ${topicLabel} guide`,
+    url: `https://www.google.com/search?q=${encodeURIComponent(`${topicLabel} ${langDisplay} tutorial`)}`
+  };
+  clone.documentation.language = langKey;
+  clone.documentation.languageDisplay = langDisplay;
+  if (!clone.documentation.title.toLowerCase().includes(langDisplay.toLowerCase())) {
+    clone.documentation.title = `${clone.documentation.title} (${langDisplay})`;
+  }
+
+  clone.practice = clone.practice || {
+    title: `${langDisplay} practice problems`,
+    url: 'https://leetcode.com/problemset/'
+  };
+  clone.practice.language = langKey;
+  clone.practice.languageDisplay = langDisplay;
+  if (!clone.practice.title.toLowerCase().includes(langDisplay.toLowerCase())) {
+    clone.practice.title = `${clone.practice.title} (${langDisplay})`;
+  }
+
+  clone.project = clone.project || {
+    title: `Build ${topicLabel} solutions in ${langDisplay}`,
+    url: `https://www.google.com/search?q=${encodeURIComponent(`${topicLabel} ${langDisplay} coding challenge`)}`
+  };
+  clone.project.language = langKey;
+  clone.project.languageDisplay = langDisplay;
+  if (!clone.project.title.toLowerCase().includes(langDisplay.toLowerCase())) {
+    clone.project.title = `${clone.project.title} (${langDisplay})`;
+  }
+
+  return clone;
+}
+
 /**
  * Get resource entry for a topic key.
- * Returns a default if the key is not in the catalog.
+ * Pass preferredLanguage for language-sensitive tracks like DSA and CP.
  */
-function getResourceForTopic(topicKey) {
-  return resourceCatalog[topicKey] || {
+function getResourceForTopic(topicKey, preferredLanguage = '', domain = '') {
+  const langKey = normalizePreferredLanguage(preferredLanguage, domain);
+  const baseResource = resourceCatalog[topicKey] || {
     video: null,
-    documentation: { title: 'Search on Google', url: `https://www.google.com/search?q=${encodeURIComponent(topicKey.replace(/_/g, ' '))}+tutorial` },
+    documentation: { title: 'Search on Google', url: `https://www.google.com/search?q=${encodeURIComponent(String(topicKey || '').replace(/_/g, ' '))}+tutorial` },
     practice: { title: 'LeetCode Practice', url: 'https://leetcode.com/' },
     project: { title: 'Build a Small Project', url: 'https://www.youtube.com/' }
   };
+
+  if (!isLanguageSensitiveTopic(topicKey, domain)) {
+    return baseResource;
+  }
+
+  const languageResource = baseResource.byLanguage?.[langKey];
+  return withLanguage({ ...baseResource, ...languageResource }, langKey, topicKey);
 }
 
 module.exports = { resourceCatalog, getResourceForTopic };

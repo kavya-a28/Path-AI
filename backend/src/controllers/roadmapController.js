@@ -15,9 +15,16 @@ const Roadmap                       = require('../models/Roadmap');
 const User                          = require('../models/User');
 const { generateRoadmap }           = require('../services/roadmapGenerator');
 const { generateTopicContent }      = require('../services/topicContentGenerator');
-const { validatePracticeSolution }  = require('../services/practiceValidator');
+const {
+  buildPracticeChallenge,
+  executePractice
+} = require('../services/practiceEngine');
 const { getResourceForTopic }       = require('../data/resourceCatalog');
 const { buildEmbedUrl, buildWatchUrl } = require('../services/youtubeService');
+const {
+  normalizePreferredLanguage,
+  getLanguageDisplay
+} = require('../utils/languagePreferences');
 const {
   secondsToHours,
   isOvertime,
@@ -46,7 +53,14 @@ const generate = async (req, res) => {
       });
     }
 
-    const normProfile = { ...profile, domains, domain: domains[0] };
+    const preferredLanguage = normalizePreferredLanguage(profile.preferredLanguage, domains[0]);
+    const normProfile = {
+      ...profile,
+      domains,
+      domain: domains[0],
+      preferredLanguage,
+      preferredLanguageDisplay: getLanguageDisplay(preferredLanguage)
+    };
 
     const { displayName, milestones, dailySessions, stats, generatedBy } =
       await generateRoadmap(normProfile);
@@ -252,11 +266,44 @@ const startPractice = async (req, res) => {
 
 // ─── Submit & validate practice solution ─────────────────────────────────────
 
+const runPractice = async (req, res) => {
+  try {
+    const userId    = req.user._id;
+    const sessionId = parseInt(req.params.id, 10);
+    const { solution } = req.body;
+
+    const roadmap = await Roadmap.findOne({ userId, status: 'active' });
+    if (!roadmap) return res.status(404).json({ success: false, message: 'No active roadmap.' });
+
+    const session = roadmap.dailySessions.find(s => s.id === sessionId);
+    if (!session) return res.status(404).json({ success: false, message: 'Session not found.' });
+
+    const resolvedLang = session.preferredLanguage || roadmap.profile?.preferredLanguage || '';
+    const challenge = buildPracticeChallenge(session, roadmap.profile || {}, resolvedLang);
+    const result = await executePractice({ solution, challenge, includeHidden: false });
+
+    return res.status(200).json({
+      success: true,
+      passed: result.passed,
+      compileError: result.compileError,
+      testResults: result.testResults,
+      feedback: result.compileError
+        ? 'Compilation failed. Fix the error and run again.'
+        : result.passed
+        ? 'All visible test cases passed.'
+        : 'Some visible test cases failed.'
+    });
+  } catch (err) {
+    console.error('Run practice error:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 const submitPractice = async (req, res) => {
   try {
     const userId    = req.user._id;
     const sessionId = parseInt(req.params.id, 10);
-    const { solution, actualPracticeSeconds, starterCode } = req.body;
+    const { solution, actualPracticeSeconds } = req.body;
 
     const roadmap = await Roadmap.findOne({ userId, status: 'active' });
     if (!roadmap) return res.status(404).json({ success: false, message: 'No active roadmap.' });
@@ -283,26 +330,23 @@ const submitPractice = async (req, res) => {
       } catch (_) { /* non-fatal */ }
     }
 
-    const content = await generateTopicContent(
-      session.title,
-      session.domain || 'general',
-      session.topicKey || null,
-      resolvedLang
-    );
-
-    const result = await validatePracticeSolution({
-      topicName:   session.title,
-      challenge:   content.practiceChallenge,
+    const challenge = buildPracticeChallenge(session, roadmap.profile || {}, resolvedLang);
+    const result = await executePractice({
       solution,
-      starterCode: starterCode || content.practiceChallenge?.starterCode
+      challenge,
+      includeHidden: true
     });
 
-    if (!result.valid) {
+    if (!result.passed) {
       await roadmap.save();
       return res.status(400).json({
         success:  false,
         valid:    false,
-        feedback: result.feedback,
+        feedback: result.compileError
+          ? 'Compilation failed. Fix the error and submit again.'
+          : 'Solution failed one or more required test cases.',
+        compileError: result.compileError,
+        testResults: result.testResults,
         session
       });
     }
@@ -322,7 +366,8 @@ const submitPractice = async (req, res) => {
     return res.status(200).json({
       success:  true,
       valid:    true,
-      feedback: result.feedback,
+      feedback: 'Accepted. All required test cases passed.',
+      testResults: result.testResults,
       session,
       roadmap:  roadmap.toObject()
     });
@@ -476,11 +521,12 @@ const getTopicContent = async (req, res) => {
 
 const getTopicResources = async (req, res) => {
   try {
-    const { topicKey } = req.query;
+    const { topicKey, preferredLanguage, domain } = req.query;
     if (!topicKey) {
       return res.status(400).json({ success: false, message: 'topicKey is required.' });
     }
-    const resource = getResourceForTopic(topicKey);
+    const resolvedLang = normalizePreferredLanguage(preferredLanguage, domain || 'general');
+    const resource = getResourceForTopic(topicKey, resolvedLang, domain || 'general');
 
     const enriched = {
       ...resource,
@@ -489,7 +535,9 @@ const getTopicResources = async (req, res) => {
         embedUrl: buildEmbedUrl(resource.video.id),
         watchUrl: buildWatchUrl(resource.video.id),
         thumbnailUrl: `https://i.ytimg.com/vi/${resource.video.id}/hqdefault.jpg`
-      } : null
+      } : null,
+      preferredLanguage: resolvedLang,
+      preferredLanguageDisplay: getLanguageDisplay(resolvedLang)
     };
 
     return res.status(200).json({ success: true, resources: enriched });
@@ -506,6 +554,7 @@ module.exports = {
   startSession,
   updateSessionTracking,
   startPractice,
+  runPractice,
   submitPractice,
   updateSession,
   rescheduleRoadmap,

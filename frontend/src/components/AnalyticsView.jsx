@@ -6,26 +6,23 @@ import {
   Sun, Sunset, Moon, Coffee, Calendar, Award
 } from 'lucide-react';
 
-const AnalyticsView = () => {
+const AnalyticsView = ({ dashboardStats }) => {
   const [selectedTimeRange, setSelectedTimeRange] = useState('Last 30 Days');
 
-  // AI Insights Data
-  const aiInsights = [
-    { icon: '🎯', text: 'You learn DSA best between 6–9am (↑ 32% efficiency)', type: 'positive' },
-    { icon: '⚠️', text: 'Web Development progress slowed this month', type: 'warning' },
-    { icon: '🔥', text: 'Burnout risk detected on Sundays – suggest lighter tasks', type: 'alert' },
-    { icon: '💡', text: 'Switching projects to evenings may improve focus', type: 'suggestion' }
+  // AI Insights Data (Dynamic)
+  const aiInsights = dashboardStats?.aiInsights || [
+    { icon: '🧠', text: 'AI is analyzing your learning patterns...', type: 'suggestion' }
   ];
 
-  // Roadmap Health Score
-  const healthScore = {
-    value: 82,
+  // Roadmap Health Score (Dynamic)
+  const healthScore = dashboardStats?.healthScore || {
+    value: 0,
     trend: 'up',
     factors: [
-      { name: 'Consistency', score: 85, color: 'from-emerald-400 to-emerald-500' },
-      { name: 'Missed Tasks', score: 78, color: 'from-blue-400 to-blue-500' },
-      { name: 'Skill Balance', score: 80, color: 'from-purple-400 to-purple-500' },
-      { name: 'Deadline Adherence', score: 86, color: 'from-orange-400 to-orange-500' }
+      { name: 'Consistency', score: 0, color: 'from-emerald-400 to-emerald-500' },
+      { name: 'Missed Tasks', score: 0, color: 'from-blue-400 to-blue-500' },
+      { name: 'Skill Balance', score: 0, color: 'from-purple-400 to-purple-500' },
+      { name: 'Deadline Adherence', score: 0, color: 'from-orange-400 to-orange-500' }
     ]
   };
 
@@ -153,8 +150,8 @@ const AnalyticsView = () => {
         </div>
       </motion.div>
 
-      {/* SECTION 2 & 3: Roadmap Health + Recovery Plan */}
-      <div className="grid lg:grid-cols-2 gap-6">
+      {/* SECTION 2: Roadmap Health */}
+      <div className="grid lg:grid-cols-1 gap-6">
         
         {/* Roadmap Health Score */}
         <motion.div 
@@ -168,205 +165,90 @@ const AnalyticsView = () => {
             🧭 Roadmap Health
           </h3>
           
-          {/* Circular Progress Gauge */}
-          <div className="flex items-center justify-center mb-8">
-            <div className="relative w-48 h-48">
-              <svg viewBox="0 0 200 200" className="transform -rotate-90">
-                {/* Background circle */}
-                <circle
-                  cx="100"
-                  cy="100"
-                  r="80"
-                  fill="none"
-                  stroke="#e2e8f0"
-                  strokeWidth="20"
-                />
-                {/* Progress circle */}
-                <motion.circle
-                  cx="100"
-                  cy="100"
-                  r="80"
-                  fill="none"
-                  stroke="url(#health-gradient)"
-                  strokeWidth="20"
-                  strokeDasharray={`${(healthScore.value / 100) * 502.4} 502.4`}
-                  strokeLinecap="round"
-                  initial={{ strokeDasharray: '0 502.4' }}
-                  animate={{ strokeDasharray: `${(healthScore.value / 100) * 502.4} 502.4` }}
-                  transition={{ duration: 1.5, delay: 0.4 }}
-                />
-                <defs>
-                  <linearGradient id="health-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#10b981" />
-                    <stop offset="50%" stopColor="#3b82f6" />
-                    <stop offset="100%" stopColor="#8b5cf6" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              
-              {/* Center text */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <div className="text-5xl font-black text-slate-900">{healthScore.value}</div>
-                <div className="text-sm font-bold text-slate-400">/ 100</div>
-                <div className="flex items-center gap-1 mt-2">
-                  {healthScore.trend === 'up' ? (
-                    <>
-                      <TrendingUp className="w-5 h-5 text-emerald-500" />
-                      <span className="text-sm font-bold text-emerald-600">Improving</span>
-                    </>
-                  ) : (
-                    <>
-                      <TrendingDown className="w-5 h-5 text-rose-500" />
-                      <span className="text-sm font-bold text-rose-600">Declining</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Factors */}
-          <div className="space-y-3">
-            <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-4">Health Factors</p>
-            {healthScore.factors.map((factor, idx) => (
-              <div key={factor.name} className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-bold text-slate-700">{factor.name}</span>
-                  <span className="text-sm font-black text-slate-900">{factor.score}%</span>
-                </div>
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${factor.score}%` }}
-                    transition={{ duration: 1, delay: 0.5 + idx * 0.1 }}
-                    className={`h-full bg-gradient-to-r ${factor.color}`}
+          <div className="grid lg:grid-cols-2 gap-8 items-center">
+            {/* Circular Progress Gauge */}
+            <div className="flex items-center justify-center">
+              <div className="relative w-56 h-56">
+                <svg viewBox="0 0 200 200" className="transform -rotate-90">
+                  {/* Background circle */}
+                  <circle
+                    cx="100"
+                    cy="100"
+                    r="80"
+                    fill="none"
+                    stroke="#e2e8f0"
+                    strokeWidth="20"
                   />
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Recovery Plan */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="bg-gradient-to-br from-orange-50 via-rose-50 to-pink-50 backdrop-blur-xl border border-white rounded-3xl p-8 shadow-xl"
-        >
-          <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
-            <AlertCircle className="w-6 h-6 text-orange-500" />
-            🔄 Recovery Plan
-          </h3>
-          
-          <div className="space-y-6">
-            <div className="bg-white/60 rounded-2xl p-6 border border-orange-200">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-400 to-rose-400 flex items-center justify-center">
-                  <XCircle className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <p className="text-2xl font-black text-slate-900">{recoveryPlan.missedCount}</p>
-                  <p className="text-sm font-bold text-slate-500">Tasks Missed Last Week</p>
+                  {/* Progress circle */}
+                  <motion.circle
+                    cx="100"
+                    cy="100"
+                    r="80"
+                    fill="none"
+                    stroke="url(#health-gradient)"
+                    strokeWidth="20"
+                    strokeDasharray={`${(healthScore.value / 100) * 502.4} 502.4`}
+                    strokeLinecap="round"
+                    initial={{ strokeDasharray: '0 502.4' }}
+                    animate={{ strokeDasharray: `${(healthScore.value / 100) * 502.4} 502.4` }}
+                    transition={{ duration: 1.5, delay: 0.4 }}
+                  />
+                  <defs>
+                    <linearGradient id="health-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#10b981" />
+                      <stop offset="50%" stopColor="#3b82f6" />
+                      <stop offset="100%" stopColor="#8b5cf6" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                
+                {/* Center text */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <div className="text-5xl font-black text-slate-900">{healthScore.value}</div>
+                  <div className="text-sm font-bold text-slate-400">/ 100</div>
+                  <div className="flex items-center gap-1 mt-2">
+                    {healthScore.trend === 'up' ? (
+                      <>
+                        <TrendingUp className="w-5 h-5 text-emerald-500" />
+                        <span className="text-sm font-bold text-emerald-600">Improving</span>
+                      </>
+                    ) : (
+                      <>
+                        <TrendingDown className="w-5 h-5 text-rose-500" />
+                        <span className="text-sm font-bold text-rose-600">Declining</span>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 text-slate-700">
-                <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-                <p className="font-semibold">AI redistributed them across next <span className="font-black text-emerald-600">{recoveryPlan.redistributedDays} days</span></p>
-              </div>
-              <div className="flex items-center gap-3 text-slate-700">
-                <Clock className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                <p className="font-semibold"><span className="font-black text-blue-600">+{recoveryPlan.additionalTime} minutes/day</span> added to schedule</p>
-              </div>
+            {/* Factors */}
+            <div className="space-y-4">
+              <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Health Factors</p>
+              {healthScore.factors.map((factor, idx) => (
+                <div key={factor.name} className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-bold text-slate-700">{factor.name}</span>
+                    <span className="text-sm font-black text-slate-900">{factor.score}%</span>
+                  </div>
+                  <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${factor.score}%` }}
+                      transition={{ duration: 1, delay: 0.5 + idx * 0.1 }}
+                      className={`h-full bg-gradient-to-r ${factor.color}`}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
-
-            <button className="w-full bg-gradient-to-r from-orange-500 to-rose-500 text-white py-4 rounded-2xl font-black shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2">
-              <Sparkles className="w-5 h-5" />
-              Apply Recovery Plan
-            </button>
           </div>
         </motion.div>
+
       </div>
 
-      {/* SECTION 4: Cognitive & Energy Analytics */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="bg-white/80 backdrop-blur-xl border border-white rounded-3xl p-8 shadow-xl"
-      >
-        <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
-          <Zap className="w-6 h-6 text-amber-500" />
-          ⚡ Cognitive & Energy Analytics
-        </h3>
 
-        {/* Bar Chart */}
-        <div className="relative h-64 mb-8">
-          {/* Y-axis */}
-          <div className="absolute left-0 top-0 bottom-12 flex flex-col justify-between text-xs font-bold text-slate-400">
-            <span>100</span>
-            <span>75</span>
-            <span>50</span>
-            <span>25</span>
-            <span>0</span>
-          </div>
-
-          {/* Bars */}
-          <div className="absolute left-12 right-0 top-0 bottom-12 flex items-end justify-between gap-4">
-            {cognitiveData.map((slot, idx) => (
-              <div key={slot.slot} className="flex-1 flex flex-col items-center gap-2">
-                <motion.div
-                  initial={{ height: 0 }}
-                  animate={{ height: `${slot.score}%` }}
-                  transition={{ duration: 1, delay: 0.6 + idx * 0.1 }}
-                  className={`w-full rounded-t-2xl bg-gradient-to-t ${slot.color} relative group cursor-pointer hover:opacity-80 transition-opacity`}
-                >
-                  {/* Score label */}
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-sm font-black text-slate-900">
-                    {slot.score}
-                  </div>
-                  
-                  {/* Icon */}
-                  <div className="absolute top-4 left-1/2 -translate-x-1/2">
-                    <slot.icon className="w-6 h-6 text-white" />
-                  </div>
-                </motion.div>
-              </div>
-            ))}
-          </div>
-
-          {/* X-axis labels */}
-          <div className="absolute left-12 right-0 bottom-0 flex justify-between">
-            {cognitiveData.map(slot => (
-              <div key={slot.slot} className="flex-1 text-center">
-                <p className="text-sm font-black text-slate-900">{slot.slot}</p>
-                <p className="text-xs font-bold text-slate-400">{slot.time}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Best Learning Fit */}
-        <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-6 border border-purple-200">
-          <p className="text-sm font-black text-slate-700 uppercase tracking-wider mb-4">Best Learning Fit:</p>
-          <div className="grid md:grid-cols-2 gap-4">
-            {cognitiveData.map(slot => (
-              <div key={slot.slot} className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${slot.color} flex items-center justify-center`}>
-                  <slot.icon className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="font-black text-slate-900">{slot.slot}</p>
-                  <p className="text-sm font-semibold text-slate-600">{slot.activities.join(', ')}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </motion.div>
 
       {/* SECTION 5 & 6: Skill Mastery + Weakest Link */}
       <div className="grid lg:grid-cols-2 gap-6">
@@ -525,115 +407,7 @@ const AnalyticsView = () => {
         </motion.div>
       </div>
 
-      {/* SECTION 7: Success Prediction Model */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.8 }}
-        className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 backdrop-blur-xl border border-white rounded-3xl p-8 shadow-xl"
-      >
-        <h3 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-2">
-          <Award className="w-7 h-7 text-purple-500" />
-          🔮 Success Prediction Model
-        </h3>
 
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Left: Prediction Details */}
-          <div className="space-y-6">
-            <div className="bg-white/60 rounded-2xl p-6 border border-purple-200">
-              <p className="text-sm font-bold text-slate-500 mb-2">Goal</p>
-              <p className="text-xl font-black text-slate-900 mb-4">{successPrediction.goal}</p>
-              
-              <div className="flex items-center gap-4">
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-slate-500 mb-2">Current Probability</p>
-                  <div className="flex items-end gap-2">
-                    <span className="text-5xl font-black text-purple-600">{successPrediction.probability}%</span>
-                    <TrendingUp className="w-8 h-8 text-emerald-500 mb-2" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <p className="text-sm font-black text-slate-700 uppercase tracking-wider">To reach 90%:</p>
-              {successPrediction.toReach90.map((item, idx) => (
-                <div key={idx} className="flex items-center gap-3 bg-white/60 rounded-xl p-4 border border-blue-200">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-purple-400 flex items-center justify-center flex-shrink-0">
-                    <CheckCircle2 className="w-5 h-5 text-white" />
-                  </div>
-                  <p className="font-semibold text-slate-700">{item}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Right: Trend Line */}
-          <div className="bg-white/60 rounded-2xl p-6 border border-purple-200">
-            <p className="text-sm font-black text-slate-700 uppercase tracking-wider mb-6">Probability Trend</p>
-            
-            <div className="relative h-48">
-              {/* Y-axis */}
-              <div className="absolute left-0 top-0 bottom-8 flex flex-col justify-between text-xs font-bold text-slate-400">
-                <span>100%</span>
-                <span>75%</span>
-                <span>50%</span>
-                <span>25%</span>
-                <span>0%</span>
-              </div>
-
-              {/* Line Chart */}
-              <svg className="absolute left-12 right-0 top-0 bottom-8 w-full h-full">
-                <defs>
-                  <linearGradient id="success-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#3b82f6" />
-                    <stop offset="100%" stopColor="#8b5cf6" />
-                  </linearGradient>
-                </defs>
-                
-                {/* Line path */}
-                <motion.path
-                  d={`M ${successPrediction.trendData.map((d, i) => 
-                    `${(i / (successPrediction.trendData.length - 1)) * 100}% ${100 - d}%`
-                  ).join(' L ')}`}
-                  fill="none"
-                  stroke="url(#success-gradient)"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  initial={{ pathLength: 0 }}
-                  animate={{ pathLength: 1 }}
-                  transition={{ duration: 1.5, delay: 0.9 }}
-                />
-                
-                {/* Data points */}
-                {successPrediction.trendData.map((d, i) => (
-                  <motion.circle
-                    key={i}
-                    cx={`${(i / (successPrediction.trendData.length - 1)) * 100}%`}
-                    cy={`${100 - d}%`}
-                    r="4"
-                    fill="#8b5cf6"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: 0.9 + i * 0.1 }}
-                  />
-                ))}
-              </svg>
-
-              {/* X-axis labels */}
-              <div className="absolute left-12 right-0 bottom-0 flex justify-between text-xs font-bold text-slate-500">
-                <span>Jan</span>
-                <span>Feb</span>
-                <span>Mar</span>
-                <span>Apr</span>
-                <span>May</span>
-                <span>Now</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </motion.div>
     </div>
   );
 };

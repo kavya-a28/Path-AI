@@ -8,7 +8,7 @@ import {
   Volume2, Settings, Maximize, SkipForward, SkipBack, Star, Zap, Target,
   Menu, Plus, Grid, AlertCircle, Loader2
 } from 'lucide-react';
-import { getTopicContent, updateSession, updateSessionTracking, startPractice, submitPractice } from '../services/roadmapApi';
+import { getTopicContent, updateSession, updateSessionTracking, startPractice, runPractice, submitPractice } from '../services/roadmapApi';
 import {
   getSessionTimeBudget,
   formatDuration,
@@ -276,8 +276,10 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
       if (result.valid) {
         setPracticeCompleted(true);
         setPracticeFeedback({ valid: true, message: result.feedback || 'Correct! Practice completed.' });
+        setCodeOutput(formatPracticeRunOutput(result, 'Submit'));
       } else {
         setPracticeFeedback({ valid: false, message: result.feedback || 'Incorrect solution. Try again.' });
+        setCodeOutput(formatPracticeRunOutput(result, 'Submit'));
       }
     } catch (err) {
       setPracticeFeedback({ valid: false, message: err.message || 'Submission failed. Try again.' });
@@ -287,20 +289,107 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
   };
 
   // ── Run Code handler ───────────────────────────────────────────────────────
-  const handleRunCode = () => {
+  const getPracticeLanguage = () =>
+    topicContent?.preferredLanguage || topicContent?.practiceChallenge?.codeLanguage || taskData.preferredLanguage || 'code';
+
+  const getBasicCodeError = (code, lang) => {
+    const pairs = [
+      ['(', ')'],
+      ['[', ']'],
+      ['{', '}']
+    ];
+
+    for (const [open, close] of pairs) {
+      const openCount = (code.match(new RegExp(`\\${open}`, 'g')) || []).length;
+      const closeCount = (code.match(new RegExp(`\\${close}`, 'g')) || []).length;
+      if (openCount !== closeCount) {
+        return `Syntax error: unmatched "${open}" / "${close}" brackets.`;
+      }
+    }
+
+    if (lang === 'java') {
+      if (!/\bclass\s+\w+/.test(code)) {
+        return 'Java code must include a class declaration, for example: public class Solution { ... }.';
+      }
+      if (!/\b(public\s+)?static\s+void\s+main\s*\(/.test(code) && !/\b(public\s+)?(static\s+)?\w+[\w<>\[\]]*\s+\w+\s*\(/.test(code)) {
+        return 'Java code should include a main method or a complete method implementation.';
+      }
+    }
+
+    if (lang === 'cpp') {
+      if (!/#include\s*</.test(code) && !/\bint\s+main\s*\(/.test(code)) {
+        return 'C++ code should include headers and an int main() entry point or a complete function implementation.';
+      }
+    }
+
+    if (lang === 'python') {
+      const lines = code.split('\n');
+      const badBlock = lines.find((line, idx) => /:\s*$/.test(line) && !lines[idx + 1]?.match(/^\s+\S/));
+      if (badBlock) {
+        return 'Python syntax error: a line ending with ":" needs an indented block below it.';
+      }
+    }
+
+    return null;
+  };
+
+  const formatPracticeRunOutput = (result, mode = 'Run') => {
+    if (result.compileError) {
+      return `${mode} failed: compilation/runtime error\n\n${result.compileError}`;
+    }
+
+    const rows = (result.testResults || []).map(test => {
+      const label = test.hidden ? `Hidden Test ${test.index}` : `Test ${test.index}`;
+      if (test.passed) return `${label}: PASSED`;
+      if (test.error) return `${label}: FAILED\nError: ${test.error}`;
+      return [
+        `${label}: FAILED`,
+        test.input !== undefined ? `Input: ${test.input}` : null,
+        test.expected !== undefined ? `Expected: ${test.expected}` : null,
+        test.actual !== undefined ? `Actual: ${test.actual}` : null
+      ].filter(Boolean).join('\n');
+    });
+
+    return `${mode}: ${result.passed || result.valid ? 'all required tests passed' : 'some tests failed'}\n\n${rows.join('\n\n')}`;
+  };
+
+  const handleRunCode = async () => {
     const code = userCode.trim();
     if (!code) {
       setCodeOutput('⚠️  Please write some code before running.');
       return;
     }
 
-    const lang   = topicContent?.preferredLanguage || topicContent?.practiceChallenge?.codeLanguage || 'python';
+    const lang   = getPracticeLanguage();
     const starter = (topicContent?.practiceChallenge?.starterCode || '').trim();
 
     if (code === starter) {
       setCodeOutput('⚠️  You are still on the starter template. Implement your solution and click Run Code again.');
       return;
     }
+
+    const basicError = getBasicCodeError(code, lang);
+    if (basicError) {
+      setCodeOutput(`Error: ${basicError}`);
+      return;
+    }
+
+    if (!taskData?.id || typeof taskData.id !== 'number') {
+      setCodeOutput('Error: This practice task is not linked to a roadmap session. Open it from the active roadmap session and try again.');
+      return;
+    }
+
+    setIsRunning(true);
+    setCodeOutput(null);
+    try {
+      const result = await runPractice(taskData.id, { solution: code });
+      setCodeOutput(formatPracticeRunOutput(result, 'Run Code'));
+    } catch (err) {
+      setCodeOutput(`Run failed: ${err.message || 'Could not execute code.'}`);
+    } finally {
+      setIsRunning(false);
+    }
+    return;
 
     setIsRunning(true);
     setCodeOutput(null);

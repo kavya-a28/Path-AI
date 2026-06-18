@@ -98,22 +98,33 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
 
   // ── Start Learning: mark session as IN_PROGRESS in DB ─────────────────────
   const handleStartTask = async (taskData) => {
+    const linkedSession = typeof taskData?.id === 'number'
+      ? taskData
+      : (roadmapData?.dailySessions || []).find(session =>
+          (taskData?.topicKey && session.topicKey === taskData.topicKey) ||
+          (taskData?.title && session.title === taskData.title) ||
+          (taskData?.name && session.title === taskData.name)
+        );
+    const sessionTask = linkedSession ? { ...linkedSession, ...taskData, id: linkedSession.id } : taskData;
+
     // If task has a numeric id, mark it as current in the DB
-    if (taskData?.id && typeof taskData.id === 'number') {
+    if (sessionTask?.id && typeof sessionTask.id === 'number') {
       try {
-        await startSession(taskData.id);
+        await startSession(sessionTask.id);
       } catch (err) {
         console.warn('Could not mark session as started:', err.message);
       }
     }
+
     // Inject preferredLanguage from roadmap profile so TaskDetailView
     // can pass it to the content generator for language-specific content
     const enrichedTask = {
-      ...taskData,
-      preferredLanguage: taskData.preferredLanguage
+      ...sessionTask,
+      preferredLanguage: sessionTask.preferredLanguage
         || roadmapData?.profile?.preferredLanguage
         || ''
     };
+    
     setActiveTask(enrichedTask);
     // Refresh stats so Focus Zone updates immediately
     fetchStats();
@@ -530,7 +541,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                   exit={{ opacity: 0, x: -20 }} 
                   className="mt-6"
                 >
-                  <AnalyticsView />
+                  <AnalyticsView dashboardStats={dashStats} />
                 </motion.div>
               )}
 

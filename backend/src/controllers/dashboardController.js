@@ -116,6 +116,52 @@ const getDashboardStats = async (req, res) => {
       ? Math.round((completedSessions.length / (completedSessions.length + missedSessions.length)) * 100)
       : 100;
 
+    const pendingCount = sessions.filter(s => s.status === 'locked' || s.status === 'current').length;
+    
+    // --- Dynamic Roadmap Health Score ---
+    const healthConsistency = completionRate;
+    const healthMissed = Math.max(0, 100 - (missedSessions.length * 5));
+    const healthSkill = Math.min(100, Math.max(50, Math.round(masteryProgress * 1.2)));
+    const healthDeadline = Math.max(0, 100 - (missedSessions.length * 2));
+
+    const healthValue = Math.round((healthConsistency + healthMissed + healthSkill + healthDeadline) / 4);
+    const healthTrend = healthValue >= 75 ? 'up' : 'down';
+
+    const healthScore = {
+      value: healthValue,
+      trend: healthTrend,
+      factors: [
+        { name: 'Consistency', score: healthConsistency, color: 'from-emerald-400 to-emerald-500' },
+        { name: 'Missed Tasks', score: healthMissed, color: 'from-blue-400 to-blue-500' },
+        { name: 'Skill Balance', score: healthSkill, color: 'from-purple-400 to-purple-500' },
+        { name: 'Deadline Adherence', score: healthDeadline, color: 'from-orange-400 to-orange-500' }
+      ]
+    };
+
+    // --- Dynamic AI Insights ---
+    const aiInsights = [];
+    const streak = roadmap.stats?.streak || 0;
+    
+    if (streak >= 3) {
+      aiInsights.push({ icon: '🔥', text: `Great job maintaining a ${streak} day learning streak!`, type: 'positive' });
+    } else if (todayCompleted > 0) {
+      aiInsights.push({ icon: '🎯', text: 'You made progress today. Keep up the momentum!', type: 'positive' });
+    } else {
+      aiInsights.push({ icon: '💡', text: 'Start a session today to build your learning streak.', type: 'suggestion' });
+    }
+
+    if (missedSessions.length > 0) {
+      aiInsights.push({ icon: '⚠️', text: `You have ${missedSessions.length} missed tasks. Try to catch up this weekend.`, type: 'warning' });
+    } else if (completedSessions.length > 0) {
+      aiInsights.push({ icon: '✨', text: 'Perfect attendance! You have no missed tasks.', type: 'positive' });
+    }
+
+    if (completionPct < 50 && todayTotal > 0) {
+      aiInsights.push({ icon: '⏰', text: 'Your daily completion is under 50%. Consider adjusting your schedule.', type: 'alert' });
+    } else if (studiedHours > 0) {
+      aiInsights.push({ icon: '🧠', text: `You've invested ${Math.round(studiedHours * 10) / 10} hours into learning so far. Excellent dedication!`, type: 'positive' });
+    }
+
     return res.status(200).json({
       success: true,
       stats: {
@@ -140,13 +186,15 @@ const getDashboardStats = async (req, res) => {
         completionRate,
         missedTotal:       missedSessions.length,
         completedTotal:    completedSessions.length,
-        pendingCount:      sessions.filter(s => s.status === 'locked' || s.status === 'current').length,
+        pendingCount,
         pendingSessions:   missedSessions.map(formatSession),
         completedList:     completedSessions
           .sort((a, b) => (a.completedAt || 0) - (b.completedAt || 0))
           .map(formatSession),
         currentTask: currentTask ? formatSession(currentTask) : null,
-        upNext
+        upNext,
+        healthScore,
+        aiInsights
       }
     });
 

@@ -96,6 +96,20 @@ export async function startPractice(sessionId) {
 }
 
 /**
+ * Run practice code against visible backend test cases.
+ */
+export async function runPractice(sessionId, { solution }) {
+  const res = await fetch(`${API_URL}/roadmap/session/${sessionId}/practice/run`, {
+    method:  'POST',
+    headers: authHeaders(),
+    body:    JSON.stringify({ solution })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.message || 'Failed to run practice');
+  return data;
+}
+
+/**
  * Submit a practice solution for validation.
  * Returns { valid, feedback, session, roadmap }.
  */
@@ -133,8 +147,8 @@ export async function getTopicContent(topicName, domain = 'general', topicKey = 
  * Get catalog resources only (no AI call) for a topic key.
  * @param {string} topicKey – e.g. "html_basics"
  */
-export async function getTopicResources(topicKey) {
-  const params = new URLSearchParams({ topicKey });
+export async function getTopicResources(topicKey, preferredLanguage = '', domain = '') {
+  const params = new URLSearchParams({ topicKey, preferredLanguage, domain });
   const res = await fetch(`${API_URL}/roadmap/topic-resources?${params}`, {
     headers: { Authorization: `Bearer ${getToken()}` }
   });

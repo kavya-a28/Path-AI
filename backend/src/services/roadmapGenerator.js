@@ -20,6 +20,10 @@ const curriculumTrees   = require('../data/curriculumTrees');
 const { getResourceForTopic } = require('../data/resourceCatalog');
 const { buildEmbedUrl, buildWatchUrl } = require('./youtubeService');
 const { splitEstimatedTime } = require('../utils/timeSplit');
+const {
+  normalizePreferredLanguage,
+  getLanguageDisplay
+} = require('../utils/languagePreferences');
 
 // ─── Colour palette for milestone segments ────────────────────────────────────
 const COLORS = [
@@ -122,14 +126,16 @@ function flattenTopics(domains) {
  *   { id, day, time, title, topicKey, topicPart, totalParts, details,
  *     status, icon, color, domain, videoId, embedUrl, watchUrl, resources }
  */
-function buildDailySessions(flatTopics, hoursPerDay) {
+function buildDailySessions(flatTopics, hoursPerDay, preferredLanguage) {
   const sessions = [];
   let   sessionId = 1;
   let   dayNum    = 1;
   let   slotInDay = 0;
 
   for (const topic of flatTopics) {
-    const resource       = getResourceForTopic(topic.topicKey);
+    const langKey        = normalizePreferredLanguage(preferredLanguage, topic.domain);
+    const langDisplay    = getLanguageDisplay(langKey);
+    const resource       = getResourceForTopic(topic.topicKey, langKey, topic.domain);
     const videoId        = resource?.video?.id || null;
     const embedUrl       = videoId ? buildEmbedUrl(videoId) : null;
     const watchUrl       = videoId ? buildWatchUrl(videoId) : null;
@@ -148,6 +154,8 @@ function buildDailySessions(flatTopics, hoursPerDay) {
       estimatedLearningHours: timeSplit.estimatedLearningHours,
       estimatedPracticeHours: timeSplit.estimatedPracticeHours,
       domain:     topic.domain,
+      preferredLanguage: langKey,
+      preferredLanguageDisplay: langDisplay,
       phaseId:    topic.phaseId,
       phaseTitle: topic.phaseTitle,
       details: [
@@ -163,7 +171,7 @@ function buildDailySessions(flatTopics, hoursPerDay) {
       videoId,
       embedUrl,
       watchUrl,
-      resources: buildSessionResources(resource, topic)
+      resources: buildSessionResources(resource, topic, langKey, langDisplay)
     });
 
     sessionId++;
@@ -181,7 +189,7 @@ function buildDailySessions(flatTopics, hoursPerDay) {
 /**
  * Build resource array for a session from the catalog entry.
  */
-function buildSessionResources(resource, topic) {
+function buildSessionResources(resource, topic, langKey, langDisplay) {
   const resources = [];
 
   if (resource?.video?.id) {
@@ -191,7 +199,9 @@ function buildSessionResources(resource, topic) {
       videoId: resource.video.id,
       url:     buildWatchUrl(resource.video.id),
       channel: resource.video.channel,
-      durationMin: resource.video.durationMin
+      durationMin: resource.video.durationMin,
+      language: resource.video.language || langKey,
+      languageDisplay: resource.video.languageDisplay || langDisplay
     });
   }
 
@@ -199,7 +209,9 @@ function buildSessionResources(resource, topic) {
     resources.push({
       title: resource.documentation.title,
       type:  'article',
-      url:   resource.documentation.url
+      url:   resource.documentation.url,
+      language: resource.documentation.language || langKey,
+      languageDisplay: resource.documentation.languageDisplay || langDisplay
     });
   }
 
@@ -207,7 +219,9 @@ function buildSessionResources(resource, topic) {
     resources.push({
       title: resource.practice.title,
       type:  'practice',
-      url:   resource.practice.url
+      url:   resource.practice.url,
+      language: resource.practice.language || langKey,
+      languageDisplay: resource.practice.languageDisplay || langDisplay
     });
   }
 
@@ -215,7 +229,9 @@ function buildSessionResources(resource, topic) {
     resources.push({
       title: resource.project.title,
       type:  'course',
-      url:   resource.project.url
+      url:   resource.project.url,
+      language: resource.project.language || langKey,
+      languageDisplay: resource.project.languageDisplay || langDisplay
     });
   }
 
@@ -226,7 +242,7 @@ function buildSessionResources(resource, topic) {
  * Build milestone array from curriculum phases.
  * Topics within each milestone carry their resource data.
  */
-function buildMilestones(domains, resourcePerTopic) {
+function buildMilestones(domains, preferredLanguage) {
   const milestones = [];
   let   msId       = 1;
 
@@ -235,12 +251,14 @@ function buildMilestones(domains, resourcePerTopic) {
     if (!tree) continue;
 
     for (const phase of tree.phases) {
-      const resource     = getResourceForTopic(phase.topics[0]?.topicKey);
+      const langKey      = normalizePreferredLanguage(preferredLanguage, domainKey);
+      const langDisplay  = getLanguageDisplay(langKey);
+      const resource     = getResourceForTopic(phase.topics[0]?.topicKey, langKey, domainKey);
       const totalHours   = phase.topics.reduce((s, t) => s + t.estimatedHours, 0);
       const durationWeeks= Math.max(1, Math.ceil(totalHours / 7)); // rough: 7h/week
 
       const topics = phase.topics.map(t => {
-        const r = getResourceForTopic(t.topicKey);
+        const r = getResourceForTopic(t.topicKey, langKey, domainKey);
         return {
           name:           t.name,
           topicKey:       t.topicKey,
@@ -251,7 +269,7 @@ function buildMilestones(domains, resourcePerTopic) {
       });
 
       const phaseResources = phase.topics.map(t => {
-        const r = getResourceForTopic(t.topicKey);
+        const r = getResourceForTopic(t.topicKey, langKey, domainKey);
         const entries = [];
         if (r?.video?.id) {
           entries.push({
@@ -259,11 +277,19 @@ function buildMilestones(domains, resourcePerTopic) {
             type:    'video',
             videoId: r.video.id,
             url:     buildWatchUrl(r.video.id),
-            channel: r.video.channel
+            channel: r.video.channel,
+            language: r.video.language || langKey,
+            languageDisplay: r.video.languageDisplay || langDisplay
           });
         }
         if (r?.documentation) {
-          entries.push({ title: r.documentation.title, type: 'article', url: r.documentation.url });
+          entries.push({
+            title: r.documentation.title,
+            type: 'article',
+            url: r.documentation.url,
+            language: r.documentation.language || langKey,
+            languageDisplay: r.documentation.languageDisplay || langDisplay
+          });
         }
         return entries;
       }).flat().slice(0, 6); // cap at 6 per milestone
@@ -280,7 +306,9 @@ function buildMilestones(domains, resourcePerTopic) {
         position:      YEARLY_POSITIONS[(msId - 1) % YEARLY_POSITIONS.length],
         topics,
         resources:     phaseResources,
-        domain:        domainKey
+        domain:        domainKey,
+        preferredLanguage: langKey,
+        preferredLanguageDisplay: langDisplay
       });
 
       msId++;
@@ -304,11 +332,12 @@ async function generateRoadmap(profile) {
   const hoursPerDay  = parseHoursPerDay(profile.studyHoursPerDay || profile.hpdRaw);
   const totalWeeks   = parseTargetWeeks(profile.targetDuration);
   const totalDays    = totalWeeks * 7;
+  const preferredLanguage = normalizePreferredLanguage(profile.preferredLanguage, activeDomains[0]);
 
   // ── Build curriculum ─────────────────────────────────────────────────────────
   const flatTopics    = flattenTopics(activeDomains);
-  const milestones    = buildMilestones(activeDomains, {});
-  const allSessions   = buildDailySessions(flatTopics, hoursPerDay);
+  const milestones    = buildMilestones(activeDomains, preferredLanguage);
+  const allSessions   = buildDailySessions(flatTopics, hoursPerDay, preferredLanguage);
 
   // ── Display name ─────────────────────────────────────────────────────────────
   const displayName = activeDomains.map(d => {
@@ -329,7 +358,7 @@ async function generateRoadmap(profile) {
     hoursPerDay
   };
 
-  console.log(`[RoadmapGenerator] Built roadmap: ${displayName} | ${milestones.length} phases | ${allSessions.length} sessions | ${hoursPerDay}h/day`);
+  console.log(`[RoadmapGenerator] Built roadmap: ${displayName} | ${milestones.length} phases | ${allSessions.length} sessions | ${hoursPerDay}h/day | lang=${preferredLanguage}`);
 
   return {
     displayName,
