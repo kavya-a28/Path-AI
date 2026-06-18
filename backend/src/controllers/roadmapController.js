@@ -428,6 +428,20 @@ const updateSession = async (req, res) => {
       }
     }
 
+    if (status === 'missed') {
+      // Auto-promote the next pending/locked session to 'current' so user can continue
+      const next = roadmap.dailySessions.find(s =>
+        s.id > sessionId && (s.status === 'locked' || s.status === 'current')
+      );
+      if (next && next.status === 'locked') {
+        // Demote any existing 'current' to 'locked' first
+        roadmap.dailySessions.forEach(s => {
+          if (s.status === 'current' && s.id !== next.id) s.status = 'locked';
+        });
+        next.status = 'current';
+      }
+    }
+
     syncRoadmap(roadmap);
     await roadmap.save();
     return res.status(200).json({ success: true, roadmap: roadmap.toObject() });
@@ -445,34 +459,62 @@ const rescheduleRoadmap = async (req, res) => {
     const roadmap = await Roadmap.findOne({ userId, status: 'active' });
     if (!roadmap) return res.status(404).json({ success: false, message: 'No active roadmap.' });
 
-    // Count missed sessions before reschedule
-    const missedBefore = roadmap.dailySessions.filter(s => s.status === 'missed').length;
-    const pendingBefore = roadmap.dailySessions.filter(s => s.status === 'locked' || s.status === 'current').length;
+    // ── Snapshot state BEFORE reschedule ──────────────────────────────────
+    const missedBefore   = roadmap.dailySessions.filter(s => s.status === 'missed').length;
+    const pendingBefore  = roadmap.dailySessions.filter(s => s.status === 'locked' || s.status === 'current').length;
+    const allDayNums     = roadmap.dailySessions.map(s => s.day).filter(Boolean);
+    const originalEndDay = allDayNums.length > 0 ? Math.max(...allDayNums) : 1;
 
-    // Smart repack: spread overload at +1h/day, preserving curriculum order
-    const result = smartRepackWithCap(roadmap, null, 1);
+    // ── Run the adaptive smart repack ──────────────────────────────────────
+    // No longer hardcoded +1h — the algorithm picks light/medium/intensive
+    // based on how many days' worth of hours have been missed.
+    const result = smartRepackWithCap(roadmap);
+
+    // ── Persist reschedule metadata to DB ──────────────────────────────────
+    roadmap.stats.lastReschedule = {
+      date:              new Date(),
+      missedRescheduled: missedBefore,
+      extraDaysAdded:    result.extraDaysAdded,
+      mode:              result.mode,
+      originalEndDay:    result.originalEndDay,
+      newEndDay:         result.newEndDay,
+      totalRescheduled:  result.rescheduledCount,
+      extraCapPerDay:    result.extraCapPerDay
+    };
+    // Store rescheduled sessions map separately (not in Mongoose schema — stored as roadmap metadata)
+    roadmap._rescheduledSessions = result.rescheduledSessions; // used only for response, not persisted
+
     syncRoadmap(roadmap);
-
     await roadmap.save();
 
-    // Build user-friendly message
+    // ── Build user-friendly message ────────────────────────────────────────
+    const modeLabel = { light: '🟢 Light', medium: '🟡 Medium', intensive: '🔴 Intensive' }[result.mode];
     let message;
     if (missedBefore === 0) {
-      message = `Roadmap optimised — ${pendingBefore} remaining sessions repacked.`;
+      message = `✅ Roadmap optimised — ${pendingBefore} remaining sessions repacked.`;
+    } else if (result.extraDaysAdded === 0) {
+      message = `✅ ${missedBefore} missed session(s) absorbed within your existing schedule.`;
     } else {
-      const extraDays = Math.ceil(missedBefore / (roadmap.stats.hoursPerDay || 3));
-      message = `${missedBefore} missed session(s) rescheduled across ~${extraDays} extra day(s) (+1h/day cap).`;
+      message = `📅 ${missedBefore} missed session(s) rescheduled — roadmap extended by ${result.extraDaysAdded} day(s). Mode: ${modeLabel}.`;
     }
 
     return res.status(200).json({
-      success: true,
+      success:  true,
       roadmap:  roadmap.toObject(),
       message,
       summary: {
-        missedRescheduled: missedBefore,
-        totalRescheduled:  result.rescheduledCount,
-        startDay:          result.startDay,
-        extraCapPerDay:    result.extraCapPerDay
+        missedRescheduled:   missedBefore,
+        totalRescheduled:    result.rescheduledCount,
+        extraDaysAdded:      result.extraDaysAdded,
+        originalEndDay:      result.originalEndDay,
+        newEndDay:           result.newEndDay,
+        mode:                result.mode,
+        extraCapPerDay:      result.extraCapPerDay,
+        maxPerDay:           result.maxPerDay,
+        missedHours:         result.missedHours,
+        remainingHours:      result.remainingHours,
+        startDay:            result.startDay,
+        rescheduledSessions: result.rescheduledSessions  // [{id, title, phaseTitle, newDay, estimatedHours}]
       }
     });
   } catch (err) {

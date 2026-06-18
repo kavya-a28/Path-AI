@@ -186,7 +186,8 @@ export async function startSession(sessionId) {
 }
 
 /**
- * Reschedule the roadmap — spreads missed sessions using smart +1h/day cap.
+ * Reschedule the roadmap — adaptive algorithm picks light/medium/intensive
+ * mode based on backlog size. Returns full summary with extraDaysAdded, mode, etc.
  * Returns { roadmap, message, summary }.
  */
 export async function rescheduleRoadmap() {

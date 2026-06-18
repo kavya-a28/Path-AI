@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Home, Map, BarChart3, Users, Briefcase, Settings, 
   Search, ChevronRight, Play, Clock, Bell,
-  Flame, MessageCircle, Zap, Target, Sparkles
+  Flame, MessageCircle, Zap, Target, Sparkles,
+  X, AlertTriangle, CalendarDays, TrendingUp, CheckCircle2
 } from 'lucide-react';
 
 // Import components
@@ -14,7 +15,7 @@ import CareerHub from './CareerHub';
 import SettingsView from './SettingsView';
 import NotificationDropdown from './Notification';
 import CommunityView from './CommunityView';
-import { getDashboardStats, startSession, getMyRoadmap, rescheduleRoadmap } from '../services/roadmapApi';
+import { getDashboardStats, startSession, getMyRoadmap, rescheduleRoadmap, updateSession } from '../services/roadmapApi';
 
 const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => { 
   // State to track which sidebar tab is active
@@ -32,10 +33,13 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
   const [roadmapFilter, setRoadmapFilter] = useState('all');
   const [rescheduling, setRescheduling] = useState(false);
   const [toast, setToast] = useState(null);
+  const [toastType, setToastType] = useState('info'); // 'info' | 'success' | 'warning'
+  const [recoveryBanner, setRecoveryBanner] = useState(null); // { extraDaysAdded, mode, missedRescheduled, newEndDay }
 
-  const showToast = (msg) => {
+  const showToast = (msg, type = 'info', duration = 4000) => {
     setToast(msg);
-    setTimeout(() => setToast(null), 3500);
+    setToastType(type);
+    setTimeout(() => setToast(null), duration);
   };
 
   const refreshAll = useCallback(async () => {
@@ -62,13 +66,44 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
   const handleReschedule = async () => {
     setRescheduling(true);
     try {
-      const { message } = await rescheduleRoadmap();
+      const { message, summary } = await rescheduleRoadmap();
       await refreshAll();
-      showToast(message || 'Roadmap rescheduled successfully');
+
+      if (summary?.extraDaysAdded > 0) {
+        // Show rich recovery banner
+        setRecoveryBanner({
+          extraDaysAdded:      summary.extraDaysAdded,
+          mode:                summary.mode,
+          missedRescheduled:   summary.missedRescheduled,
+          newEndDay:           summary.newEndDay,
+          originalEndDay:      summary.originalEndDay,
+          extraCapPerDay:      summary.extraCapPerDay,
+          maxPerDay:           summary.maxPerDay,
+          rescheduledSessions: summary.rescheduledSessions || []
+        });
+        showToast(message || 'Roadmap rescheduled', 'warning', 6000);
+      } else {
+        showToast(message || 'Roadmap optimised successfully', 'success', 4000);
+      }
     } catch (err) {
-      showToast(err.message || 'Reschedule failed');
+      showToast(err.message || 'Reschedule failed', 'info', 4000);
     } finally {
       setRescheduling(false);
+    }
+  };
+
+  // ── Mark as Missed (testing tool) ─────────────────────────────────────────
+  const handleMarkMissed = async (task) => {
+    if (!task?.id || typeof task.id !== 'number') {
+      showToast('Cannot mark this task as missed (no session ID).');
+      return;
+    }
+    try {
+      await updateSession(task.id, { status: 'missed' });
+      await refreshAll();
+      showToast(`❌ "${task.title}" marked as missed for testing.`);
+    } catch (err) {
+      showToast(err.message || 'Failed to mark as missed');
     }
   };
 
@@ -419,6 +454,106 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                     <Target className="absolute -bottom-10 -right-10 w-64 h-64 text-emerald-500/5 rotate-12" />
                   </div>
 
+                  {/* ── Recovery Banner (shown after reschedule adds extra days) ── */}
+                  {(recoveryBanner || (dashStats?.lastReschedule?.extraDaysAdded > 0 && dashStats?.missedTotal > 0)) && (() => {
+                    const banner = recoveryBanner || dashStats.lastReschedule;
+                    const modeConfig = {
+                      light:     { bg: 'from-amber-50 to-yellow-50',   border: 'border-amber-200',  badge: 'bg-amber-100 text-amber-800',   emoji: '🟢', label: 'Light Recovery'     },
+                      medium:    { bg: 'from-orange-50 to-amber-50',   border: 'border-orange-200', badge: 'bg-orange-100 text-orange-800', emoji: '🟡', label: 'Medium Recovery'    },
+                      intensive: { bg: 'from-rose-50 to-orange-50',    border: 'border-rose-200',   badge: 'bg-rose-100 text-rose-800',    emoji: '🔴', label: 'Intensive Recovery' }
+                    }[banner.mode] || { bg: 'from-blue-50 to-indigo-50', border: 'border-blue-200', badge: 'bg-blue-100 text-blue-800', emoji: '📅', label: 'Recovery Active' };
+
+                    return (
+                      <motion.div
+                        initial={{ opacity: 0, y: -16, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                        className={`bg-gradient-to-r ${modeConfig.bg} border ${modeConfig.border} rounded-3xl p-6 relative overflow-hidden`}
+                      >
+                        {/* Dismiss button */}
+                        <button
+                          onClick={() => setRecoveryBanner(null)}
+                          className="absolute top-4 right-4 w-7 h-7 bg-white/70 hover:bg-white rounded-full flex items-center justify-center transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5 text-slate-500" />
+                        </button>
+
+                        <div className="flex flex-col md:flex-row md:items-center gap-5">
+                          {/* Icon */}
+                          <div className="w-14 h-14 rounded-2xl bg-white shadow-md flex items-center justify-center flex-shrink-0">
+                            <CalendarDays className="w-7 h-7 text-amber-500" />
+                          </div>
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                              <h4 className="font-black text-slate-900 text-lg">📅 Roadmap Rescheduled</h4>
+                              <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${modeConfig.badge}`}>
+                                {modeConfig.emoji} {modeConfig.label}
+                              </span>
+                            </div>
+
+                            {/* Stats row */}
+                            <div className="flex flex-wrap gap-5 text-sm">
+                              <div className="flex items-center gap-1.5">
+                                <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                                <span className="font-semibold text-slate-700">
+                                  <span className="font-black text-amber-700">{banner.missedRescheduled}</span> missed sessions recovered
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <CalendarDays className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                                <span className="font-semibold text-slate-700">
+                                  <span className="font-black text-rose-700">+{banner.extraDaysAdded}</span> overtime days added
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <TrendingUp className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                                <span className="font-semibold text-slate-700">
+                                  New daily cap: <span className="font-black text-blue-700">{banner.maxPerDay ? `${banner.maxPerDay}h/day` : `+${banner.extraCapPerDay}h extra`}</span>
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Progress bar: original end → new end */}
+                            {banner.originalEndDay > 0 && banner.newEndDay > 0 && (
+                              <div className="mt-3">
+                                <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                  <span>Original End: Day {banner.originalEndDay}</span>
+                                  <span>New End: Day {banner.newEndDay}</span>
+                                </div>
+                                <div className="h-2 bg-white/60 rounded-full overflow-hidden relative">
+                                  <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${Math.min(100, (banner.originalEndDay / banner.newEndDay) * 100)}%` }}
+                                    transition={{ duration: 1, delay: 0.3 }}
+                                    className="h-full bg-emerald-400 rounded-full"
+                                  />
+                                  <div className="absolute inset-0 flex">
+                                    <div style={{ width: `${Math.min(100, (banner.originalEndDay / banner.newEndDay) * 100)}%` }}
+                                         className="border-r-2 border-emerald-600 border-dashed" />
+                                  </div>
+                                </div>
+                                <p className="text-[10px] text-slate-500 mt-1 font-medium">
+                                  🟩 = original end &nbsp;|&nbsp; Extra {banner.extraDaysAdded} day(s) added at end to absorb backlog
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* CTA */}
+                          <button
+                            onClick={() => setActiveTab('analytics')}
+                            className="flex-shrink-0 flex items-center gap-2 bg-white border border-slate-200 px-4 py-2.5 rounded-2xl font-bold text-slate-700 text-sm hover:bg-slate-50 transition-all shadow-sm"
+                          >
+                            <BarChart3 className="w-4 h-4" />
+                            View Analysis
+                          </button>
+                        </div>
+                      </motion.div>
+                    );
+                  })()}
+
                   <div className="grid lg:grid-cols-3 gap-8">
                     {/* Focus Zone */}
                     <div className="lg:col-span-2 space-y-6">
@@ -462,7 +597,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                             Part of your "{displayName}" roadmap. &nbsp;
                             Estimated time: {focusTask.duration || focusTask.time || '1h'}.
                           </p>
-                          <div className="flex gap-3">
+                          <div className="flex gap-3 flex-wrap">
                             <button 
                               onClick={() => handleStartTask(focusTask)}
                               className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-bold flex items-center gap-2 hover:scale-105 transition-all cursor-pointer"
@@ -476,6 +611,16 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                             >
                               Details
                             </button>
+                            {/* TESTING BUTTON: Mark as Missed */}
+                            {focusTask?.id && typeof focusTask.id === 'number' && (
+                              <button
+                                onClick={() => handleMarkMissed(focusTask)}
+                                title="[Testing] Mark this session as missed"
+                                className="bg-red-50 text-red-600 border border-red-200 px-4 py-3 rounded-2xl font-bold hover:bg-red-100 transition-all flex items-center gap-1.5 text-sm"
+                              >
+                                <span>❌</span> Miss (Test)
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -487,19 +632,35 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                       {upcomingTasks.length > 0 ? upcomingTasks.map((task, i) => (
                         <div 
                           key={task.id || i}
-                          onClick={() => handleStartTask(task)}
-                          className="bg-white border border-white p-6 rounded-[28px] shadow-sm flex items-center justify-between hover:shadow-md transition-all cursor-pointer"
+                          className="bg-white border border-white p-6 rounded-[28px] shadow-sm hover:shadow-md transition-all"
                         >
-                          <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${task.priorityColor} flex items-center justify-center shadow-lg opacity-80`}>
-                              <Clock className="w-6 h-6 text-white" />
+                          <div 
+                            onClick={() => handleStartTask(task)}
+                            className="flex items-center justify-between cursor-pointer"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${task.priorityColor} flex items-center justify-center shadow-lg opacity-80`}>
+                                <Clock className="w-6 h-6 text-white" />
+                              </div>
+                              <div>
+                                <h5 className="font-bold text-slate-800 text-sm">{task.title}</h5>
+                                <p className="text-[10px] text-slate-400 font-black uppercase">{task.due}</p>
+                              </div>
                             </div>
-                            <div>
-                              <h5 className="font-bold text-slate-800 text-sm">{task.title}</h5>
-                              <p className="text-[10px] text-slate-400 font-black uppercase">{task.due}</p>
-                            </div>
+                            <ChevronRight className="w-5 h-5 text-slate-300" />
                           </div>
-                          <ChevronRight className="w-5 h-5 text-slate-300" />
+                          {/* TESTING BUTTON: Mark as Missed */}
+                          {task?.id && typeof task.id === 'number' && (
+                            <div className="mt-3 pt-3 border-t border-slate-100">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleMarkMissed(task); }}
+                                title="[Testing] Mark this session as missed"
+                                className="text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1"
+                              >
+                                <span>❌</span> Mark as Missed (Test)
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )) : (
                         <div className="bg-white border border-white p-6 rounded-[28px] shadow-sm text-center text-slate-400 text-sm font-medium">
@@ -589,12 +750,32 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
         </div>
       </div>
 
-      {/* Toast notification */}
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-[100] bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-semibold max-w-sm">
-          {toast}
-        </div>
-      )}
+      {/* ── Animated color-coded Toast ── */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            key="toast"
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            className={`fixed bottom-6 right-6 z-[100] flex items-start gap-3 px-5 py-4 rounded-2xl shadow-2xl text-sm font-semibold max-w-sm border ${
+              toastType === 'success' ? 'bg-emerald-900 border-emerald-700 text-white'
+              : toastType === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-900'
+              : 'bg-slate-900 border-slate-700 text-white'
+            }`}
+          >
+            <span className="text-lg leading-none mt-0.5">
+              {toastType === 'success' ? '✅' : toastType === 'warning' ? '📅' : 'ℹ️'}
+            </span>
+            <span className="flex-1">{toast}</span>
+            <button onClick={() => setToast(null)} className="opacity-60 hover:opacity-100 transition-opacity ml-1">
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
 
       {/* TASK DETAIL VIEW OVERLAY */}
       {activeTask && (

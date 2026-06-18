@@ -97,6 +97,20 @@ const dailySessionSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const lastRescheduleSchema = new mongoose.Schema(
+  {
+    date:               { type: Date, default: null },
+    missedRescheduled:  { type: Number, default: 0 },   // # of missed sessions that were re-absorbed
+    extraDaysAdded:     { type: Number, default: 0 },   // how many calendar days the end date moved out
+    mode:               { type: String, enum: ['light', 'medium', 'intensive'], default: 'light' },
+    originalEndDay:     { type: Number, default: 0 },   // totalDays BEFORE reschedule
+    newEndDay:          { type: Number, default: 0 },   // totalDays AFTER reschedule
+    totalRescheduled:   { type: Number, default: 0 },   // total sessions repacked
+    extraCapPerDay:     { type: Number, default: 1 }    // cap used (hours/day extra)
+  },
+  { _id: false }
+);
+
 const statsSchema = new mongoose.Schema(
   {
     totalWeeks:          Number,
@@ -114,7 +128,9 @@ const statsSchema = new mongoose.Schema(
     lastCompletedDay:    { type: Number, default: 0 }, // last day all sessions were completed
     // Completion tracking
     totalMissed:         { type: Number, default: 0 },
-    totalCompleted:      { type: Number, default: 0 }
+    totalCompleted:      { type: Number, default: 0 },
+    // Reschedule history
+    lastReschedule:      { type: lastRescheduleSchema, default: null }
   },
   { _id: false }
 );

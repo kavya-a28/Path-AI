@@ -200,67 +200,124 @@ const repackRemainingSessions = (roadmap, startDay) => {
   }
 };
 
-// ─── Smart repack with daily cap ─────────────────────────────────────────────
+// ─── Smart adaptive repack ────────────────────────────────────────────────────
 
 /**
- * Smart reschedule that spreads missed sessions evenly.
+ * Smart adaptive reschedule v2.
  *
- * Algorithm:
- *   1. Collect missed sessions (need to be re-inserted)
- *   2. Collect remaining pending/current sessions (already on future days)
- *   3. Build a merged list ordered by original session ID
- *   4. Fill each day up to (hoursPerDay + extraCapPerDay) hours
- *   5. Extra capacity is capped at extraCapPerDay per day to avoid overload
+ * Determines the right "catch-up intensity" based on how large the backlog is,
+ * then re-packs all non-completed sessions preserving curriculum order.
  *
- * @param {Object} roadmap         — mongoose document
- * @param {number} startDay        — day to start repacking from
- * @param {number} extraCapPerDay  — extra hours/day allowed for catch-up (default 1)
+ * Adaptive cap rules (extra hours above normal hoursPerDay):
+ *   Light      (backlog ≤ 3 days worth of hours)  → +1.0 h/day
+ *   Medium     (backlog 3–7 days)                 → +1.5 h/day
+ *   Intensive  (backlog > 7 days)                 → +2.0 h/day
+ *   Hard cap: never exceed 8 h/day or hoursPerDay*2, whichever is lower.
+ *
+ * Returns a rich summary used by the controller and frontend.
+ *
+ * @param {Object} roadmap        — mongoose document (mutated in-place)
+ * @param {number|null} startDay  — override start day (default = currentDay)
+ * @returns {Object}              summary with extraDays, mode, etc.
  */
-const smartRepackWithCap = (roadmap, startDay = null, extraCapPerDay = 1) => {
+const smartRepackWithCap = (roadmap, startDay = null) => {
   const sessions    = roadmap.dailySessions || [];
   const hoursPerDay = roadmap.stats?.hoursPerDay || 3;
-  const maxPerDay   = hoursPerDay + extraCapPerDay;
 
-  // Determine start day
-  const completed     = sessions.filter(s => s.status === 'completed');
-  const maxCompleted  = completed.length > 0 ? Math.max(...completed.map(s => s.day)) : 0;
-  const effectiveStart = startDay ?? Math.max(roadmap.stats.currentDay || 1, maxCompleted + 1);
+  // ── 1. Snapshot the original end day ──────────────────────────────────────
+  const allDayNums     = sessions.map(s => s.day).filter(Boolean);
+  const originalEndDay = allDayNums.length > 0 ? Math.max(...allDayNums) : 1;
 
-  // Sessions to reschedule: missed + current + locked (not completed)
+  // ── 2. Separate completed vs sessions to reschedule ───────────────────────
+  const completed    = sessions.filter(s => s.status === 'completed');
   const toReschedule = sessions
     .filter(s => s.status !== 'completed')
     .sort((a, b) => a.id - b.id);   // preserve original curriculum order
 
-  const missedCount  = toReschedule.filter(s => s.status === 'missed').length;
+  const missedSessions   = toReschedule.filter(s => s.status === 'missed');
+  const missedCount      = missedSessions.length;
+  const missedHours      = missedSessions.reduce((sum, s) => sum + (s.estimatedHours || 1), 0);
+  const remainingHours   = toReschedule.reduce((sum, s) => sum + (s.estimatedHours || 1), 0);
 
+  // ── 3. Pick adaptive mode based on MISSED TASK COUNT ────────────────────
+  // < 4 missed  → Light    (+1h/day)
+  // 4–7 missed  → Medium   (+1.5h/day) — roughly +1 extra day
+  // 8+ missed   → Intensive(+2h/day)  — roughly +2 extra days
+  let mode, extraCap;
+  if (missedCount < 4) {
+    mode     = 'light';
+    extraCap = 1.0;
+  } else if (missedCount <= 7) {
+    mode     = 'medium';
+    extraCap = 1.5;
+  } else {
+    mode     = 'intensive';
+    extraCap = 2.0;
+  }
+
+  // Never exceed 8 h/day or 2× the user's daily preference
+  const absoluteMax = Math.min(8, hoursPerDay * 2);
+  const maxPerDay   = Math.min(absoluteMax, hoursPerDay + extraCap);
+
+  // ── 4. Determine start day ────────────────────────────────────────────────
+  const maxCompleted   = completed.length > 0 ? Math.max(...completed.map(s => s.day)) : 0;
+  const effectiveStart = startDay ?? Math.max(roadmap.stats.currentDay || 1, maxCompleted + 1);
+
+  // ── 5. Re-pack sessions onto days ─────────────────────────────────────────
   let day        = effectiveStart;
   let hoursInDay = 0;
-  let first      = true;
+  let isFirst    = true;
 
   toReschedule.forEach(session => {
     const hrs = session.estimatedHours || 1;
 
-    // Start new day if this session won't fit
+    // Roll to next day if this session won't fit
     if (hoursInDay > 0 && hoursInDay + hrs > maxPerDay) {
       day++;
       hoursInDay = 0;
     }
 
     session.day    = day;
-    session.status = first ? 'current' : 'locked';
+    session.status = isFirst ? 'current' : 'locked';
     hoursInDay    += hrs;
-    first          = false;
+    isFirst        = false;
   });
 
+  // ── 6. Compute new end day & extra days added ─────────────────────────────
+  const newEndDay     = toReschedule.length > 0
+    ? Math.max(...toReschedule.map(s => s.day))
+    : originalEndDay;
+
+  const extraDaysAdded = Math.max(0, newEndDay - originalEndDay);
+
   if (toReschedule.length > 0) {
-    roadmap.stats.totalDays = Math.max(...toReschedule.map(s => s.day));
+    roadmap.stats.totalDays = newEndDay;
   }
+
+  // ── 7. Build rescheduled-sessions list for frontend table ─────────────────
+  // Only includes sessions that were originally missed (not just pending)
+  const rescheduledSessions = missedSessions.map(s => ({
+    id:             s.id,
+    title:          s.title,
+    phaseTitle:     s.phaseTitle || '',
+    estimatedHours: s.estimatedHours || 1,
+    newDay:         s.day,   // already updated by step 5 above
+    status:         s.status // now 'current' or 'locked'
+  }));
 
   return {
     missedCount,
+    missedHours,
+    remainingHours,
     rescheduledCount: toReschedule.length,
     startDay:         effectiveStart,
-    extraCapPerDay
+    originalEndDay,
+    newEndDay,
+    extraDaysAdded,
+    mode,
+    extraCapPerDay:   extraCap,
+    maxPerDay,
+    rescheduledSessions
   };
 };
 

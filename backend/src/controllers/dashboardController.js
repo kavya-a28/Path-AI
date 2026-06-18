@@ -156,10 +156,24 @@ const getDashboardStats = async (req, res) => {
       aiInsights.push({ icon: '✨', text: 'Perfect attendance! You have no missed tasks.', type: 'positive' });
     }
 
-    if (completionPct < 50 && todayTotal > 0) {
-      aiInsights.push({ icon: '⏰', text: 'Your daily completion is under 50%. Consider adjusting your schedule.', type: 'alert' });
+    // Only show the "under 50%" alert if the user has genuinely attempted
+    // some sessions today (at least 1 completed or 1 missed), not just because
+    // there are pending/locked sessions that haven't been started yet.
+    const todayAttempted = todayCompleted + todayMissed;
+    if (completionPct < 50 && todayAttempted > 0) {
+      aiInsights.push({ icon: '⏰', text: `Your daily completion is under 50% (${todayCompleted}/${todayAttempted + todayPending} done today). Consider adjusting your schedule.`, type: 'alert' });
     } else if (studiedHours > 0) {
       aiInsights.push({ icon: '🧠', text: `You've invested ${Math.round(studiedHours * 10) / 10} hours into learning so far. Excellent dedication!`, type: 'positive' });
+    }
+    // 4th insight: active recovery mode notice
+    const lastReschedule = roadmap.stats?.lastReschedule;
+    if (lastReschedule?.extraDaysAdded > 0 && missedSessions.length > 0) {
+      const modeEmoji = { light: '🟢', medium: '🟡', intensive: '🔴' }[lastReschedule.mode] || '📅';
+      aiInsights.push({
+        icon: modeEmoji,
+        text: `Recovery mode (${lastReschedule.mode}): roadmap extended by ${lastReschedule.extraDaysAdded} day(s) to absorb ${lastReschedule.missedRescheduled} missed session(s). Complete tasks daily to recover.`,
+        type: 'warning'
+      });
     }
 
     return res.status(200).json({
@@ -194,7 +208,21 @@ const getDashboardStats = async (req, res) => {
         currentTask: currentTask ? formatSession(currentTask) : null,
         upNext,
         healthScore,
-        aiInsights
+        aiInsights,
+        // Reschedule / overtime info
+        totalDays:       roadmap.stats?.totalDays ?? 0,
+        lastReschedule:  roadmap.stats?.lastReschedule
+          ? {
+              date:              roadmap.stats.lastReschedule.date,
+              missedRescheduled: roadmap.stats.lastReschedule.missedRescheduled,
+              extraDaysAdded:    roadmap.stats.lastReschedule.extraDaysAdded,
+              mode:              roadmap.stats.lastReschedule.mode,
+              originalEndDay:    roadmap.stats.lastReschedule.originalEndDay,
+              newEndDay:         roadmap.stats.lastReschedule.newEndDay,
+              totalRescheduled:  roadmap.stats.lastReschedule.totalRescheduled,
+              extraCapPerDay:    roadmap.stats.lastReschedule.extraCapPerDay
+            }
+          : null
       }
     });
 
