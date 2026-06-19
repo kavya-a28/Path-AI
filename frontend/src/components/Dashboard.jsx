@@ -504,7 +504,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                               <div className="flex items-center gap-1.5">
                                 <CalendarDays className="w-4 h-4 text-rose-500 flex-shrink-0" />
                                 <span className="font-semibold text-slate-700">
-                                  <span className="font-black text-rose-700">+{banner.extraDaysAdded}</span> overtime days added
+                                  <span className="font-black text-rose-700">+{banner.extraDaysAdded}</span> extra days added
                                 </span>
                               </div>
                               <div className="flex items-center gap-1.5">

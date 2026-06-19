@@ -240,19 +240,19 @@ const smartRepackWithCap = (roadmap, startDay = null) => {
   const remainingHours   = toReschedule.reduce((sum, s) => sum + (s.estimatedHours || 1), 0);
 
   // ── 3. Pick adaptive mode based on MISSED TASK COUNT ────────────────────
-  // < 4 missed  → Light    (+1h/day)
-  // 4–7 missed  → Medium   (+1.5h/day) — roughly +1 extra day
-  // 8+ missed   → Intensive(+2h/day)  — roughly +2 extra days
+  // < 4 missed  → Light    (+1.0h/day to absorb quickly)
+  // 4–7 missed  → Medium   (+0h/day, just shift schedule / add extra day)
+  // 8+ missed   → Intensive(+0h/day, just shift schedule / add extra days)
   let mode, extraCap;
   if (missedCount < 4) {
     mode     = 'light';
     extraCap = 1.0;
   } else if (missedCount <= 7) {
     mode     = 'medium';
-    extraCap = 1.5;
+    extraCap = 0;
   } else {
     mode     = 'intensive';
-    extraCap = 2.0;
+    extraCap = 0;
   }
 
   // Never exceed 8 h/day or 2× the user's daily preference

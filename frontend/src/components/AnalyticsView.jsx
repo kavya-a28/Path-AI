@@ -321,7 +321,7 @@ const AnalyticsView = ({ dashboardStats }) => {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 relative z-10">
             {[
               { label: 'Missed Sessions',    value: missedTotal,                                    prefix: '',  icon: AlertTriangle, color: 'text-rose-400',    bg: 'bg-rose-500/10    border-rose-500/20'    },
-              { label: 'Overtime Days',      value: lastReschedule?.extraDaysAdded ?? 0,            prefix: '+', icon: CalendarDays,  color: 'text-amber-400',   bg: 'bg-amber-500/10   border-amber-500/20'   },
+              { label: 'Extra Days',         value: lastReschedule?.extraDaysAdded ?? 0,            prefix: '+', icon: CalendarDays,  color: 'text-amber-400',   bg: 'bg-amber-500/10   border-amber-500/20'   },
               { label: 'Extra Daily Cap',    value: lastReschedule ? `+${lastReschedule.extraCapPerDay}h` : '—', prefix: '', raw: true, icon: Activity, color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20' },
               { label: 'Sessions Recovered', value: lastReschedule?.missedRescheduled ?? 0,         prefix: '',  icon: CheckCircle2, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
             ].map(({ label, value, icon: Icon, color, bg, prefix = '', raw }) => (
@@ -366,7 +366,7 @@ const AnalyticsView = ({ dashboardStats }) => {
                     }}
                   >
                     <span className="text-[10px] font-black text-white whitespace-nowrap px-2 drop-shadow truncate">
-                      +{lastReschedule.extraDaysAdded}d overtime
+                      +{lastReschedule.extraDaysAdded}d extra
                     </span>
                   </motion.div>
                 )}
@@ -405,9 +405,9 @@ const AnalyticsView = ({ dashboardStats }) => {
                     <span className="col-span-1 text-[10px] font-black text-slate-500 uppercase text-right">Hrs</span>
                   </div>
 
-                  {/* Rows — from pendingSessions (missed) in dashboardStats */}
+                  {/* Rows — from rescheduledSessions or pendingSessions */}
                   <div className="divide-y divide-white/5 max-h-64 overflow-y-auto">
-                    {(dashboardStats?.pendingSessions || []).map((s, i) => (
+                    {(lastReschedule?.rescheduledSessions || dashboardStats?.pendingSessions || []).map((s, i) => (
                       <motion.div
                         key={s.id || i}
                         initial={{ opacity: 0, x: -10 }}
@@ -424,7 +424,7 @@ const AnalyticsView = ({ dashboardStats }) => {
                         </div>
                         <div className="col-span-2 flex items-center justify-center">
                           <span className="text-xs font-black text-amber-300 bg-amber-500/15 border border-amber-500/25 px-2 py-0.5 rounded-full">
-                            Day {s.day}
+                            Day {s.newDay || s.day}
                           </span>
                         </div>
                         <div className="col-span-1 flex items-center justify-end">
@@ -445,7 +445,7 @@ const AnalyticsView = ({ dashboardStats }) => {
           {!lastReschedule && missedTotal > 0 && (
             <div className="relative z-10 mb-8 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-6 py-5">
               <p className="text-sm font-bold text-amber-300">
-                ⚠️ You have {missedTotal} missed session(s). Click <strong>Reschedule</strong> on the Dashboard to automatically add overtime days and re-absorb them.
+                ⚠️ You have {missedTotal} missed session(s). Click <strong>Reschedule</strong> on the Dashboard to automatically add extra days and re-absorb them.
               </p>
             </div>
           )}
@@ -494,16 +494,16 @@ const AnalyticsView = ({ dashboardStats }) => {
               <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Recovery Tips</p>
               <div className="space-y-3">
                 {(lastReschedule?.mode === 'intensive' ? [
-                  { icon: '🔴', text: '8+ missed tasks — sessions extended by +2h/day.' },
-                  { icon: '⏰', text: 'Focus on 1 task daily to prevent further drift.' },
+                  { icon: '🔴', text: '8+ missed tasks — shifted to extra days at the end of your roadmap.' },
+                  { icon: '⏰', text: 'Daily study time remains normal. Just hit your regular daily goals.' },
                   { icon: '🎯', text: 'Use Reschedule after every missed week to stay on track.' }
                 ] : lastReschedule?.mode === 'medium' ? [
-                  { icon: '🟡', text: '4–7 missed tasks — sessions extended by +1.5h/day (~1 extra day).' },
-                  { icon: '📚', text: 'Complete 1 extra session on weekends to catch up faster.' },
+                  { icon: '🟡', text: '4–7 missed tasks — shifted to extra days at the end of your roadmap.' },
+                  { icon: '📚', text: 'Daily study time remains normal to prevent burnout.' },
                   { icon: '✅', text: 'You are on track to recover within the new timeline.' }
                 ] : [
-                  { icon: '🟢', text: 'Under 4 missed tasks — only +1h/day extra needed.' },
-                  { icon: '🚀', text: 'Stay consistent and you will recover quickly.' },
+                  { icon: '🟢', text: 'Under 4 missed tasks — absorbed into your schedule (+1h/day cap).' },
+                  { icon: '🚀', text: 'Stay consistent and you will catch up without extra days.' },
                   { icon: '💡', text: 'No major schedule changes needed.' }
                 ]).map(({ icon, text }, i) => (
                   <div key={i} className="flex items-start gap-3">
