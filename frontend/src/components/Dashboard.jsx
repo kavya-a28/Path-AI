@@ -702,7 +702,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                   exit={{ opacity: 0, x: -20 }} 
                   className="mt-6"
                 >
-                  <AnalyticsView dashboardStats={dashStats} />
+                  <AnalyticsView dashboardStats={dashStats} onRefresh={refreshAll} />
                 </motion.div>
               )}
 

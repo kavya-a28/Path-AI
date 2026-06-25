@@ -39,11 +39,81 @@ const ICON_OPTIONS = [
 ];
 
 // ─── Milestone position presets (scenic winding road) ────────────────────────
-const YEARLY_POSITIONS = [
-  { x: 35, y: 21 }, { x: 80, y: 35 }, { x: 55, y: 50 },
-  { x: 15, y: 62 }, { x: 45, y: 78 }, { x: 85, y: 88 },
-  { x: 20, y: 92 }, { x: 60, y: 96 }, { x: 50, y: 15 }, { x: 70, y: 70 }
-];
+// The SVG path used for the yearly view: "M 6 20 L 16 20 C 55 20 92 28 92 48 C 92 72 35 55 10 65 C -5 75 30 90 94 90"
+// We sample points along this path so milestones are evenly distributed.
+
+/**
+ * Evaluate a cubic bezier at parameter t (0..1).
+ */
+function bezierPoint(t, p0, p1, p2, p3) {
+  const u = 1 - t;
+  return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
+}
+
+/**
+ * Generate `count` evenly-spaced { x, y } positions along the yearly winding road.
+ * The road consists of a line segment (M 6,20 → L 16,20) followed by three cubic
+ * bezier curves. We approximate total arc length via many tiny steps, then place
+ * milestones at equal arc-length intervals (with small padding at each end).
+ */
+function generateYearlyPositions(count) {
+  // Define the path segments: line + 3 cubic beziers
+  // Segment 0: line  6,20 → 16,20
+  // Segment 1: C 55,20 92,28 92,48  (from 16,20)
+  // Segment 2: C 92,72 35,55 10,65  (from 92,48)
+  // Segment 3: C -5,75 30,90 94,90  (from 10,65)
+  const segments = [
+    { type: 'line', x0: 6, y0: 20, x1: 16, y1: 20 },
+    { type: 'cubic', x0: 16, y0: 20, cx1: 55, cy1: 20, cx2: 92, cy2: 28, x1: 92, y1: 48 },
+    { type: 'cubic', x0: 92, y0: 48, cx1: 92, cy1: 72, cx2: 35, cy2: 55, x1: 10, y1: 65 },
+    { type: 'cubic', x0: 10, y0: 65, cx1: -5, cy1: 75, cx2: 30, cy2: 90, x1: 94, y1: 90 },
+  ];
+
+  // Sample many points along the full path
+  const SAMPLES = 500;
+  const allPts = [];
+  for (const seg of segments) {
+    const steps = seg.type === 'line' ? 10 : Math.round(SAMPLES / 3);
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      if (seg.type === 'line') {
+        allPts.push({ x: seg.x0 + t * (seg.x1 - seg.x0), y: seg.y0 + t * (seg.y1 - seg.y0) });
+      } else {
+        allPts.push({
+          x: bezierPoint(t, seg.x0, seg.cx1, seg.cx2, seg.x1),
+          y: bezierPoint(t, seg.y0, seg.cy1, seg.cy2, seg.y1)
+        });
+      }
+    }
+  }
+
+  // Compute cumulative arc lengths
+  const arcLengths = [0];
+  for (let i = 1; i < allPts.length; i++) {
+    const dx = allPts[i].x - allPts[i - 1].x;
+    const dy = allPts[i].y - allPts[i - 1].y;
+    arcLengths.push(arcLengths[i - 1] + Math.sqrt(dx * dx + dy * dy));
+  }
+  const totalLen = arcLengths[arcLengths.length - 1];
+
+  // Place milestones at equal arc-length intervals with padding
+  const padding = totalLen * 0.06; // 6% padding at start and end
+  const usableLen = totalLen - 2 * padding;
+  const positions = [];
+
+  for (let m = 0; m < count; m++) {
+    const targetDist = padding + (count <= 1 ? usableLen / 2 : (m / (count - 1)) * usableLen);
+    // Find the sampled point closest to this distance
+    let idx = 0;
+    for (let i = 1; i < arcLengths.length; i++) {
+      if (arcLengths[i] >= targetDist) { idx = i; break; }
+    }
+    positions.push({ x: Math.round(allPts[idx].x * 10) / 10, y: Math.round(allPts[idx].y * 10) / 10 });
+  }
+
+  return positions;
+}
+
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -303,7 +373,7 @@ function buildMilestones(domains, preferredLanguage) {
         estimatedHours: totalHours,
         status:        msId === 1 ? 'current' : 'locked',
         progress:      0,
-        position:      YEARLY_POSITIONS[(msId - 1) % YEARLY_POSITIONS.length],
+        position:      { x: 50, y: 50 }, // placeholder, will be overwritten below
         topics,
         resources:     phaseResources,
         domain:        domainKey,
@@ -314,6 +384,12 @@ function buildMilestones(domains, preferredLanguage) {
       msId++;
     }
   }
+
+  // Assign positions along the road path now that we know the total count
+  const positions = generateYearlyPositions(milestones.length);
+  milestones.forEach((ms, i) => {
+    ms.position = positions[i] || { x: 50, y: 50 };
+  });
 
   return milestones;
 }

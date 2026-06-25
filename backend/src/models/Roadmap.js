@@ -90,9 +90,10 @@ const dailySessionSchema = new mongoose.Schema(
     actualPracticeHours:  { type: Number, default: 0 },
     learningOvertime:     { type: Boolean, default: false },
     practiceOvertime:     { type: Boolean, default: false },
-    // Practice completion (required before session can be marked completed)
     practiceCompleted:    { type: Boolean, default: false },
-    practiceAttempts:     { type: Number, default: 0 }
+    practiceAttempts:     { type: Number, default: 0 },
+    hintsUsed:            { type: Number, default: 0 },
+    videoRewatches:       { type: Number, default: 0 }
   },
   { _id: false }
 );
@@ -135,6 +136,21 @@ const statsSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// ─── Analytics practice test results (from Weakest Link Spotlight) ───────────
+
+const analyticsPracticeResultSchema = new mongoose.Schema(
+  {
+    topic:            String,     // e.g. "Strings & Pattern Matching"
+    topicKey:         String,     // e.g. "strings_pattern_matching"
+    domain:           String,     // e.g. "dsa"
+    totalQuestions:   { type: Number, default: 5 },
+    correctAnswers:   { type: Number, default: 0 },
+    timeSeconds:      { type: Number, default: 0 },
+    completedAt:      { type: Date, default: Date.now }
+  },
+  { _id: false }
+);
+
 // ─── Main Schema ─────────────────────────────────────────────────────────────
 
 const roadmapSchema = new mongoose.Schema(
@@ -152,6 +168,7 @@ const roadmapSchema = new mongoose.Schema(
     milestones:    [milestoneSchema],
     dailySessions: [dailySessionSchema],
     stats:         { type: statsSchema, default: () => ({}) },
+    analyticsTestResults: [analyticsPracticeResultSchema],  // practice from analytics modal
     status:        { type: String, enum: ['active', 'completed'], default: 'active' },
     generatedBy:   { type: String, default: 'logic-engine-v2' }
   },

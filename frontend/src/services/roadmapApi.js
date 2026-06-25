@@ -83,6 +83,20 @@ export async function updateSessionTracking(sessionId, payload) {
 }
 
 /**
+ * Track user engagement (hints used, video rewatches).
+ */
+export async function trackSessionEngagement(sessionId, { hintsAdded, rewatchesAdded }) {
+  const res = await fetch(`${API_URL}/roadmap/session/${sessionId}/engagement`, {
+    method:  'PATCH',
+    headers: authHeaders(),
+    body:    JSON.stringify({ hintsAdded, rewatchesAdded })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.message || 'Failed to track engagement');
+  return data;
+}
+
+/**
  * Record that the user opened the Practice tab.
  */
 export async function startPractice(sessionId) {
@@ -144,6 +158,34 @@ export async function getTopicContent(topicName, domain = 'general', topicKey = 
 }
 
 /**
+ * Ask the in-session AI study assistant about the current topic.
+ */
+export async function askStudyAssistant({
+  message,
+  topicName,
+  domain = 'general',
+  preferredLanguage = '',
+  topicContext = null,
+  messages = []
+}) {
+  const res = await fetch(`${API_URL}/roadmap/study-chat`, {
+    method:  'POST',
+    headers: authHeaders(),
+    body:    JSON.stringify({
+      message,
+      topicName,
+      domain,
+      preferredLanguage,
+      topicContext,
+      messages
+    })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.message || 'Failed to get AI response');
+  return data.reply;
+}
+
+/**
  * Get catalog resources only (no AI call) for a topic key.
  * @param {string} topicKey – e.g. "html_basics"
  */
@@ -200,4 +242,44 @@ export async function rescheduleRoadmap() {
   return data; // { roadmap, message, summary }
 }
 
+/**
+ * Get 5-question practice test.
+ */
+export async function getPracticeTest(topic, topicKey = '', domain = '') {
+  const params = new URLSearchParams({ topic, topicKey, domain });
+  const res = await fetch(`${API_URL}/roadmap/practice-test?${params}`, {
+    headers: { Authorization: `Bearer ${getToken()}` }
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.message || 'Failed to fetch practice test');
+  return data.tests;
+}
 
+/**
+ * Run arbitrary code against a practice test challenge
+ */
+export async function runPracticeTestCode(challenge, solution) {
+  const res = await fetch(`${API_URL}/roadmap/practice-test/run`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ challenge, solution })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.message || 'Failed to run code');
+  return data.result;
+}
+
+/**
+ * Submit analytics practice test result (from the weakest-link spotlight modal).
+ * This records the result so the weakest area can update dynamically.
+ */
+export async function submitAnalyticsPracticeResult({ topic, topicKey, domain, totalQuestions, correctAnswers, timeSeconds }) {
+  const res = await fetch(`${API_URL}/roadmap/analytics/practice-result`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ topic, topicKey, domain, totalQuestions, correctAnswers, timeSeconds })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.message || 'Failed to submit practice result');
+  return data;
+}

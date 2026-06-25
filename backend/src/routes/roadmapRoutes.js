@@ -11,7 +11,12 @@ const {
   updateSession,
   rescheduleRoadmap,
   getTopicContent,
-  getTopicResources
+  getTopicResources,
+  studyChat,
+  trackSessionEngagement,
+  getPracticeTest,
+  runPracticeTestCode,
+  submitAnalyticsPracticeResult
 } = require('../controllers/roadmapController');
 const { getDashboardStats } = require('../controllers/dashboardController');
 const protect = require('../middleware/authMiddleware');
@@ -27,10 +32,15 @@ router.patch('/session/:id/tracking', protect, updateSessionTracking);
 router.patch('/session/:id/practice/start', protect, startPractice);
 router.post('/session/:id/practice/run', protect, runPractice);
 router.post('/session/:id/practice/submit', protect, submitPractice);
+router.patch('/session/:id/engagement', protect, trackSessionEngagement);
 router.patch('/session/:id',          protect, updateSession);  // mark COMPLETED / MISSED
 router.post('/reschedule',            protect, rescheduleRoadmap);
 router.get('/topic-content',          protect, getTopicContent);
 router.get('/topic-resources',        protect, getTopicResources);
+router.post('/study-chat',            protect, studyChat);
+router.get('/practice-test',          protect, getPracticeTest);
+router.post('/practice-test/run',     protect, runPracticeTestCode);
+router.post('/analytics/practice-result', protect, submitAnalyticsPracticeResult);
 
 // Dashboard analytics
 router.get('/dashboard/stats',        protect, getDashboardStats);

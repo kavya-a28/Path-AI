@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import {
   ArrowLeft, X, Clock, Pause, Play, CheckCircle,
-  Video, BookOpen, Code, MessageCircle, StickyNote, Camera,
-  Timer, Lightbulb, ExternalLink, Wifi, WifiOff,
-  ChevronRight, Bookmark, Download, Highlighter, Sparkles,
+  Video, BookOpen, Code, MessageCircle, StickyNote,
+  Lightbulb, ExternalLink, Wifi, WifiOff,
+  ChevronRight, ChevronDown, ChevronUp, Bookmark, Download, Sparkles,
   Volume2, Settings, Maximize, SkipForward, SkipBack, Star, Zap, Target,
-  Menu, Plus, Grid, AlertCircle, Loader2
+  Menu, Plus, Grid, AlertCircle, Loader2, Lock, XCircle
 } from 'lucide-react';
-import { getTopicContent, updateSession, updateSessionTracking, startPractice, runPractice, submitPractice } from '../services/roadmapApi';
+import { getTopicContent, updateSession, updateSessionTracking, startPractice, runPractice, submitPractice, askStudyAssistant, trackSessionEngagement } from '../services/roadmapApi';
 import {
   getSessionTimeBudget,
   formatDuration,
@@ -36,9 +36,11 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
+  const [chatSending, setChatSending] = useState(false);
   const [chatSize, setChatSize] = useState({ width: 350, height: 500 });
   
   const [notes, setNotes] = useState('');
+  const [notesTab, setNotesTab] = useState('study');
   const [videoProgress, setVideoProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [readingProgress, setReadingProgress] = useState(0);
@@ -55,6 +57,11 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
   const [codeOutput, setCodeOutput]     = useState(null);  // null = hidden, string = showing
   const [isRunning, setIsRunning]       = useState(false);
 
+  // LeetCode-style test results state
+  const [testCaseResults, setTestCaseResults] = useState(null);  // null = no results yet, array = structured results
+  const [allPublicTestsPassed, setAllPublicTestsPassed] = useState(false);
+  const [activeTestCaseTab, setActiveTestCaseTab] = useState(0); // index of active test case tab
+
   // Get Hint state
   const [hintLevel, setHintLevel]       = useState(0);     // 0 = no hint shown yet
   const [hintVisible, setHintVisible]   = useState(false);
@@ -67,6 +74,7 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
   const articleRef = useRef(null);
   const containerRef = useRef(null); // Reference for drag constraints
   const chatDragControls = useDragControls(); // For draggable chat
+  const chatEndRef = useRef(null);
 
   // Task data with fallback
   const taskData = task || {
@@ -201,11 +209,22 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
   }, [taskData.id]);
 
   useEffect(() => {
+    const saved = localStorage.getItem(`pathai_notes_${taskData.id}`);
+    setNotes(saved || '');
+  }, [taskData.id]);
+
+  useEffect(() => {
     const autoSave = setInterval(() => {
-      if (notes) console.log('Notes auto-saved');
+      if (notes) {
+        localStorage.setItem(`pathai_notes_${taskData.id}`, notes);
+      }
     }, 5000);
     return () => clearInterval(autoSave);
   }, [notes, taskData.id]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, chatSending]);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -221,7 +240,12 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
   // ==================== HELPER FUNCTIONS ====================
   const handleTabChange = async (tab) => {
     setActiveTab(tab);
-    if (tab === 'watch') setCurrentStep(1);
+    if (tab === 'watch') {
+      setCurrentStep(1);
+      if (taskData?.status === 'completed' && taskData?.id && typeof taskData.id === 'number') {
+        trackSessionEngagement(taskData.id, { rewatchesAdded: 1 }).catch(() => {});
+      }
+    }
     if (tab === 'read') setCurrentStep(2);
     if (tab === 'practice') {
       setCurrentStep(3);
@@ -236,20 +260,62 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!chatInput.trim()) return;
-    
-    const userMessage = { role: 'user', content: chatInput };
-    setChatMessages(prev => [...prev, userMessage]);
-    setChatInput('');
+  const renderChatContent = (text) => {
+    return text.split('\n').map((line, i) => {
+      const parts = line.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+      return (
+        <span key={i} className="block">
+          {parts.map((part, j) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+              return <strong key={j}>{part.slice(2, -2)}</strong>;
+            }
+            if (part.startsWith('`') && part.endsWith('`')) {
+              return <code key={j} className="bg-slate-100 px-1 rounded text-xs">{part.slice(1, -1)}</code>;
+            }
+            return part;
+          })}
+        </span>
+      );
+    });
+  };
 
-    setTimeout(() => {
-      const aiMessage = {
+  const handleSendMessage = async () => {
+    if (!chatInput.trim() || chatSending) return;
+
+    const userText = chatInput.trim();
+    const userMessage = { role: 'user', content: userText };
+    const nextMessages = [...chatMessages, userMessage];
+
+    setChatMessages(nextMessages);
+    setChatInput('');
+    setChatSending(true);
+
+    try {
+      const reply = await askStudyAssistant({
+        message: userText,
+        topicName: taskData.title,
+        domain: taskData.domain || 'general',
+        preferredLanguage: topicContent?.preferredLanguage || taskData.preferredLanguage || '',
+        topicContext: topicContent ? {
+          introduction: topicContent.readContent?.introduction,
+          howItWorks: topicContent.readContent?.howItWorks,
+          keyTakeaway: topicContent.readContent?.keyTakeaway,
+          whatYouWillLearn: topicContent.whatYouWillLearn,
+          codeExample: topicContent.readContent?.codeExample,
+          codeLanguage: topicContent.readContent?.codeLanguage
+        } : null,
+        messages: chatMessages
+      });
+
+      setChatMessages(prev => [...prev, { role: 'assistant', content: reply }]);
+    } catch (err) {
+      setChatMessages(prev => [...prev, {
         role: 'assistant',
-        content: `Great question! Let me help you understand that better...`
-      };
-      setChatMessages(prev => [...prev, aiMessage]);
-    }, 1000);
+        content: `Sorry, I couldn't respond right now. ${err.message || 'Please try again.'}`
+      }]);
+    } finally {
+      setChatSending(false);
+    }
   };
 
   const handleSubmitPractice = async () => {
@@ -260,6 +326,11 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
 
     if (!taskData?.id || typeof taskData.id !== 'number') {
       setPracticeFeedback({ valid: false, message: 'Session not linked — cannot submit practice.' });
+      return;
+    }
+
+    if (!allPublicTestsPassed) {
+      setPracticeFeedback({ valid: false, message: 'Pass all visible test cases first by clicking Run Code.' });
       return;
     }
 
@@ -275,11 +346,31 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
 
       if (result.valid) {
         setPracticeCompleted(true);
-        setPracticeFeedback({ valid: true, message: result.feedback || 'Correct! Practice completed.' });
-        setCodeOutput(formatPracticeRunOutput(result, 'Submit'));
+        setPracticeFeedback({ valid: true, message: result.feedback || '🎉 Accepted! All test cases passed.' });
+        // Show submit results including hidden tests in the panel
+        const tests = (result.testResults || []).map(t => ({
+          index: t.index,
+          passed: t.passed,
+          hidden: t.hidden || false,
+          input: t.input,
+          expected: t.expected,
+          actual: t.actual,
+          error: t.error
+        }));
+        setTestCaseResults({ compileError: null, tests, passed: true, isSubmission: true });
       } else {
-        setPracticeFeedback({ valid: false, message: result.feedback || 'Incorrect solution. Try again.' });
-        setCodeOutput(formatPracticeRunOutput(result, 'Submit'));
+        setPracticeFeedback({ valid: false, message: result.feedback || 'Solution failed hidden test cases. Try again.' });
+        setAllPublicTestsPassed(false); // Reset so they need to re-run
+        const tests = (result.testResults || []).map(t => ({
+          index: t.index,
+          passed: t.passed,
+          hidden: t.hidden || false,
+          input: t.input,
+          expected: t.expected,
+          actual: t.actual,
+          error: t.error
+        }));
+        setTestCaseResults({ compileError: result.compileError, tests, passed: false, isSubmission: true });
       }
     } catch (err) {
       setPracticeFeedback({ valid: false, message: err.message || 'Submission failed. Try again.' });
@@ -356,6 +447,7 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
   const handleRunCode = async () => {
     const code = userCode.trim();
     if (!code) {
+      setTestCaseResults(null);
       setCodeOutput('⚠️  Please write some code before running.');
       return;
     }
@@ -364,55 +456,59 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
     const starter = (topicContent?.practiceChallenge?.starterCode || '').trim();
 
     if (code === starter) {
+      setTestCaseResults(null);
       setCodeOutput('⚠️  You are still on the starter template. Implement your solution and click Run Code again.');
       return;
     }
 
     const basicError = getBasicCodeError(code, lang);
     if (basicError) {
+      setTestCaseResults(null);
       setCodeOutput(`Error: ${basicError}`);
       return;
     }
 
     if (!taskData?.id || typeof taskData.id !== 'number') {
+      setTestCaseResults(null);
       setCodeOutput('Error: This practice task is not linked to a roadmap session. Open it from the active roadmap session and try again.');
       return;
     }
 
     setIsRunning(true);
     setCodeOutput(null);
+    setTestCaseResults(null);
+    setActiveTestCaseTab(0);
     try {
       const result = await runPractice(taskData.id, { solution: code });
-      setCodeOutput(formatPracticeRunOutput(result, 'Run Code'));
+
+      // Store structured results for LeetCode-style panel
+      if (result.compileError) {
+        setTestCaseResults({ compileError: result.compileError, tests: [], passed: false });
+        setAllPublicTestsPassed(false);
+      } else {
+        const tests = (result.testResults || []).map(t => ({
+          index: t.index,
+          passed: t.passed,
+          hidden: t.hidden || false,
+          input: t.input,
+          expected: t.expected,
+          actual: t.actual,
+          error: t.error
+        }));
+        setTestCaseResults({ compileError: null, tests, passed: result.passed });
+        setAllPublicTestsPassed(!!result.passed);
+
+        // Auto-select first failed test case
+        const firstFailed = tests.findIndex(t => !t.passed);
+        setActiveTestCaseTab(firstFailed >= 0 ? firstFailed : 0);
+      }
     } catch (err) {
+      setTestCaseResults(null);
       setCodeOutput(`Run failed: ${err.message || 'Could not execute code.'}`);
+      setAllPublicTestsPassed(false);
     } finally {
       setIsRunning(false);
     }
-    return;
-
-    setIsRunning(true);
-    setCodeOutput(null);
-
-    // Simulate execution with a short delay (no sandboxed runtime)
-    setTimeout(() => {
-      const lines = code.split('\n').filter(l => l.trim()).length;
-      const hasLogic = /\b(function|def |class |return |if |for |while |=>|\[|\{|int |void |string |bool )/.test(code);
-
-      if (!hasLogic && lines < 2) {
-        setCodeOutput('⚠️  Your code looks incomplete. Add logic to solve the problem.');
-      } else {
-        const expectedOut = topicContent?.practiceChallenge?.example?.output || 'Computed result';
-        setCodeOutput(
-          `✅  Code compiled successfully (${lang.toUpperCase()})
-──────────────────────────────
-Output: ${expectedOut}
-──────────────────────────────
-📌 Looks good! If the output matches the expected result, click "Submit Solution" to validate.`
-        );
-      }
-      setIsRunning(false);
-    }, 800);
   };
 
   // ── Get Hint handler ───────────────────────────────────────────────────────
@@ -435,8 +531,14 @@ Output: ${expectedOut}
     if (!hintVisible) {
       setHintVisible(true);
       setHintLevel(0);
+      if (taskData?.id && typeof taskData.id === 'number') {
+        trackSessionEngagement(taskData.id, { hintsAdded: 1 }).catch(() => {});
+      }
     } else if (hintLevel < hints.length - 1) {
       setHintLevel(prev => prev + 1);
+      if (taskData?.id && typeof taskData.id === 'number') {
+        trackSessionEngagement(taskData.id, { hintsAdded: 1 }).catch(() => {});
+      }
     } else {
       // All hints shown — cycle back
       setHintLevel(0);
@@ -1132,22 +1234,37 @@ Output: ${expectedOut}
                           </button>
                           <button
                             onClick={handleSubmitPractice}
-                            disabled={practiceSubmitting || practiceCompleted}
+                            disabled={practiceSubmitting || practiceCompleted || (!allPublicTestsPassed && !practiceCompleted)}
+                            title={!allPublicTestsPassed && !practiceCompleted ? 'Pass all test cases first' : ''}
                             className={`flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg ${
                               practiceCompleted
                                 ? 'bg-emerald-100 text-emerald-700 cursor-default'
-                                : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white'
+                                : allPublicTestsPassed
+                                ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white'
+                                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                             }`}
                           >
                             {practiceSubmitting ? (
-                              <><Loader2 className="w-5 h-5 animate-spin" /> Validating...</>
+                              <><Loader2 className="w-5 h-5 animate-spin" /> Validating against hidden tests...</>
                             ) : practiceCompleted ? (
                               <><CheckCircle className="w-5 h-5" /> Practice Completed</>
-                            ) : (
+                            ) : allPublicTestsPassed ? (
                               <><CheckCircle className="w-5 h-5" /> Submit Solution</>
+                            ) : (
+                              <><Lock className="w-5 h-5" /> Submit Solution</>
                             )}
                           </button>
                         </div>
+                        {!practiceCompleted && !allPublicTestsPassed && (
+                          <p className="text-center text-xs text-slate-400 font-medium mt-1">
+                            Pass all visible test cases to unlock submission.
+                          </p>
+                        )}
+                        {!practiceCompleted && allPublicTestsPassed && (
+                          <p className="text-center text-xs text-emerald-500 font-bold mt-1 flex items-center justify-center gap-1">
+                            <CheckCircle className="w-3 h-3" /> All test cases passed — ready to submit!
+                          </p>
+                        )}
 
                         {/* Hint Panel */}
                         {hintVisible && (
@@ -1162,13 +1279,147 @@ Output: ${expectedOut}
                           </div>
                         )}
 
-                        {/* Code Output Panel */}
-                        {codeOutput !== null && (
-                          <div className={`mt-4 rounded-xl p-4 border font-mono text-sm whitespace-pre-wrap ${
-                            codeOutput.startsWith('✅')
-                              ? 'bg-slate-900 text-emerald-300 border-slate-700'
-                              : 'bg-amber-50 text-amber-800 border-amber-200'
-                          }`}>
+                        {/* LeetCode-Style Test Results Panel */}
+                        {testCaseResults !== null && (
+                          <div className="mt-4 rounded-2xl border border-slate-200 overflow-hidden shadow-sm bg-white">
+                            {/* Panel Header */}
+                            <div className={`flex items-center justify-between px-5 py-3 ${
+                              testCaseResults.compileError
+                                ? 'bg-red-50 border-b border-red-200'
+                                : testCaseResults.passed
+                                ? 'bg-emerald-50 border-b border-emerald-200'
+                                : 'bg-slate-50 border-b border-slate-200'
+                            }`}>
+                              <div className="flex items-center gap-3">
+                                <span className="font-black text-sm uppercase tracking-wider text-slate-600">
+                                  {testCaseResults.isSubmission ? 'Submission Results' : 'Test Results'}
+                                </span>
+                                {!testCaseResults.compileError && testCaseResults.tests.length > 0 && (
+                                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                                    testCaseResults.passed
+                                      ? 'bg-emerald-100 text-emerald-700'
+                                      : 'bg-red-100 text-red-700'
+                                  }`}>
+                                    {testCaseResults.tests.filter(t => t.passed).length}/{testCaseResults.tests.length} passed
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => { setTestCaseResults(null); setActiveTestCaseTab(0); }}
+                                className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+
+                            {/* Compile Error */}
+                            {testCaseResults.compileError && (
+                              <div className="p-5 bg-white">
+                                <h3 className="text-2xl font-semibold text-red-500 mb-4">Compile Error</h3>
+                                <div className="bg-red-50 rounded-xl p-4 border border-red-100">
+                                  <pre className="text-red-600 text-sm font-mono whitespace-pre-wrap">
+                                    {testCaseResults.compileError}
+                                  </pre>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Test Case List */}
+                            {!testCaseResults.compileError && testCaseResults.tests.length > 0 && (
+                              <div className="p-5 bg-white">
+                                <h3 className={`text-2xl font-semibold mb-4 ${testCaseResults.passed ? 'text-emerald-500' : 'text-red-500'}`}>
+                                  {testCaseResults.passed ? 'Accepted' : 'Wrong Answer'}
+                                </h3>
+                                
+                                {/* Tabs */}
+                                <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+                                  {testCaseResults.tests.map((test, idx) => (
+                                    <button
+                                      key={idx}
+                                      onClick={() => setActiveTestCaseTab(idx)}
+                                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                                        activeTestCaseTab === idx
+                                          ? 'bg-slate-100 text-slate-800'
+                                          : 'bg-transparent text-slate-500 hover:bg-slate-50'
+                                      }`}
+                                    >
+                                      {test.passed ? (
+                                        <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                      ) : (
+                                        <XCircle className="w-4 h-4 text-red-500" />
+                                      )}
+                                      {test.hidden ? `Hidden ${test.index}` : `Case ${test.index}`}
+                                    </button>
+                                  ))}
+                                </div>
+
+                                {/* Active Tab Content */}
+                                {testCaseResults.tests[activeTestCaseTab] && (
+                                  <div className="space-y-4">
+                                    {testCaseResults.tests[activeTestCaseTab].input !== undefined && (
+                                      <div>
+                                        <span className="text-sm font-medium text-slate-500 mb-2 block">Input</span>
+                                        <div className="bg-slate-50 rounded-lg p-3 font-mono text-sm text-slate-700 whitespace-pre-wrap">
+                                          {testCaseResults.tests[activeTestCaseTab].input}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {testCaseResults.tests[activeTestCaseTab].actual !== undefined && (
+                                      <div>
+                                        <span className="text-sm font-medium text-slate-500 mb-2 block">Output</span>
+                                        <div className="bg-slate-50 rounded-lg p-3 font-mono text-sm text-slate-700 whitespace-pre-wrap">
+                                          {testCaseResults.tests[activeTestCaseTab].actual}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {testCaseResults.tests[activeTestCaseTab].expected !== undefined && (
+                                      <div>
+                                        <span className="text-sm font-medium text-slate-500 mb-2 block">Expected</span>
+                                        <div className="bg-slate-50 rounded-lg p-3 font-mono text-sm text-slate-700 whitespace-pre-wrap">
+                                          {testCaseResults.tests[activeTestCaseTab].expected}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {testCaseResults.tests[activeTestCaseTab].error && (
+                                      <div>
+                                        <span className="text-sm font-medium text-slate-500 mb-2 block">Runtime Error</span>
+                                        <div className="bg-red-50 rounded-lg p-3 border border-red-100 font-mono text-sm text-red-700 whitespace-pre-wrap">
+                                          {testCaseResults.tests[activeTestCaseTab].error}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {testCaseResults.tests[activeTestCaseTab].hidden && (
+                                      <div className="text-slate-500 italic text-sm py-4">
+                                        Hidden test case details are not visible.
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Success / Failure Summary Footer */}
+                            {!testCaseResults.compileError && (
+                              <div className={`px-5 py-3 text-xs font-bold border-t ${
+                                testCaseResults.passed
+                                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                                  : 'bg-amber-50 border-amber-200 text-amber-700'
+                              }`}>
+                                {testCaseResults.passed
+                                  ? testCaseResults.isSubmission
+                                    ? '🎉 All tests passed — solution accepted!'
+                                    : '✅ All visible test cases passed. You can now submit your solution.'
+                                  : testCaseResults.isSubmission
+                                  ? '❌ Some hidden test cases failed. Review your logic and try again.'
+                                  : '⚠️ Fix the failing test cases and run your code again.'}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Legacy Code Output (for validation errors / warnings) */}
+                        {codeOutput !== null && testCaseResults === null && (
+                          <div className={`mt-4 rounded-xl p-4 border font-mono text-sm whitespace-pre-wrap bg-amber-50 text-amber-800 border-amber-200`}>
                             <div className="flex items-center justify-between mb-2">
                               <span className="font-bold text-xs uppercase tracking-wider opacity-60">Output</span>
                               <button
@@ -1183,7 +1434,7 @@ Output: ${expectedOut}
                         )}
                         {!practiceCompleted && (
                           <p className="text-center text-xs text-slate-400 font-medium mt-2">
-                            Submit a correct solution to unlock session completion.
+                            Run your code unlimited times — no AI credits used.
                           </p>
                         )}
                       </div>
@@ -1203,40 +1454,175 @@ Output: ${expectedOut}
               initial={{ x: 400 }}
               animate={{ x: 0 }}
               exit={{ x: 400 }}
-              className="w-96 bg-white/70 backdrop-blur-2xl border-l border-white/80 flex flex-col overflow-hidden shadow-xl"
+              className="w-[420px] bg-white/70 backdrop-blur-2xl border-l border-white/80 flex flex-col overflow-hidden shadow-xl"
             >
-              <div className="px-6 py-4 border-b border-white/80 flex items-center justify-between">
-                <h3 className="font-black text-slate-900 flex items-center gap-2">
-                  <StickyNote className="w-5 h-5 text-amber-500" />
-                  Your Notes
-                </h3>
-                <button 
-                  onClick={() => setIsNotePanelOpen(false)}
-                  className="text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="flex-1 p-6 overflow-y-auto">
-                <div className="text-xs text-slate-500 font-semibold mb-4">
-                  ✓ Auto-saved at {new Date().toLocaleTimeString()}
+              <div className="px-6 py-4 border-b border-white/80">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-black text-slate-900 flex items-center gap-2">
+                    <StickyNote className="w-5 h-5 text-amber-500" />
+                    {taskData.title} Notes
+                  </h3>
+                  <button 
+                    onClick={() => setIsNotePanelOpen(false)}
+                    className="text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="• Take notes here...&#10;• Use bullet points&#10;• Everything auto-saves&#10;&#10;Start typing..."
-                  className="w-full h-full min-h-[400px] bg-amber-50/50 border border-amber-200 rounded-2xl p-4 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none placeholder-slate-400 font-medium"
-                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setNotesTab('study')}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${
+                      notesTab === 'study'
+                        ? 'bg-amber-500 text-white'
+                        : 'bg-white/60 text-slate-600 hover:bg-white'
+                    }`}
+                  >
+                    Study Notes
+                  </button>
+                  <button
+                    onClick={() => setNotesTab('personal')}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${
+                      notesTab === 'personal'
+                        ? 'bg-amber-500 text-white'
+                        : 'bg-white/60 text-slate-600 hover:bg-white'
+                    }`}
+                  >
+                    My Notes
+                  </button>
+                </div>
               </div>
 
-              <div className="p-4 border-t border-white/80 flex gap-2">
-                <button className="flex-1 py-2.5 bg-white/60 hover:bg-white text-slate-700 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2 border border-white">
-                  <Highlighter className="w-4 h-4" /> Highlight
-                </button>
-                <button className="flex-1 py-2.5 bg-white/60 hover:bg-white text-slate-700 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2 border border-white">
-                  <Camera className="w-4 h-4" /> Snap
-                </button>
+              <div className="flex-1 overflow-y-auto">
+                {notesTab === 'study' ? (
+                  <div className="p-6 space-y-6">
+                    {contentLoading ? (
+                      <div className="flex items-center justify-center py-12 text-slate-400">
+                        <Loader2 className="w-6 h-6 animate-spin mr-2" />
+                        Loading study notes...
+                      </div>
+                    ) : (
+                      <>
+                        {(topicContent?.studyNotes?.overview || topicContent?.readContent?.introduction) && (
+                          <section>
+                            <h4 className="text-xs font-black uppercase tracking-wider text-amber-600 mb-2">Overview</h4>
+                            <p className="text-sm text-slate-700 leading-relaxed">
+                              {topicContent?.studyNotes?.overview || topicContent?.readContent?.introduction}
+                            </p>
+                          </section>
+                        )}
+
+                        {(topicContent?.studyNotes?.theory?.length > 0) && (
+                          <section>
+                            <h4 className="text-xs font-black uppercase tracking-wider text-amber-600 mb-3">Theory</h4>
+                            <div className="space-y-3">
+                              {topicContent.studyNotes.theory.map((section, i) => (
+                                <div key={i} className="bg-white/80 border border-amber-100 rounded-xl p-4">
+                                  <h5 className="font-bold text-slate-900 text-sm mb-1">{section.title}</h5>
+                                  <p className="text-sm text-slate-600 leading-relaxed">{section.content}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </section>
+                        )}
+
+                        {(topicContent?.studyNotes?.examples?.length > 0) && (
+                          <section>
+                            <h4 className="text-xs font-black uppercase tracking-wider text-amber-600 mb-3">Examples</h4>
+                            <div className="space-y-4">
+                              {topicContent.studyNotes.examples.map((ex, i) => (
+                                <div key={i} className="bg-slate-900 rounded-xl overflow-hidden">
+                                  <div className="px-4 py-2 bg-slate-800 flex items-center justify-between">
+                                    <span className="text-xs font-bold text-slate-300">{ex.title}</span>
+                                    <span className="text-[10px] uppercase tracking-wider text-slate-500">
+                                      {ex.codeLanguage || topicContent?.readContent?.codeLanguage || 'code'}
+                                    </span>
+                                  </div>
+                                  {ex.description && (
+                                    <p className="px-4 pt-3 text-xs text-slate-400">{ex.description}</p>
+                                  )}
+                                  {ex.code && (
+                                    <pre className="px-4 py-3 text-xs text-emerald-300 font-mono overflow-x-auto whitespace-pre-wrap">
+                                      {ex.code}
+                                    </pre>
+                                  )}
+                                  {ex.explanation && (
+                                    <p className="px-4 pb-3 text-xs text-slate-400 border-t border-slate-700/50 pt-2">
+                                      {ex.explanation}
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </section>
+                        )}
+
+                        {!topicContent?.studyNotes?.examples?.length && topicContent?.readContent?.codeExample && (
+                          <section>
+                            <h4 className="text-xs font-black uppercase tracking-wider text-amber-600 mb-3">Example</h4>
+                            <div className="bg-slate-900 rounded-xl overflow-hidden">
+                              <div className="px-4 py-2 bg-slate-800 text-xs font-bold text-slate-300">
+                                {topicContent.readContent.codeLanguage || 'code'}
+                              </div>
+                              <pre className="px-4 py-3 text-xs text-emerald-300 font-mono overflow-x-auto whitespace-pre-wrap">
+                                {topicContent.readContent.codeExample}
+                              </pre>
+                            </div>
+                          </section>
+                        )}
+
+                        {(topicContent?.studyNotes?.externalResources?.length > 0) && (
+                          <section>
+                            <h4 className="text-xs font-black uppercase tracking-wider text-amber-600 mb-3">External Resources</h4>
+                            <div className="space-y-2">
+                              {topicContent.studyNotes.externalResources.map((res, i) => (
+                                <a
+                                  key={i}
+                                  href={res.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-3 p-3 bg-white/80 border border-slate-200 rounded-xl hover:border-blue-300 hover:bg-blue-50/50 transition-all group"
+                                >
+                                  <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${
+                                    res.source === 'MDN' ? 'bg-orange-100 text-orange-700'
+                                    : res.source === 'GeeksforGeeks' ? 'bg-green-100 text-green-700'
+                                    : res.source === 'LeetCode' ? 'bg-yellow-100 text-yellow-700'
+                                    : 'bg-blue-100 text-blue-700'
+                                  }`}>
+                                    {res.source || 'Docs'}
+                                  </span>
+                                  <span className="flex-1 text-sm font-semibold text-slate-800 group-hover:text-blue-700 truncate">
+                                    {res.title}
+                                  </span>
+                                  <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-blue-500 flex-shrink-0" />
+                                </a>
+                              ))}
+                            </div>
+                          </section>
+                        )}
+
+                        {topicContent?.readContent?.keyTakeaway && (
+                          <section className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                            <h4 className="text-xs font-black uppercase tracking-wider text-emerald-700 mb-1">Key Takeaway</h4>
+                            <p className="text-sm text-emerald-800 font-medium">{topicContent.readContent.keyTakeaway}</p>
+                          </section>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-6 h-full flex flex-col">
+                    <div className="text-xs text-slate-500 font-semibold mb-4">
+                      Auto-saved locally
+                    </div>
+                    <textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder={"Take your own notes here...\n\n• Key points\n• Questions to revisit\n• Practice ideas"}
+                      className="flex-1 w-full min-h-[400px] bg-amber-50/50 border border-amber-200 rounded-2xl p-4 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none placeholder-slate-400 font-medium"
+                    />
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
@@ -1278,26 +1664,6 @@ Output: ${expectedOut}
                      <StickyNote className="w-4 h-4" />
                   </div>
                   {isNotePanelOpen ? 'Hide' : 'Show'} Notes
-                </button>
-
-                <button
-                   onClick={() => setIsFabOpen(false)}
-                   className="flex items-center gap-3 px-4 py-3 bg-white/90 backdrop-blur-xl border border-white/50 text-slate-700 rounded-xl font-bold shadow-lg hover:bg-white transition-all"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center text-white shadow-md">
-                     <Timer className="w-4 h-4" />
-                  </div>
-                  Pomodoro
-                </button>
-
-                <button
-                   onClick={() => setIsFabOpen(false)}
-                   className="flex items-center gap-3 px-4 py-3 bg-white/90 backdrop-blur-xl border border-white/50 text-slate-700 rounded-xl font-bold shadow-lg hover:bg-white transition-all"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white shadow-md">
-                     <Camera className="w-4 h-4" />
-                  </div>
-                  Screenshot
                 </button>
               </motion.div>
             )}
@@ -1377,11 +1743,20 @@ Output: ${expectedOut}
                           : 'bg-white border border-slate-200 text-slate-800'
                       }`}
                     >
-                      {msg.content}
+                      {msg.role === 'assistant' ? renderChatContent(msg.content) : msg.content}
                     </div>
                   </div>
                 ))
               )}
+              {chatSending && (
+                <div className="flex justify-start">
+                  <div className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-500 text-sm flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Thinking...
+                  </div>
+                </div>
+              )}
+              <div ref={chatEndRef} />
             </div>
 
             {/* Input Area */}
@@ -1391,13 +1766,15 @@ Output: ${expectedOut}
                   type="text"
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  placeholder="Type..."
-                  className="flex-1 px-3 py-2 bg-white/80 border border-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-700 placeholder-slate-400 font-medium text-sm"
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                  placeholder="Ask about this topic..."
+                  disabled={chatSending}
+                  className="flex-1 px-3 py-2 bg-white/80 border border-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-700 placeholder-slate-400 font-medium text-sm disabled:opacity-60"
                 />
                 <button
                   onClick={handleSendMessage}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-lg font-bold transition-colors shadow-md text-sm"
+                  disabled={chatSending || !chatInput.trim()}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-lg font-bold transition-colors shadow-md text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Send
                 </button>

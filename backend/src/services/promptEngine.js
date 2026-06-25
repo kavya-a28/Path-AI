@@ -394,3 +394,44 @@ function generateFallbackSuggestions(targetField, primaryDomain) {
 
 module.exports = { generateNextQuestion, generateFallbackSuggestions, detectAllDomains };
 
+// ──────────────────────────────────────────────────────────────
+// Dashboard AI Insights Generation
+// ──────────────────────────────────────────────────────────────
+async function generateDashboardInsights(stats) {
+  try {
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    
+    const systemPrompt = `You are an AI learning mentor. Provide 3-4 personalized, actionable insights for the user based on their current learning dashboard statistics.
+The response must be a JSON object containing an array called "insights". No markdown formatting, no code blocks, and no extra text.
+Each object in the array must have the following properties:
+- "icon": a single relevant emoji.
+- "text": the insight or advice (max 1-2 sentences).
+- "type": one of "positive", "warning", "suggestion", or "alert".
+
+User Statistics:
+- Completed Sessions: ${stats.completedSessions}/${stats.totalSessions}
+- Missed Sessions: ${stats.missedTotal}
+- Streak: ${stats.streak} days (longest: ${stats.longestStreak} days)
+- Mastery Progress: ${stats.masteryProgress}%
+- Studied Hours: ${stats.studiedHours}
+- Today: ${stats.todayCompleted} completed, ${stats.todayMissed} missed, ${stats.todayPending} pending.
+`;
+
+    const finalResponse = await groq.chat.completions.create({
+      messages: [{ role: 'system', content: systemPrompt }],
+      model: 'llama-3.1-8b-instant',
+      temperature: 0.7,
+      max_tokens: 500,
+      response_format: { type: "json_object" }
+    });
+
+    const content = finalResponse.choices[0]?.message?.content;
+    const parsed = JSON.parse(content);
+    return parsed.insights || [];
+  } catch (err) {
+    console.error('Error generating AI insights:', err.message);
+    return null;
+  }
+}
+
+module.exports.generateDashboardInsights = generateDashboardInsights;

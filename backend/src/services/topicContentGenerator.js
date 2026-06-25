@@ -140,6 +140,63 @@ function isSolutionCode(code) {
   return lines.length > 6;  // more than 6 "real logic" lines = probably a solution
 }
 
+function detectResourceSource(url = '') {
+  if (/developer\.mozilla\.org/i.test(url)) return 'MDN';
+  if (/geeksforgeeks\.org/i.test(url)) return 'GeeksforGeeks';
+  if (/leetcode\.com/i.test(url)) return 'LeetCode';
+  if (/w3schools\.com/i.test(url)) return 'W3Schools';
+  if (/react\.dev|reactjs\.org/i.test(url)) return 'React Docs';
+  if (/docs\.flutter\.dev|dart\.dev/i.test(url)) return 'Flutter Docs';
+  return 'Docs';
+}
+
+function buildStudyNotesFallback(topicName, domainLabel, langDisplay, langKey, readContent) {
+  return {
+    overview: readContent?.introduction || `${topicName} is a core concept in ${domainLabel}.`,
+    theory: [
+      {
+        title: 'Core Concept',
+        content: readContent?.howItWorks || `${topicName} applies structured logic to solve problems efficiently.`
+      },
+      {
+        title: 'When to Use It',
+        content: `Recognize ${topicName} patterns in interview and real-world ${langDisplay} problems.`
+      }
+    ],
+    examples: readContent?.codeExample ? [{
+      title: `${topicName} Example`,
+      description: `A basic ${langDisplay} illustration of ${topicName}.`,
+      code: readContent.codeExample,
+      codeLanguage: langKey,
+      explanation: readContent.keyTakeaway || 'Study how each line contributes to the solution.'
+    }] : [],
+    externalResources: []
+  };
+}
+
+function mergeExternalResources(catalogEntry, aiResources = []) {
+  const merged = [];
+  const seen = new Set();
+
+  const add = (item, sourceOverride) => {
+    if (!item?.url || seen.has(item.url)) return;
+    seen.add(item.url);
+    merged.push({
+      title: item.title || 'Reference',
+      url: item.url,
+      source: sourceOverride || detectResourceSource(item.url)
+    });
+  };
+
+  if (catalogEntry?.documentation) add(catalogEntry.documentation);
+  if (catalogEntry?.practice) add(catalogEntry.practice, 'Practice');
+  if (catalogEntry?.project) add(catalogEntry.project, 'Project');
+
+  for (const r of aiResources) add(r, r.source);
+
+  return merged.slice(0, 6);
+}
+
 // ── Main export ──────────────────────────────────────────────────────────────
 
 async function generateTopicContent(topicName, domain, topicKey, preferredLanguage) {
@@ -239,6 +296,33 @@ Required JSON shape:
     },
     "starterCode": "EMPTY ${langDisplay} skeleton — function header + TODO comment + empty body only, NO logic",
     "codeLanguage": "${langKey}"
+  },
+  "studyNotes": {
+    "overview": "3-4 sentence theory overview of ${topicName}",
+    "theory": [
+      { "title": "section title", "content": "2-3 sentences explaining one aspect" },
+      { "title": "section title", "content": "2-3 sentences explaining another aspect" },
+      { "title": "section title", "content": "2-3 sentences on common pitfalls or patterns" }
+    ],
+    "examples": [
+      {
+        "title": "Example 1 title",
+        "description": "what this example demonstrates",
+        "code": "${langDisplay} code using \\\\n for newlines",
+        "codeLanguage": "${langKey}",
+        "explanation": "walkthrough of the example"
+      },
+      {
+        "title": "Example 2 title",
+        "description": "a different use case",
+        "code": "${langDisplay} code using \\\\n for newlines",
+        "codeLanguage": "${langKey}",
+        "explanation": "walkthrough of the example"
+      }
+    ],
+    "externalResources": [
+      { "title": "real doc title", "url": "https://real-url-only", "source": "MDN or GeeksforGeeks or LeetCode" }
+    ]
   }
 }`;
 
@@ -249,7 +333,7 @@ Required JSON shape:
         { role: 'user',   content: userMsg   }
       ],
       temperature:     0.25,
-      max_tokens:      1400,
+      max_tokens:      2200,
       response_format: { type: 'json_object' }
     });
 
@@ -288,6 +372,34 @@ Required JSON shape:
     langKey
   ));
 
+  const fallbackReadContent = aiContent?.readContent || {
+    introduction: `${topicName} is a key concept in ${domainLabel}. In ${langDisplay}, it is used to solve problems efficiently.`,
+    howItWorks:   `${topicName} works by applying structured logic in ${langDisplay}. Mastering it will make you more effective across real-world ${langDisplay} projects.`,
+    steps: [
+      `Study the fundamentals of ${topicName} in ${langDisplay}`,
+      `Review ${langDisplay} syntax examples for ${topicName}`,
+      `Practice with small ${langDisplay} exercises`,
+      `Build a mini-project using ${topicName} in ${langDisplay}`,
+      `Review and reinforce your understanding`
+    ],
+    codeExample:  buildStarterCodeFallback(topicName, langKey),
+    codeLanguage: langKey,
+    keyTakeaway:  `${topicName} in ${langDisplay} is a foundational skill you'll use throughout your career.`
+  };
+
+  const studyNotes = aiContent?.studyNotes
+    ? {
+        ...aiContent.studyNotes,
+        externalResources: mergeExternalResources(
+          catalogEntry,
+          aiContent.studyNotes.externalResources
+        )
+      }
+    : {
+        ...buildStudyNotesFallback(topicName, domainLabel, langDisplay, langKey, fallbackReadContent),
+        externalResources: mergeExternalResources(catalogEntry, [])
+      };
+
   return {
     // Video
     videoId,
@@ -314,20 +426,9 @@ Required JSON shape:
       `Build confidence through hands-on ${langDisplay} practice`
     ],
 
-    readContent: aiContent?.readContent || {
-      introduction: `${topicName} is a key concept in ${domainLabel}. In ${langDisplay}, it is used to solve problems efficiently.`,
-      howItWorks:   `${topicName} works by applying structured logic in ${langDisplay}. Mastering it will make you more effective across real-world ${langDisplay} projects.`,
-      steps: [
-        `Study the fundamentals of ${topicName} in ${langDisplay}`,
-        `Review ${langDisplay} syntax examples for ${topicName}`,
-        `Practice with small ${langDisplay} exercises`,
-        `Build a mini-project using ${topicName} in ${langDisplay}`,
-        `Review and reinforce your understanding`
-      ],
-      codeExample:  buildStarterCodeFallback(topicName, langKey),
-      codeLanguage: langKey,
-      keyTakeaway:  `${topicName} in ${langDisplay} is a foundational skill you'll use throughout your career.`
-    },
+    readContent: fallbackReadContent,
+
+    studyNotes,
 
     practiceChallenge: generatedPracticeChallenge
   };

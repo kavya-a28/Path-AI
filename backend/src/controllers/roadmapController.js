@@ -15,9 +15,12 @@ const Roadmap                       = require('../models/Roadmap');
 const User                          = require('../models/User');
 const { generateRoadmap }           = require('../services/roadmapGenerator');
 const { generateTopicContent }      = require('../services/topicContentGenerator');
+const { chatWithStudyAssistant }    = require('../services/studyAssistant');
 const {
   buildPracticeChallenge,
-  executePractice
+  executePractice,
+  buildPracticeTest,
+  publicChallenge
 } = require('../services/practiceEngine');
 const { getResourceForTopic }       = require('../data/resourceCatalog');
 const { buildEmbedUrl, buildWatchUrl } = require('../services/youtubeService');
@@ -589,6 +592,190 @@ const getTopicResources = async (req, res) => {
   }
 };
 
+// ─── Study assistant chat (in-session AI tutor) ──────────────────────────────
+
+const studyChat = async (req, res) => {
+  try {
+    const { message, topicName, domain, preferredLanguage, topicContext, messages } = req.body;
+
+    if (!message?.trim()) {
+      return res.status(400).json({ success: false, message: 'message is required.' });
+    }
+    if (!topicName?.trim()) {
+      return res.status(400).json({ success: false, message: 'topicName is required.' });
+    }
+
+    let langDisplay = preferredLanguage || '';
+    if (!langDisplay) {
+      try {
+        const user = await User.findById(req.user._id).select('profile').lean();
+        const raw = user?.profile?.preferredLanguage || '';
+        langDisplay = raw ? getLanguageDisplay(normalizePreferredLanguage(raw, domain || 'general')) : 'general';
+      } catch (_) {
+        langDisplay = 'general';
+      }
+    } else if (langDisplay.length <= 4) {
+      langDisplay = getLanguageDisplay(normalizePreferredLanguage(langDisplay, domain || 'general'));
+    }
+
+    const reply = await chatWithStudyAssistant({
+      topicName: topicName.trim(),
+      domain: domain || 'general',
+      preferredLanguageDisplay: langDisplay,
+      topicContext: topicContext || null,
+      messages: Array.isArray(messages) ? messages : [],
+      userMessage: message.trim()
+    });
+
+    return res.status(200).json({ success: true, reply });
+  } catch (err) {
+    console.error('Study chat error:', err.message);
+    return res.status(500).json({ success: false, message: 'Could not reach the study assistant. Please try again.' });
+  }
+};
+
+// ─── Track Engagement (Hints & Rewatches) ────────────────────────────────────
+
+const trackSessionEngagement = async (req, res) => {
+  try {
+    const { hintsAdded, rewatchesAdded } = req.body;
+    const roadmap = await Roadmap.findOne({ userId: req.user._id, status: 'active' });
+    if (!roadmap) {
+      return res.status(404).json({ success: false, message: 'No active roadmap found.' });
+    }
+
+    const session = roadmap.dailySessions.find(s => s.id === parseInt(req.params.id, 10));
+    if (!session) {
+      return res.status(404).json({ success: false, message: 'Session not found.' });
+    }
+
+    if (hintsAdded) {
+      session.hintsUsed = (session.hintsUsed || 0) + hintsAdded;
+    }
+    if (rewatchesAdded) {
+      session.videoRewatches = (session.videoRewatches || 0) + rewatchesAdded;
+    }
+
+    await roadmap.save();
+    return res.status(200).json({ success: true, message: 'Engagement tracked.' });
+  } catch (err) {
+    console.error('Track engagement error:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+const getPracticeTest = async (req, res) => {
+  try {
+    const { topic, topicKey, domain } = req.query;
+    if (!topic) {
+      return res.status(400).json({ success: false, message: 'Topic is required.' });
+    }
+
+    const user = req.user;
+    const userLang = user?.profile?.preferredLanguage || user?.preferredLanguage || '';
+    
+    // We mock a session object for the practice engine
+    const mockSession = {
+      title: topic,
+      topicKey: topicKey || topic.toLowerCase().replace(/\s+/g, '_'),
+      domain: domain || 'dsa',
+      preferredLanguage: userLang
+    };
+
+    const tests = buildPracticeTest(mockSession, user?.profile || {}, userLang);
+    const publicTests = tests.map(t => publicChallenge(t));
+
+    return res.status(200).json({
+      success: true,
+      tests: publicTests
+    });
+  } catch (err) {
+    console.error('Get practice test error:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+const runPracticeTestCode = async (req, res) => {
+  try {
+    const { challenge, solution } = req.body;
+    if (!challenge || !solution) {
+      return res.status(400).json({ success: false, message: 'Challenge and solution are required.' });
+    }
+
+    const result = await executePractice({
+      solution,
+      challenge,
+      includeHidden: false
+    });
+
+    return res.status(200).json({
+      success: true,
+      result
+    });
+  } catch (err) {
+    console.error('Run practice test code error:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─── Submit analytics practice test result ────────────────────────────────────
+
+const submitAnalyticsPracticeResult = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { topic, topicKey, domain, totalQuestions, correctAnswers, timeSeconds } = req.body;
+
+    const roadmap = await Roadmap.findOne({ userId, status: 'active' });
+    if (!roadmap) return res.status(404).json({ success: false, message: 'No active roadmap.' });
+
+    // Initialize the array if it doesn't exist
+    if (!roadmap.analyticsTestResults) {
+      roadmap.analyticsTestResults = [];
+    }
+
+    roadmap.analyticsTestResults.push({
+      topic:          topic || '',
+      topicKey:       topicKey || '',
+      domain:         domain || '',
+      totalQuestions: totalQuestions || 5,
+      correctAnswers: correctAnswers || 0,
+      timeSeconds:    timeSeconds || 0,
+      completedAt:    new Date()
+    });
+
+    // Also boost the corresponding sessions' practiceCompleted if user got >= 60% correct
+    if (correctAnswers >= Math.ceil(totalQuestions * 0.6)) {
+      const normalizedTopic = (topic || '').toLowerCase();
+      const normalizedKey   = (topicKey || '').toLowerCase();
+
+      // Find uncompleted sessions matching this topic and mark practice as boosted
+      roadmap.dailySessions.forEach(session => {
+        const sessionTopic = (session.title || '').toLowerCase();
+        const sessionKey   = (session.topicKey || '').toLowerCase();
+        if (
+          (sessionTopic.includes(normalizedTopic) || normalizedTopic.includes(sessionTopic) ||
+           sessionKey === normalizedKey) &&
+          !session.practiceCompleted
+        ) {
+          // Increase successful runs count to reflect the practice improvement
+          session.practiceAttempts = (session.practiceAttempts || 0) + 1;
+          session.practiceCompleted = true;
+        }
+      });
+    }
+
+    syncRoadmap(roadmap);
+    await roadmap.save();
+
+    console.log(`[Analytics] Practice result saved: ${topic} — ${correctAnswers}/${totalQuestions}`);
+
+    return res.status(200).json({ success: true, message: 'Practice result recorded.' });
+  } catch (err) {
+    console.error('Submit analytics practice result error:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 module.exports = {
   generate,
   getMyRoadmap,
@@ -601,5 +788,10 @@ module.exports = {
   updateSession,
   rescheduleRoadmap,
   getTopicContent,
-  getTopicResources
+  getTopicResources,
+  studyChat,
+  trackSessionEngagement,
+  getPracticeTest,
+  runPracticeTestCode,
+  submitAnalyticsPracticeResult
 };

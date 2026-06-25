@@ -129,10 +129,11 @@ const CHALLENGE_BUILDERS = [
       codeLanguage: lang,
       publicTests: [
         { input: '3\ndiv\nspan\np', output: 'block\ninline\nblock' },
-        { input: '4\na\nul\nstrong\nheader', output: 'inline\nblock\ninline\nblock' }
+        { input: '4\na\nul\nstrong\nheader', output: 'inline\nblock\ninline\nblock' },
+        { input: '2\nsection\nem', output: 'block\ninline' }
       ],
       hiddenTests: [
-        { input: '2\nsection\nem', output: 'block\ninline' },
+        { input: '3\narticle\ncode\nfigure', output: 'block\ninline\nblock' },
         { input: '5\nfooter\ni\nnav\nb\nmain', output: 'block\ninline\nblock\ninline\nblock' }
       ]
     })
@@ -162,10 +163,11 @@ const CHALLENGE_BUILDERS = [
       codeLanguage: lang,
       publicTests: [
         { input: 'div #main .active p', output: '1,1,2' },
-        { input: '#header .nav .link', output: '1,2,0' }
+        { input: '#header .nav .link', output: '1,2,0' },
+        { input: 'body div p span', output: '0,0,4' }
       ],
       hiddenTests: [
-        { input: 'body div p span', output: '0,0,4' },
+        { input: 'ul li .item a', output: '0,1,3' },
         { input: '#a #b .c .d .e li', output: '2,3,1' }
       ]
     })
@@ -190,10 +192,11 @@ const CHALLENGE_BUILDERS = [
       codeLanguage: lang,
       publicTests: [
         { input: '3\nlogo 2\nnav 1\nsearch 3', output: 'nav\nlogo\nsearch' },
-        { input: '4\na 0\nb 0\nc -1\nd 1', output: 'c\na\nb\nd' }
+        { input: '4\na 0\nb 0\nc -1\nd 1', output: 'c\na\nb\nd' },
+        { input: '2\nfirst 5\nsecond 5', output: 'first\nsecond' }
       ],
       hiddenTests: [
-        { input: '2\nfirst 5\nsecond 5', output: 'first\nsecond' },
+        { input: '3\nalpha 0\nbeta -2\ngamma 0', output: 'beta\nalpha\ngamma' },
         { input: '3\nx 10\ny -5\nz 0', output: 'y\nz\nx' }
       ]
     })
@@ -222,10 +225,11 @@ const CHALLENGE_BUILDERS = [
       codeLanguage: lang,
       publicTests: [
         { input: '3\n320\n768\n1400', output: 'xs\nmd\nxl' },
-        { input: '5\n100\n576\n800\n992\n1200', output: 'xs\nsm\nmd\nlg\nxl' }
+        { input: '5\n100\n576\n800\n992\n1200', output: 'xs\nsm\nmd\nlg\nxl' },
+        { input: '2\n575\n1199', output: 'xs\nlg' }
       ],
       hiddenTests: [
-        { input: '2\n575\n1199', output: 'xs\nlg' },
+        { input: '1\n991', output: 'md' },
         { input: '1\n0', output: 'xs' }
       ]
     })
@@ -253,11 +257,12 @@ const CHALLENGE_BUILDERS = [
       codeLanguage: lang,
       publicTests: [
         { input: '3\ntrue number\n0 boolean\nhello string', output: '1\nfalse\nhello' },
-        { input: '4\nfalse number\n42 boolean\nnull number\nundefined boolean', output: '0\ntrue\n0\nfalse' }
+        { input: '4\nfalse number\n42 boolean\nnull number\nundefined boolean', output: '0\ntrue\n0\nfalse' },
+        { input: '3\n1 boolean\nabc number\nfalse boolean', output: 'true\nNaN\nfalse' }
       ],
       hiddenTests: [
         { input: '2\nNaN boolean\n boolean', output: 'false\nfalse' },
-        { input: '3\n1 boolean\nabc number\nfalse boolean', output: 'true\nNaN\nfalse' }
+        { input: '2\n99 string\nnull boolean', output: '99\nfalse' }
       ]
     })
   },
@@ -282,10 +287,11 @@ const CHALLENGE_BUILDERS = [
       codeLanguage: lang,
       publicTests: [
         { input: 'div(ul(li()li()li()))', output: '3' },
-        { input: 'body(div(p())div())', output: '3' }
+        { input: 'body(div(p())div())', output: '3' },
+        { input: 'span()', output: '1' }
       ],
       hiddenTests: [
-        { input: 'span()', output: '1' },
+        { input: 'main(section()aside())', output: '2' },
         { input: 'html(body(div(section(p()))))', output: '5' }
       ]
     })
@@ -310,10 +316,11 @@ const CHALLENGE_BUILDERS = [
       codeLanguage: lang,
       publicTests: [
         { input: '3\nname:Alice\nage:25\ncity:NYC\n2\nage\nname', output: '25\nAlice' },
-        { input: '2\nx:10\ny:20\n3\ny\nz\nx', output: '20\nundefined\n10' }
+        { input: '2\nx:10\ny:20\n3\ny\nz\nx', output: '20\nundefined\n10' },
+        { input: '1\nfoo:bar\n1\nfoo', output: 'bar' }
       ],
       hiddenTests: [
-        { input: '1\nfoo:bar\n1\nfoo', output: 'bar' },
+        { input: '2\ncolor:red\nsize:10\n1\nsize', output: '10' },
         { input: '0\n2\na\nb', output: 'undefined\nundefined' }
       ]
     })
@@ -339,10 +346,11 @@ const CHALLENGE_BUILDERS = [
       codeLanguage: lang,
       publicTests: [
         { input: '3\nfetchUser 300\nfetchPosts 100\nfetchComments 200', output: 'fetchPosts\nfetchComments\nfetchUser' },
-        { input: '2\na 50\nb 50', output: 'a\nb' }
+        { input: '2\na 50\nb 50', output: 'a\nb' },
+        { input: '1\nonly 0', output: 'only' }
       ],
       hiddenTests: [
-        { input: '1\nonly 0', output: 'only' },
+        { input: '3\nx 500\ny 250\nz 250', output: 'y\nz\nx' },
         { input: '4\nd 400\nc 100\nb 200\na 300', output: 'c\nb\na\nd' }
       ]
     })
@@ -368,10 +376,11 @@ const CHALLENGE_BUILDERS = [
       codeLanguage: lang,
       publicTests: [
         { input: 'Button\n2\ncolor=blue\nsize=large', output: '<Button color="blue" size="large" />' },
-        { input: 'Input\n1\ntype=text', output: '<Input type="text" />' }
+        { input: 'Input\n1\ntype=text', output: '<Input type="text" />' },
+        { input: 'Avatar\n0', output: '<Avatar />' }
       ],
       hiddenTests: [
-        { input: 'Avatar\n0', output: '<Avatar />' },
+        { input: 'Icon\n2\nname=star\nsize=24', output: '<Icon name="star" size="24" />' },
         { input: 'Card\n3\ntitle=Hello\ntheme=dark\nwidth=300', output: '<Card title="Hello" theme="dark" width="300" />' }
       ]
     })
@@ -397,10 +406,11 @@ const CHALLENGE_BUILDERS = [
       codeLanguage: lang,
       publicTests: [
         { input: 'App(Header()Main(Content())Footer())', output: '3' },
-        { input: 'Page()', output: '1' }
+        { input: 'Page()', output: '1' },
+        { input: 'A(B(C(D())))', output: '4' }
       ],
       hiddenTests: [
-        { input: 'A(B(C(D())))', output: '4' },
+        { input: 'Root(Left(LL())Right(RR()))', output: '3' },
         { input: 'App(Nav()Nav()Nav())', output: '2' }
       ]
     })
@@ -426,10 +436,11 @@ const CHALLENGE_BUILDERS = [
       codeLanguage: lang,
       publicTests: [
         { input: '0\n4\nincrement\nincrement\ndecrement\nincrement', output: '2' },
-        { input: '10\n3\ndecrement\nreset\nset 5', output: '5' }
+        { input: '10\n3\ndecrement\nreset\nset 5', output: '5' },
+        { input: '0\n0', output: '0' }
       ],
       hiddenTests: [
-        { input: '0\n0', output: '0' },
+        { input: '5\n3\nincrement\nreset\ndecrement', output: '4' },
         { input: '100\n5\ndecrement\ndecrement\nreset\nincrement\nset -3', output: '-3' }
       ]
     })
@@ -457,10 +468,11 @@ const CHALLENGE_BUILDERS = [
       codeLanguage: lang,
       publicTests: [
         { input: '3\n/\n/about\n/users/:id\n/users/42', output: '/users/:id' },
-        { input: '2\n/home\n/about\n/contact', output: '404' }
+        { input: '2\n/home\n/about\n/contact', output: '404' },
+        { input: '1\n/\n/', output: '/' }
       ],
       hiddenTests: [
-        { input: '1\n/\n/', output: '/' },
+        { input: '2\n/items/:id\n/items\n/items/99', output: '/items/:id' },
         { input: '3\n/posts/:id\n/posts/:id/comments\n/posts\n/posts/5/comments', output: '/posts/:id/comments' }
       ]
     })
@@ -486,10 +498,11 @@ const CHALLENGE_BUILDERS = [
       codeLanguage: lang,
       publicTests: [
         { input: '3\nid:1\nname:John\nemail:john@example.com\n2\nname\nphone', output: 'name: John\nphone: N/A' },
-        { input: '1\nstatus:active\n1\nstatus', output: 'status: active' }
+        { input: '1\nstatus:active\n1\nstatus', output: 'status: active' },
+        { input: '0\n1\nany', output: 'any: N/A' }
       ],
       hiddenTests: [
-        { input: '0\n1\nany', output: 'any: N/A' },
+        { input: '2\nrole:admin\nlevel:5\n2\nlevel\nrole', output: 'level: 5\nrole: admin' },
         { input: '2\na:1\nb:2\n3\nb\na\nc', output: 'b: 2\na: 1\nc: N/A' }
       ]
     })
@@ -514,10 +527,11 @@ const CHALLENGE_BUILDERS = [
       codeLanguage: lang,
       publicTests: [
         { input: '3\nPORT=3000\nDB_HOST=localhost\nNODE_ENV=production\n2\nPORT\nSECRET', output: '3000\nundefined' },
-        { input: '1\nKEY=value\n1\nKEY', output: 'value' }
+        { input: '1\nKEY=value\n1\nKEY', output: 'value' },
+        { input: '0\n1\nANY', output: 'undefined' }
       ],
       hiddenTests: [
-        { input: '0\n1\nANY', output: 'undefined' },
+        { input: '2\nHOST=127.0.0.1\nMODE=debug\n2\nMODE\nHOST', output: 'debug\n127.0.0.1' },
         { input: '2\nA=1\nB=2\n3\nB\nA\nC', output: '2\n1\nundefined' }
       ]
     })
@@ -547,10 +561,11 @@ const CHALLENGE_BUILDERS = [
       codeLanguage: lang,
       publicTests: [
         { input: '3\ncreate a new user\nget all posts\ndelete comment by id', output: 'POST\nGET\nDELETE' },
-        { input: '2\nupdate user profile\nfetch order details', output: 'PUT\nGET' }
+        { input: '2\nupdate user profile\nfetch order details', output: 'PUT\nGET' },
+        { input: '1\nsome random action', output: 'GET' }
       ],
       hiddenTests: [
-        { input: '1\nsome random action', output: 'GET' },
+        { input: '2\npost a comment\nmodify the record', output: 'POST\nPUT' },
         { input: '4\nadd item to cart\nlist all products\nremove from wishlist\nedit settings', output: 'POST\nGET\nDELETE\nPUT' }
       ]
     })
@@ -581,10 +596,11 @@ const CHALLENGE_BUILDERS = [
       codeLanguage: lang,
       publicTests: [
         { input: '3\nage gt 18\nstatus eq active\nprice lt 100', output: 'age:{$gt:18}\nstatus:active\nprice:{$lt:100}' },
-        { input: '1\nrole ne admin', output: 'role:{$ne:admin}' }
+        { input: '1\nrole ne admin', output: 'role:{$ne:admin}' },
+        { input: '2\nname eq Bob\nscore gt 90', output: 'name:Bob\nscore:{$gt:90}' }
       ],
       hiddenTests: [
-        { input: '2\nname eq Bob\nscore gt 90', output: 'name:Bob\nscore:{$gt:90}' },
+        { input: '2\nlevel lt 5\nactive eq true', output: 'level:{$lt:5}\nactive:true' },
         { input: '1\ncount eq 0', output: 'count:0' }
       ]
     })
@@ -612,10 +628,11 @@ const CHALLENGE_BUILDERS = [
       codeLanguage: lang,
       publicTests: [
         { input: '4\nScaffold -1\nAppBar 0\nBody 0\nText 2', output: '3' },
-        { input: '1\nApp -1', output: '1' }
+        { input: '1\nApp -1', output: '1' },
+        { input: '5\nA -1\nB 0\nC 1\nD 2\nE 3', output: '5' }
       ],
       hiddenTests: [
-        { input: '5\nA -1\nB 0\nC 1\nD 2\nE 3', output: '5' },
+        { input: '4\nRoot -1\nX 0\nY 0\nZ 1', output: '3' },
         { input: '3\nRoot -1\nChild1 0\nChild2 0', output: '2' }
       ]
     })
@@ -640,10 +657,11 @@ const CHALLENGE_BUILDERS = [
       codeLanguage: lang,
       publicTests: [
         { input: '3\nlogin 5\ndashboard 3\nauth 5', output: 'login\nauth\ndashboard' },
-        { input: '2\na 1\nb 2', output: 'b\na' }
+        { input: '2\na 1\nb 2', output: 'b\na' },
+        { input: '1\nonly 10', output: 'only' }
       ],
       hiddenTests: [
-        { input: '1\nonly 10', output: 'only' },
+        { input: '3\nfoo 7\nbar 9\nbaz 7', output: 'bar\nfoo\nbaz' },
         { input: '4\nw 3\nx 3\ny 3\nz 3', output: 'w\nx\ny\nz' }
       ]
     })
@@ -671,19 +689,21 @@ const CHALLENGE_BUILDERS = [
       publicTests: difficulty === 'EASY'
         ? [
             { input: '5\n1 7 3 2 5', output: '7' },
-            { input: '4\n-5 -2 -9 -1', output: '-1' }
+            { input: '4\n-5 -2 -9 -1', output: '-1' },
+            { input: '1\n42', output: '42' }
           ]
         : [
             { input: '8\n-2 -3 4 -1 -2 1 5 -3', output: '7' },
-            { input: '3\n-4 -2 -7', output: '-2' }
+            { input: '3\n-4 -2 -7', output: '-2' },
+            { input: '5\n1 2 3 4 5', output: '15' }
           ],
       hiddenTests: difficulty === 'EASY'
         ? [
-            { input: '1\n42', output: '42' },
+            { input: '3\n0 0 0', output: '0' },
             { input: '6\n10 10 3 4 9 1', output: '10' }
           ]
         : [
-            { input: '5\n1 2 3 4 5', output: '15' },
+            { input: '4\n2 -1 2 3', output: '6' },
             { input: '6\n5 -10 6 7 -2 3', output: '14' }
           ]
     })
@@ -707,11 +727,62 @@ const CHALLENGE_BUILDERS = [
       starterCode: starterCode(topicName, lang),
       codeLanguage: lang,
       publicTests: difficulty === 'EASY'
-        ? [{ input: 'PathAI', output: '3' }, { input: 'bcdfg', output: '0' }]
-        : [{ input: 'A man, a plan, a canal: Panama', output: 'YES' }, { input: 'PathAI', output: 'NO' }],
+        ? [{ input: 'PathAI', output: '3' }, { input: 'bcdfg', output: '0' }, { input: 'Education', output: '5' }]
+        : [{ input: 'A man, a plan, a canal: Panama', output: 'YES' }, { input: 'PathAI', output: 'NO' }, { input: 'No lemon, no melon', output: 'YES' }],
       hiddenTests: difficulty === 'EASY'
-        ? [{ input: 'Education', output: '5' }, { input: 'XYZ', output: '0' }]
-        : [{ input: 'No lemon, no melon', output: 'YES' }, { input: 'algorithm', output: 'NO' }]
+        ? [{ input: 'aeiou', output: '5' }, { input: 'XYZ', output: '0' }]
+        : [{ input: 'racecar', output: 'YES' }, { input: 'algorithm', output: 'NO' }]
+    })
+  },
+  {
+    match: ({ key, title }) => key.includes('string') || title.includes('string'),
+    build: ({ topicName, lang, difficulty }) => ({
+      title: 'Valid Anagram',
+      difficulty: 'EASY',
+      description: 'Given two strings, print YES if they are anagrams of each other (contain the exact same characters in any order), otherwise print NO.',
+      inputFormat: 'Two lines, each containing a string.',
+      outputFormat: 'Print YES or NO.',
+      example: {
+        input: 'anagram\nnagaram',
+        output: 'YES',
+        explanation: 'Both strings contain the same characters with the same frequencies.'
+      },
+      starterCode: starterCode(topicName, lang),
+      codeLanguage: lang,
+      publicTests: [
+        { input: 'anagram\nnagaram', output: 'YES' },
+        { input: 'rat\ncar', output: 'NO' }
+      ],
+      hiddenTests: [
+        { input: 'listen\nsilent', output: 'YES' },
+        { input: 'hello\nworld', output: 'NO' },
+        { input: 'a\na', output: 'YES' }
+      ]
+    })
+  },
+  {
+    match: ({ key, title }) => key.includes('string') || title.includes('string'),
+    build: ({ topicName, lang, difficulty }) => ({
+      title: 'Reverse Words in a String',
+      difficulty: 'MEDIUM',
+      description: 'Given an input string, reverse the order of the words. A word is defined as a sequence of non-space characters. The words in the output string should be separated by a single space.',
+      inputFormat: 'One line containing the string.',
+      outputFormat: 'Print the string with reversed words.',
+      example: {
+        input: 'the sky is blue',
+        output: 'blue is sky the',
+        explanation: 'The words are reversed and separated by a single space.'
+      },
+      starterCode: starterCode(topicName, lang),
+      codeLanguage: lang,
+      publicTests: [
+        { input: 'the sky is blue', output: 'blue is sky the' },
+        { input: 'hello world', output: 'world hello' }
+      ],
+      hiddenTests: [
+        { input: 'a good   example', output: 'example good a' },
+        { input: '  hello world  ', output: 'world hello' }
+      ]
     })
   },
   // ── DSA: 2D DP / Grid ──────────────────────────────────────────────────────
@@ -737,11 +808,11 @@ const CHALLENGE_BUILDERS = [
       starterCode: starterCode(topicName, lang),
       codeLanguage: lang,
       publicTests: difficulty === 'EASY'
-        ? [{ input: '3 3\n1 3 1\n1 5 1\n4 2 1', output: '7' }, { input: '2 3\n1 2 3\n4 5 6', output: '12' }]
-        : [{ input: '3 7', output: '28' }, { input: '3 2', output: '3' }],
+        ? [{ input: '3 3\n1 3 1\n1 5 1\n4 2 1', output: '7' }, { input: '2 3\n1 2 3\n4 5 6', output: '12' }, { input: '1 1\n5', output: '5' }]
+        : [{ input: '3 7', output: '28' }, { input: '3 2', output: '3' }, { input: '1 5', output: '1' }],
       hiddenTests: difficulty === 'EASY'
-        ? [{ input: '1 1\n5', output: '5' }, { input: '3 2\n1 2\n1 1\n3 1', output: '4' }]
-        : [{ input: '1 5', output: '1' }, { input: '4 4', output: '20' }]
+        ? [{ input: '2 2\n1 2\n3 4', output: '7' }, { input: '3 2\n1 2\n1 1\n3 1', output: '4' }]
+        : [{ input: '2 2', output: '2' }, { input: '4 4', output: '20' }]
     })
   },
   // ── ML: Linear Regression ──────────────────────────────────────────────────
@@ -756,8 +827,168 @@ const CHALLENGE_BUILDERS = [
       example: { input: '2 3 4', output: '11.00', explanation: '2*4 + 3 = 11.' },
       starterCode: starterCode(topicName, lang),
       codeLanguage: lang,
-      publicTests: [{ input: '2 3 4', output: '11.00' }, { input: '0.5 1 6', output: '4.00' }],
-      hiddenTests: [{ input: '-1 10 3', output: '7.00' }, { input: '1.25 0.5 2', output: '3.00' }]
+      publicTests: [{ input: '2 3 4', output: '11.00' }, { input: '0.5 1 6', output: '4.00' }, { input: '-1 10 3', output: '7.00' }],
+      hiddenTests: [{ input: '0 5 100', output: '5.00' }, { input: '1.25 0.5 2', output: '3.00' }]
+    })
+  },
+  // ── DSA: Binary Trees ──────────────────────────────────────────────────────
+  {
+    match: ({ key, title }) => key.includes('binary_tree') || title.includes('binary tree'),
+    build: ({ topicName, lang, difficulty }) => ({
+      title: 'Maximum Depth of Binary Tree',
+      difficulty,
+      description: 'Given a binary tree represented as an array (level-order traversal, where null represents no node), find its maximum depth (number of nodes along the longest path from root to leaf).\n\nExample input format: 3 9 20 null null 15 7 (from LeetCode).',
+      inputFormat: 'One line of space-separated values representing the level-order traversal of the tree.',
+      outputFormat: 'Print the maximum depth as a single integer.',
+      example: { input: '3 9 20 null null 15 7', output: '3', explanation: 'The longest path is 3 -> 20 -> 15 (or 7), which has 3 nodes.' },
+      starterCode: starterCode(topicName, lang),
+      codeLanguage: lang,
+      publicTests: [
+        { input: '3 9 20 null null 15 7', output: '3' },
+        { input: '1 null 2', output: '2' },
+        { input: '1 2 3 4 5', output: '3' }
+      ],
+      hiddenTests: [
+        { input: '1', output: '1' },
+        { input: '1 2 3 4 null null 5 6', output: '4' }
+      ]
+    })
+  },
+  // ── DSA: Binary Search Trees ───────────────────────────────────────────────
+  {
+    match: ({ key, title }) => key.includes('bst') || title.includes('binary search tree'),
+    build: ({ topicName, lang, difficulty }) => ({
+      title: 'Validate Binary Search Tree',
+      difficulty,
+      description: 'Given a binary tree represented as a level-order traversal array, determine if it is a valid binary search tree (BST). A valid BST is defined as follows: the left subtree contains only nodes with keys strictly less than the node\'s key, and the right subtree contains only nodes with keys strictly greater than the node\'s key.',
+      inputFormat: 'One line of space-separated values.',
+      outputFormat: 'Print "true" if it is a valid BST, else "false".',
+      example: { input: '2 1 3', output: 'true', explanation: 'Root is 2, left is 1 (1 < 2), right is 3 (3 > 2).' },
+      starterCode: starterCode(topicName, lang),
+      codeLanguage: lang,
+      publicTests: [
+        { input: '2 1 3', output: 'true' },
+        { input: '5 1 4 null null 3 6', output: 'false' },
+        { input: '10 5 15 null null 6 20', output: 'false' }
+      ],
+      hiddenTests: [
+        { input: '1', output: 'true' },
+        { input: '5 4 6 null null 3 7', output: 'false' }
+      ]
+    })
+  },
+  // ── DSA: Graphs / BFS / DFS ────────────────────────────────────────────────
+  {
+    match: ({ key, title }) => key.includes('graph') || key.includes('bfs') || key.includes('dfs') || title.includes('graph') || title.includes('bfs') || title.includes('dfs'),
+    build: ({ topicName, lang, difficulty }) => ({
+      title: 'Number of Islands',
+      difficulty,
+      description: 'Given an m x n 2D binary grid grid which represents a map of 1s (land) and 0s (water), return the number of islands. An island is surrounded by water and is formed by connecting adjacent lands horizontally or vertically.',
+      inputFormat: 'First line: m n (rows cols). Next m lines: n space-separated integers (1 or 0).',
+      outputFormat: 'Print the number of islands.',
+      example: { input: '4 5\n1 1 1 1 0\n1 1 0 1 0\n1 1 0 0 0\n0 0 0 0 0', output: '1', explanation: 'All 1s are connected into a single island.' },
+      starterCode: starterCode(topicName, lang),
+      codeLanguage: lang,
+      publicTests: [
+        { input: '4 5\n1 1 1 1 0\n1 1 0 1 0\n1 1 0 0 0\n0 0 0 0 0', output: '1' },
+        { input: '4 5\n1 1 0 0 0\n1 1 0 0 0\n0 0 1 0 0\n0 0 0 1 1', output: '3' }
+      ],
+      hiddenTests: [
+        { input: '2 2\n1 0\n0 1', output: '2' },
+        { input: '3 3\n1 1 1\n0 0 0\n1 1 1', output: '2' }
+      ]
+    })
+  },
+  // ── DSA: Two Pointers / Sliding Window ─────────────────────────────────────
+  {
+    match: ({ key, title }) => key.includes('two_pointer') || key.includes('sliding_window') || title.includes('two pointer') || title.includes('sliding window'),
+    build: ({ topicName, lang, difficulty }) => ({
+      title: 'Container With Most Water',
+      difficulty,
+      description: 'You are given an integer array height of length n. There are n vertical lines drawn such that the two endpoints of the ith line are (i, 0) and (i, height[i]). Find two lines that together with the x-axis form a container, such that the container contains the most water.',
+      inputFormat: 'First line: n. Second line: n space-separated heights.',
+      outputFormat: 'Print the maximum amount of water a container can store.',
+      example: { input: '9\n1 8 6 2 5 4 8 3 7', output: '49', explanation: 'The vertical lines at index 1 and 8 form a container holding 7 * 7 = 49 water.' },
+      starterCode: starterCode(topicName, lang),
+      codeLanguage: lang,
+      publicTests: [
+        { input: '9\n1 8 6 2 5 4 8 3 7', output: '49' },
+        { input: '2\n1 1', output: '1' },
+        { input: '5\n4 3 2 1 4', output: '16' }
+      ],
+      hiddenTests: [
+        { input: '3\n1 2 1', output: '2' },
+        { input: '4\n1 1 1 100', output: '3' }
+      ]
+    })
+  },
+  // ── DSA: Linked List ───────────────────────────────────────────────────────
+  {
+    match: ({ key, title }) => key.includes('linked_list') || title.includes('linked list'),
+    build: ({ topicName, lang, difficulty }) => ({
+      title: 'Reverse Linked List',
+      difficulty,
+      description: 'Given the head of a singly linked list as an array of values, reverse the list and return the reversed array.',
+      inputFormat: 'One line of space-separated integers representing the linked list. "null" represents an empty list.',
+      outputFormat: 'Print the reversed space-separated list.',
+      example: { input: '1 2 3 4 5', output: '5 4 3 2 1', explanation: 'Reversing 1->2->3->4->5 gives 5->4->3->2->1.' },
+      starterCode: starterCode(topicName, lang),
+      codeLanguage: lang,
+      publicTests: [
+        { input: '1 2 3 4 5', output: '5 4 3 2 1' },
+        { input: '1 2', output: '2 1' },
+        { input: 'null', output: 'null' }
+      ],
+      hiddenTests: [
+        { input: '42', output: '42' },
+        { input: '10 20 30', output: '30 20 10' }
+      ]
+    })
+  },
+  // ── DSA: Stack / Queue ─────────────────────────────────────────────────────
+  {
+    match: ({ key, title }) => key.includes('stack') || key.includes('queue') || title.includes('stack') || title.includes('queue'),
+    build: ({ topicName, lang, difficulty }) => ({
+      title: 'Valid Parentheses',
+      difficulty,
+      description: 'Given a string s containing just the characters "(", ")", "{", "}", "[" and "]", determine if the input string is valid.\nAn input string is valid if open brackets are closed by the same type of brackets in the correct order.',
+      inputFormat: 'One line containing the string.',
+      outputFormat: 'Print "true" if valid, else "false".',
+      example: { input: '()[]{}', output: 'true', explanation: 'All brackets are closed correctly.' },
+      starterCode: starterCode(topicName, lang),
+      codeLanguage: lang,
+      publicTests: [
+        { input: '()[]{}', output: 'true' },
+        { input: '(]', output: 'false' },
+        { input: '([)]', output: 'false' }
+      ],
+      hiddenTests: [
+        { input: '{[]}', output: 'true' },
+        { input: '(', output: 'false' },
+        { input: ']', output: 'false' }
+      ]
+    })
+  },
+  // ── DSA: Greedy ────────────────────────────────────────────────────────────
+  {
+    match: ({ key, title }) => key.includes('greedy') || title.includes('greedy'),
+    build: ({ topicName, lang, difficulty }) => ({
+      title: 'Jump Game',
+      difficulty,
+      description: 'You are given an integer array nums. You are initially positioned at the array\'s first index, and each element in the array represents your maximum jump length at that position. Return true if you can reach the last index, or false otherwise.',
+      inputFormat: 'First line: n. Second line: n space-separated jump lengths.',
+      outputFormat: 'Print "true" or "false".',
+      example: { input: '5\n2 3 1 1 4', output: 'true', explanation: 'Jump 1 step from index 0 to 1, then 3 steps to the last index.' },
+      starterCode: starterCode(topicName, lang),
+      codeLanguage: lang,
+      publicTests: [
+        { input: '5\n2 3 1 1 4', output: 'true' },
+        { input: '5\n3 2 1 0 4', output: 'false' }
+      ],
+      hiddenTests: [
+        { input: '1\n0', output: 'true' },
+        { input: '4\n1 1 1 1', output: 'true' }
+      ]
     })
   }
 ];
@@ -771,8 +1002,8 @@ const DEFAULT_CHALLENGE_POOL = [
     inputFormat: 'One integer n (0 ≤ n ≤ 10^9).',
     outputFormat: 'Print the digit sum.',
     example: { input: '1234', output: '10', explanation: '1 + 2 + 3 + 4 = 10.' },
-    publicTests: [{ input: '1234', output: '10' }, { input: '0', output: '0' }],
-    hiddenTests: [{ input: '999', output: '27' }, { input: '100', output: '1' }]
+    publicTests: [{ input: '1234', output: '10' }, { input: '0', output: '0' }, { input: '999', output: '27' }],
+    hiddenTests: [{ input: '5050', output: '10' }, { input: '100', output: '1' }]
   },
   {
     title: 'Reverse a String',
@@ -780,8 +1011,8 @@ const DEFAULT_CHALLENGE_POOL = [
     inputFormat: 'One line containing the string.',
     outputFormat: 'Print the reversed string.',
     example: { input: 'hello', output: 'olleh', explanation: 'hello reversed is olleh.' },
-    publicTests: [{ input: 'hello', output: 'olleh' }, { input: 'a', output: 'a' }],
-    hiddenTests: [{ input: 'PathAI', output: 'IAhtaP' }, { input: '12345', output: '54321' }]
+    publicTests: [{ input: 'hello', output: 'olleh' }, { input: 'a', output: 'a' }, { input: 'PathAI', output: 'IAhtaP' }],
+    hiddenTests: [{ input: 'racecar', output: 'racecar' }, { input: '12345', output: '54321' }]
   },
   {
     title: 'Count Words',
@@ -789,8 +1020,8 @@ const DEFAULT_CHALLENGE_POOL = [
     inputFormat: 'One line of text.',
     outputFormat: 'Print the word count.',
     example: { input: 'hello world', output: '2', explanation: 'Two words separated by a space.' },
-    publicTests: [{ input: 'hello world', output: '2' }, { input: 'one', output: '1' }],
-    hiddenTests: [{ input: 'the quick brown fox jumps', output: '5' }, { input: 'a b c d e f', output: '6' }]
+    publicTests: [{ input: 'hello world', output: '2' }, { input: 'one', output: '1' }, { input: 'the quick brown fox jumps', output: '5' }],
+    hiddenTests: [{ input: 'I am learning to code', output: '5' }, { input: 'a b c d e f', output: '6' }]
   },
   {
     title: 'FizzBuzz Single',
@@ -798,8 +1029,8 @@ const DEFAULT_CHALLENGE_POOL = [
     inputFormat: 'One integer n.',
     outputFormat: 'Print the FizzBuzz result.',
     example: { input: '15', output: 'FizzBuzz', explanation: '15 is divisible by both 3 and 5.' },
-    publicTests: [{ input: '15', output: 'FizzBuzz' }, { input: '9', output: 'Fizz' }],
-    hiddenTests: [{ input: '10', output: 'Buzz' }, { input: '7', output: '7' }]
+    publicTests: [{ input: '15', output: 'FizzBuzz' }, { input: '9', output: 'Fizz' }, { input: '10', output: 'Buzz' }],
+    hiddenTests: [{ input: '4', output: '4' }, { input: '7', output: '7' }]
   },
   {
     title: 'Factorial Calculator',
@@ -807,8 +1038,8 @@ const DEFAULT_CHALLENGE_POOL = [
     inputFormat: 'One integer n.',
     outputFormat: 'Print n factorial.',
     example: { input: '5', output: '120', explanation: '5! = 5 × 4 × 3 × 2 × 1 = 120.' },
-    publicTests: [{ input: '5', output: '120' }, { input: '0', output: '1' }],
-    hiddenTests: [{ input: '1', output: '1' }, { input: '10', output: '3628800' }]
+    publicTests: [{ input: '5', output: '120' }, { input: '0', output: '1' }, { input: '1', output: '1' }],
+    hiddenTests: [{ input: '7', output: '5040' }, { input: '10', output: '3628800' }]
   },
   {
     title: 'Even or Odd Counter',
@@ -816,8 +1047,8 @@ const DEFAULT_CHALLENGE_POOL = [
     inputFormat: 'First line: n. Second line: n space-separated integers.',
     outputFormat: 'Print evenCount oddCount.',
     example: { input: '5\n1 2 3 4 5', output: '2 3', explanation: 'Even: 2,4. Odd: 1,3,5.' },
-    publicTests: [{ input: '5\n1 2 3 4 5', output: '2 3' }, { input: '3\n2 4 6', output: '3 0' }],
-    hiddenTests: [{ input: '1\n0', output: '1 0' }, { input: '4\n1 3 5 7', output: '0 4' }]
+    publicTests: [{ input: '5\n1 2 3 4 5', output: '2 3' }, { input: '3\n2 4 6', output: '3 0' }, { input: '1\n0', output: '1 0' }],
+    hiddenTests: [{ input: '4\n2 4 6 8', output: '4 0' }, { input: '4\n1 3 5 7', output: '0 4' }]
   },
   {
     title: 'Character Frequency',
@@ -825,8 +1056,8 @@ const DEFAULT_CHALLENGE_POOL = [
     inputFormat: 'One line containing a lowercase string (no spaces).',
     outputFormat: 'Print the most frequent character.',
     example: { input: 'abracadabra', output: 'a', explanation: 'a appears 5 times, more than any other character.' },
-    publicTests: [{ input: 'abracadabra', output: 'a' }, { input: 'hello', output: 'l' }],
-    hiddenTests: [{ input: 'aabb', output: 'a' }, { input: 'zzz', output: 'z' }]
+    publicTests: [{ input: 'abracadabra', output: 'a' }, { input: 'hello', output: 'l' }, { input: 'aabb', output: 'a' }],
+    hiddenTests: [{ input: 'mississippi', output: 'i' }, { input: 'zzz', output: 'z' }]
   },
   {
     title: 'Temperature Converter',
@@ -834,8 +1065,8 @@ const DEFAULT_CHALLENGE_POOL = [
     inputFormat: 'One line: value unit (e.g., "100 C").',
     outputFormat: 'Print the converted value rounded to 2 decimal places.',
     example: { input: '100 C', output: '212.00', explanation: '100°C = 100 × 9/5 + 32 = 212°F.' },
-    publicTests: [{ input: '100 C', output: '212.00' }, { input: '32 F', output: '0.00' }],
-    hiddenTests: [{ input: '0 C', output: '32.00' }, { input: '98.6 F', output: '37.00' }]
+    publicTests: [{ input: '100 C', output: '212.00' }, { input: '32 F', output: '0.00' }, { input: '0 C', output: '32.00' }],
+    hiddenTests: [{ input: '-40 C', output: '-40.00' }, { input: '98.6 F', output: '37.00' }]
   }
 ];
 
@@ -972,8 +1203,54 @@ async function executePractice({ solution, challenge, includeHidden = false }) {
   }
 }
 
+function buildPracticeTest(session, profile = {}, preferredLanguage = '') {
+  const topicName = session.title || 'Practice Test';
+  const key = String(session.topicKey || '').toLowerCase();
+  const title = String(topicName).toLowerCase();
+  const lang = normalizePreferredLanguage(preferredLanguage || session.preferredLanguage || profile.preferredLanguage, session.domain || 'general');
+  const difficulty = resolveDifficulty(session, profile);
+
+  // Find all builders that match the topic
+  const matchingBuilders = CHALLENGE_BUILDERS.filter(item => item.match({ key, title }));
+  
+  let pool = [];
+  for (const builder of matchingBuilders) {
+    if (pool.length >= 5) break;
+    const challenge = builder.build({ topicName, lang, difficulty });
+    if (!pool.some(c => c.title === challenge.title)) {
+      pool.push(challenge);
+    }
+  }
+  
+  // If we still don't have 5, fill from default pool
+  let defaultIndex = 0;
+  while (pool.length < 5 && defaultIndex < DEFAULT_CHALLENGE_POOL.length) {
+    const base = DEFAULT_CHALLENGE_POOL[defaultIndex++];
+    pool.push({
+      title: `${topicName}: ${base.title}`,
+      difficulty,
+      description: base.description,
+      inputFormat: base.inputFormat,
+      outputFormat: base.outputFormat,
+      example: base.example,
+      starterCode: starterCode(topicName, lang),
+      codeLanguage: lang,
+      publicTests: base.publicTests,
+      hiddenTests: base.hiddenTests
+    });
+  }
+  
+  return pool.map((challenge, index) => ({
+    ...challenge,
+    topicName: `${topicName} - Q${index + 1}`,
+    topicKey: session.topicKey || null,
+    domain: session.domain || 'general'
+  }));
+}
+
 module.exports = {
   buildPracticeChallenge,
+  buildPracticeTest,
   publicChallenge,
   executePractice
 };

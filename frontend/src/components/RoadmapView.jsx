@@ -338,10 +338,70 @@ const RoadmapView = ({
   };
 
   // ── Derive display data from roadmap ────────────────────────────────────────
-  const milestones    = roadmap?.milestones    || [];
+  const rawMilestones = roadmap?.milestones    || [];
   const dailySessions = roadmap?.dailySessions || [];
   const stats         = roadmap?.stats         || {};
   const displayName   = roadmap?.displayName   || 'Your Roadmap';
+
+  // ── Recompute milestone positions along the SVG path if needed ────────────
+  // The YEARLY_PATH is: "M 6 20 L 16 20 C 55 20 92 28 92 48 C 92 72 35 55 10 65 C -5 75 30 90 94 90"
+  // We sample evenly to avoid overlaps when milestones > 10
+  const milestones = React.useMemo(() => {
+    if (rawMilestones.length <= 1) return rawMilestones;
+
+    // Check if positions have duplicates (old data)
+    const posSet = new Set(rawMilestones.map(m => `${m.position?.x},${m.position?.y}`));
+    const hasDuplicates = posSet.size < rawMilestones.length;
+    const hasManyMilestones = rawMilestones.length > 8;
+    
+    if (!hasDuplicates && !hasManyMilestones) return rawMilestones;
+
+    // Recompute positions along the SVG bezier path
+    const bezPt = (t, p0, p1, p2, p3) => {
+      const u = 1 - t;
+      return u*u*u*p0 + 3*u*u*t*p1 + 3*u*t*t*p2 + t*t*t*p3;
+    };
+    const segs = [
+      { type: 'line', x0: 6, y0: 20, x1: 16, y1: 20 },
+      { type: 'cubic', x0: 16, y0: 20, cx1: 55, cy1: 20, cx2: 92, cy2: 28, x1: 92, y1: 48 },
+      { type: 'cubic', x0: 92, y0: 48, cx1: 92, cy1: 72, cx2: 35, cy2: 55, x1: 10, y1: 65 },
+      { type: 'cubic', x0: 10, y0: 65, cx1: -5, cy1: 75, cx2: 30, cy2: 90, x1: 94, y1: 90 },
+    ];
+    const pts = [];
+    for (const s of segs) {
+      const steps = s.type === 'line' ? 10 : 160;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        if (s.type === 'line') {
+          pts.push({ x: s.x0 + t * (s.x1 - s.x0), y: s.y0 + t * (s.y1 - s.y0) });
+        } else {
+          pts.push({ x: bezPt(t, s.x0, s.cx1, s.cx2, s.x1), y: bezPt(t, s.y0, s.cy1, s.cy2, s.y1) });
+        }
+      }
+    }
+    // Arc lengths
+    const arcLen = [0];
+    for (let i = 1; i < pts.length; i++) {
+      const dx = pts[i].x - pts[i-1].x, dy = pts[i].y - pts[i-1].y;
+      arcLen.push(arcLen[i-1] + Math.sqrt(dx*dx + dy*dy));
+    }
+    const total = arcLen[arcLen.length - 1];
+    const pad = total * 0.06;
+    const usable = total - 2 * pad;
+    const count = rawMilestones.length;
+
+    return rawMilestones.map((ms, m) => {
+      const dist = pad + (count <= 1 ? usable / 2 : (m / (count - 1)) * usable);
+      let idx = 0;
+      for (let i = 1; i < arcLen.length; i++) {
+        if (arcLen[i] >= dist) { idx = i; break; }
+      }
+      return {
+        ...ms,
+        position: { x: Math.round(pts[idx].x * 10) / 10, y: Math.round(pts[idx].y * 10) / 10 }
+      };
+    });
+  }, [rawMilestones]);
 
   // ── Monthly nodes from milestone durations ───────────────────────────────────
   const buildMonthlyData = () => {
@@ -395,12 +455,27 @@ const RoadmapView = ({
   const fullPath      = getSmoothPath(scaledPoints);
   const segmentPaths  = getSegmentPaths(scaledPoints);
 
-  // ── Stats bar values ─────────────────────────────────────────────────────────
+  // ── Stats bar values (computed dynamically from actual session data) ────────
+  const completedSessionCount = dailySessions.filter(s => s.status === 'completed').length;
+  const completedMilestoneCount = milestones.filter(m => m.status === 'completed').length;
+  const dynamicProgress = dailySessions.length > 0
+    ? Math.round((completedSessionCount / dailySessions.length) * 100)
+    : (stats.progressPercent || 0);
+  const dynamicXP = stats.xpScore || (completedSessionCount * 25 + completedMilestoneCount * 100);
+
+  // Days left: use backend value if available, otherwise estimate from remaining sessions
+  const remainingSessions = dailySessions.filter(s => s.status !== 'completed');
+  const remainingHours = remainingSessions.reduce((sum, s) => sum + (s.estimatedHours || 1), 0);
+  const hoursPerDay = stats.hoursPerDay || 3;
+  const dynamicDaysLeft = stats.daysLeft ?? (remainingSessions.length > 0
+    ? Math.max(1, Math.ceil(remainingHours / hoursPerDay))
+    : 0);
+
   const milestonesLabel = timelineView === 'Monthly'
     ? `${stats.currentDay || 1}/${stats.totalDays || 30}`
     : timelineView === 'Daily'
-    ? `${dailySessions.filter(s => s.status === 'completed').length}/${dailySessions.length}`
-    : `${stats.completedMilestones || 0}/${milestones.length}`;
+    ? `${completedSessionCount}/${dailySessions.length}`
+    : `${completedMilestoneCount}/${milestones.length}`;
 
   // ── Daily view: group sessions by day, navigate between days ────────────────
   const allDayNumbers = [...new Set(dailySessions.map(s => s.day))].sort((a, b) => a - b);
@@ -582,15 +657,15 @@ const RoadmapView = ({
                 <p className="text-xs font-bold text-slate-600 uppercase">Milestones</p>
               </div>
               <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-2xl p-5 border-2 border-cyan-200">
-                <p className="text-3xl font-black text-slate-800">{stats.progressPercent || 0}%</p>
+                <p className="text-3xl font-black text-slate-800">{dynamicProgress}%</p>
                 <p className="text-xs font-bold text-slate-600 uppercase">Progress</p>
               </div>
               <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl p-5 border-2 border-purple-200">
-                <p className="text-3xl font-black text-slate-800">{stats.daysLeft ?? '—'}</p>
+                <p className="text-3xl font-black text-slate-800">{dynamicDaysLeft}</p>
                 <p className="text-xs font-bold text-slate-600 uppercase">Days Left</p>
               </div>
               <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl p-5">
-                <p className="text-3xl font-black text-white">{stats.xpScore ?? 0}</p>
+                <p className="text-3xl font-black text-white">{dynamicXP}</p>
                 <p className="text-xs font-bold text-white/90 uppercase">XP Score</p>
               </div>
             </div>
@@ -677,25 +752,33 @@ const RoadmapView = ({
               </div>
 
               {/* Milestone markers */}
-              {milestones.map((ms, i) => (
-                <motion.div key={ms.id}
-                  initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: 0.5 + i * 0.1, type: 'spring' }}
-                  onClick={() => setSelectedMilestone(ms)}
-                  className="absolute cursor-pointer group flex flex-col items-center"
-                  style={{ left: `${ms.position.x}%`, top: `${ms.position.y}%`, transform: 'translate(-50%,-50%)', zIndex: 20 }}>
-                  <div className="w-14 h-14 rounded-full border-4 border-white shadow-xl flex items-center justify-center relative z-20 transition-transform group-hover:scale-110"
-                    style={{ backgroundColor: ms.color }}>
-                    <span className="text-2xl font-black text-white">{i + 1}</span>
-                  </div>
-                  <div className="absolute top-16 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-emerald-100 shadow-md whitespace-nowrap transform transition-all group-hover:-translate-y-1">
-                    <p className="text-xs font-bold text-slate-800">{ms.title}</p>
-                  </div>
-                  {ms.status === 'current' && (
-                    <div className="absolute inset-0 rounded-full bg-white animate-ping opacity-30 z-10 w-14 h-14" />
-                  )}
-                </motion.div>
-              ))}
+              {(() => {
+                const n = milestones.length;
+                const circleSize = n > 12 ? 'w-10 h-10' : n > 8 ? 'w-12 h-12' : 'w-14 h-14';
+                const fontSize = n > 12 ? 'text-sm' : n > 8 ? 'text-lg' : 'text-2xl';
+                const labelClass = n > 8
+                  ? 'opacity-0 group-hover:opacity-100 transition-opacity duration-200'
+                  : '';
+                return milestones.map((ms, i) => (
+                  <motion.div key={ms.id}
+                    initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.5 + i * 0.08, type: 'spring' }}
+                    onClick={() => setSelectedMilestone(ms)}
+                    className="absolute cursor-pointer group flex flex-col items-center"
+                    style={{ left: `${ms.position.x}%`, top: `${ms.position.y}%`, transform: 'translate(-50%,-50%)', zIndex: 20 }}>
+                    <div className={`${circleSize} rounded-full border-4 border-white shadow-xl flex items-center justify-center relative z-20 transition-transform group-hover:scale-110`}
+                      style={{ backgroundColor: ms.color }}>
+                      <span className={`${fontSize} font-black text-white`}>{i + 1}</span>
+                    </div>
+                    <div className={`absolute top-full mt-1 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-emerald-100 shadow-md whitespace-nowrap transform transition-all group-hover:-translate-y-1 z-30 ${labelClass}`}>
+                      <p className="text-xs font-bold text-slate-800 max-w-[160px] truncate">{ms.title}</p>
+                    </div>
+                    {ms.status === 'current' && (
+                      <div className={`absolute inset-0 rounded-full bg-white animate-ping opacity-30 z-10 ${circleSize}`} />
+                    )}
+                  </motion.div>
+                ));
+              })()}
             </>
           )}
 

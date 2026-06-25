@@ -6,10 +6,12 @@ import {
   Sun, Sunset, Moon, Coffee, Calendar, Award,
   CalendarDays, RefreshCw, ShieldAlert, Activity, AlertTriangle
 } from 'lucide-react';
+import PracticeTestModal from './PracticeTestModal';
 
-const AnalyticsView = ({ dashboardStats }) => {
+const AnalyticsView = ({ dashboardStats, onRefresh }) => {
   const [selectedTimeRange, setSelectedTimeRange] = useState('Today');
   const [showTimeDropdown, setShowTimeDropdown] = useState(false);
+  const [isPracticeModalOpen, setIsPracticeModalOpen] = useState(false);
 
   // AI Insights Data (Dynamic)
   const aiInsights = dashboardStats?.aiInsights || [
@@ -45,25 +47,16 @@ const AnalyticsView = ({ dashboardStats }) => {
   ];
 
   // Skill Mastery Data (for Radar Chart)
-  const skillMastery = [
-    { skill: 'DSA', score: 80, angle: 0 },
-    { skill: 'Web Dev', score: 60, angle: 72 },
-    { skill: 'Cybersecurity', score: 30, angle: 144 },
-    { skill: 'Python', score: 75, angle: 216 },
-    { skill: 'Core CS', score: 65, angle: 288 }
-  ];
+  const rawSkillMastery = dashboardStats?.skillMastery || [];
+  const skillMastery = rawSkillMastery.map((s, i, arr) => ({
+    ...s,
+    angle: (360 / arr.length) * i
+  }));
 
-  const skillBalanceScore = 6.5;
+  const skillBalance = dashboardStats?.skillBalance || null;
 
   // Weakest Link
-  const weakestArea = {
-    topic: 'Dynamic Programming',
-    category: 'DSA',
-    suggestedActions: [
-      'Solve 5 problems',
-      'Watch 1 curated video'
-    ]
-  };
+  const weakestArea = dashboardStats?.weakestArea;
 
   // Success Prediction
   const successPrediction = {
@@ -530,151 +523,203 @@ const AnalyticsView = ({ dashboardStats }) => {
           <h3 className="text-xl font-black text-slate-900 mb-6">🧩 Skill Mastery Overview</h3>
           
           {/* Radar Chart */}
-          <div className="flex items-center justify-center mb-6">
-            <svg viewBox="0 0 200 200" className="w-64 h-64">
-              {/* Background grid circles */}
-              {[20, 40, 60, 80].map(radius => (
-                <circle
-                  key={radius}
-                  cx="100"
-                  cy="100"
-                  r={radius}
-                  fill="none"
-                  stroke="#e2e8f0"
-                  strokeWidth="1"
-                />
-              ))}
-              
-              {/* Grid lines */}
-              {skillMastery.map(skill => {
-                const angleRad = (skill.angle - 90) * (Math.PI / 180);
-                const x = 100 + 80 * Math.cos(angleRad);
-                const y = 100 + 80 * Math.sin(angleRad);
-                return (
-                  <line
-                    key={skill.skill}
-                    x1="100"
-                    y1="100"
-                    x2={x}
-                    y2={y}
+          {skillMastery.length > 0 ? (
+            <div className="flex items-center justify-center mb-6">
+              <svg viewBox="-50 -50 300 300" className="w-full max-w-[320px] h-auto">
+                {/* Background grid circles */}
+                {[20, 40, 60, 80].map(radius => (
+                  <circle
+                    key={radius}
+                    cx="100"
+                    cy="100"
+                    r={radius}
+                    fill="none"
                     stroke="#e2e8f0"
                     strokeWidth="1"
                   />
-                );
-              })}
-              
-              {/* Data polygon */}
-              <motion.path
-                d={radarPath}
-                fill="url(#radar-gradient)"
-                fillOpacity="0.3"
-                stroke="url(#radar-gradient)"
-                strokeWidth="3"
-                initial={{ pathLength: 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{ duration: 1.5, delay: 0.7 }}
-              />
-              
-              {/* Data points */}
-              {radarPoints.map((point, idx) => (
-                <motion.circle
-                  key={point.skill}
-                  cx={point.x}
-                  cy={point.y}
-                  r="5"
-                  fill="#8b5cf6"
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.7 + idx * 0.1 }}
+                ))}
+                
+                {/* Grid lines */}
+                {skillMastery.map(skill => {
+                  const angleRad = (skill.angle - 90) * (Math.PI / 180);
+                  const x = 100 + 80 * Math.cos(angleRad);
+                  const y = 100 + 80 * Math.sin(angleRad);
+                  return (
+                    <line
+                      key={skill.skill}
+                      x1="100"
+                      y1="100"
+                      x2={x}
+                      y2={y}
+                      stroke="#e2e8f0"
+                      strokeWidth="1"
+                    />
+                  );
+                })}
+                
+                {/* Data polygon */}
+                <motion.path
+                  d={radarPath}
+                  fill="url(#radar-gradient)"
+                  fillOpacity="0.3"
+                  stroke="url(#radar-gradient)"
+                  strokeWidth="3"
+                  initial={{ pathLength: 0 }}
+                  animate={{ pathLength: 1 }}
+                  transition={{ duration: 1.5, delay: 0.7 }}
                 />
-              ))}
-              
-              {/* Labels */}
-              {radarPoints.map(point => (
-                <text
-                  key={point.skill}
-                  x={point.labelX}
-                  y={point.labelY}
-                  textAnchor="middle"
-                  className="text-xs font-bold fill-slate-700"
-                >
-                  {point.skill}
-                </text>
-              ))}
-              
-              <defs>
-                <linearGradient id="radar-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#8b5cf6" />
-                  <stop offset="100%" stopColor="#3b82f6" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
+                
+                {/* Data points */}
+                {radarPoints.map((point, idx) => (
+                  <motion.circle
+                    key={point.skill}
+                    cx={point.x}
+                    cy={point.y}
+                    r="5"
+                    fill="#8b5cf6"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.7 + idx * 0.1 }}
+                  />
+                ))}
+                
+                {/* Labels */}
+                {radarPoints.map(point => (
+                  <text
+                    key={point.skill}
+                    x={point.labelX}
+                    y={point.labelY}
+                    textAnchor="middle"
+                    className="text-xs font-bold fill-slate-700"
+                  >
+                    {point.skill}
+                  </text>
+                ))}
+                
+                <defs>
+                  <linearGradient id="radar-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#8b5cf6" />
+                    <stop offset="100%" stopColor="#3b82f6" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-64 text-slate-400 mb-6">
+              <Brain className="w-12 h-12 mb-3 opacity-20" />
+              <p className="text-sm font-semibold">Keep learning to unlock your skill radar</p>
+            </div>
+          )}
 
           {/* AI Interpretation */}
-          <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-6 border border-purple-200 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-black text-slate-700">📊 Skill Balance Score:</span>
-              <span className="text-2xl font-black text-purple-600">{skillBalanceScore} / 10</span>
-            </div>
-            
-            <div className="flex items-start gap-3 bg-amber-100/50 rounded-xl p-4">
-              <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm font-semibold text-slate-700">Cybersecurity lagging behind other skills</p>
-            </div>
+          {skillBalance && (
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-6 border border-purple-200 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-black text-slate-700">📊 Skill Balance Score:</span>
+                <span className={`text-2xl font-black ${skillBalance.score >= 8 ? 'text-emerald-600' : 'text-purple-600'}`}>
+                  {skillBalance.score} / 10
+                </span>
+              </div>
+              
+              <div className={`flex items-start gap-3 rounded-xl p-4 ${skillBalance.score >= 8 ? 'bg-emerald-100/50' : 'bg-amber-100/50'}`}>
+                {skillBalance.score >= 8 ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                )}
+                <p className="text-sm font-semibold text-slate-700">{skillBalance.insight}</p>
+              </div>
 
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center flex-shrink-0">
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <p className="text-sm font-black text-slate-900 mb-2">💡 Recommendation:</p>
-                <p className="text-sm font-semibold text-slate-600">Focus next 2 weeks on Cybersecurity to balance profile</p>
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-slate-900 mb-2">💡 Recommendation:</p>
+                  <p className="text-sm font-semibold text-slate-600">{skillBalance.recommendation}</p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </motion.div>
 
         {/* Weakest Link Spotlight */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7 }}
-          className="bg-gradient-to-br from-rose-50 via-orange-50 to-amber-50 backdrop-blur-xl border border-white rounded-3xl p-8 shadow-xl"
-        >
-          <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
-            <AlertCircle className="w-6 h-6 text-rose-500" />
-            🚨 Weakest Link Spotlight
-          </h3>
-          
-          <div className="space-y-6">
-            <div className="bg-white/60 rounded-2xl p-6 border border-rose-200">
-              <p className="text-sm font-bold text-slate-500 mb-2">Weakest Area This Month</p>
-              <p className="text-3xl font-black text-slate-900 mb-1">{weakestArea.topic}</p>
-              <p className="text-sm font-semibold text-slate-600">{weakestArea.category}</p>
-            </div>
-
-            <div className="space-y-3">
-              <p className="text-sm font-black text-slate-700 uppercase tracking-wider">Suggested Actions:</p>
-              {weakestArea.suggestedActions.map((action, idx) => (
-                <div key={idx} className="flex items-center gap-3 bg-white/60 rounded-xl p-4 border border-orange-200">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 to-rose-400 flex items-center justify-center flex-shrink-0">
-                    <span className="text-white font-black">{idx + 1}</span>
+        {weakestArea ? (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7 }}
+            className="bg-gradient-to-br from-rose-50 via-orange-50 to-amber-50 backdrop-blur-xl border border-white rounded-3xl p-8 shadow-xl"
+          >
+            <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
+              <AlertCircle className="w-6 h-6 text-rose-500" />
+              🚨 Weakest Link Spotlight
+            </h3>
+            
+            <div className="space-y-6">
+              <div className="bg-white/60 rounded-2xl p-6 border border-rose-200">
+                <p className="text-sm font-bold text-slate-500 mb-2">Weakest Area This Month</p>
+                <p className="text-3xl font-black text-slate-900 mb-1">{weakestArea.topic}</p>
+                <p className="text-sm font-semibold text-slate-600">{weakestArea.category}</p>
+                {weakestArea.reason && (
+                  <div className="mt-4 pt-4 border-t border-rose-100 flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-slate-600 font-medium">{weakestArea.reason}</p>
                   </div>
-                  <p className="font-semibold text-slate-700">{action}</p>
-                </div>
-              ))}
-            </div>
+                )}
+              </div>
 
-            <button className="w-full bg-gradient-to-r from-rose-500 to-orange-500 text-white py-4 rounded-2xl font-black shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2">
-              <Play className="w-5 h-5 fill-white" />
-              Start Now
-            </button>
-          </div>
-        </motion.div>
+              <div className="space-y-3">
+                <p className="text-sm font-black text-slate-700 uppercase tracking-wider">Suggested Actions:</p>
+                {weakestArea.suggestedActions?.map((action, idx) => (
+                  <div key={idx} className="flex items-center gap-3 bg-white/60 rounded-xl p-4 border border-orange-200">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 to-rose-400 flex items-center justify-center flex-shrink-0">
+                      <span className="text-white font-black">{idx + 1}</span>
+                    </div>
+                    <p className="font-semibold text-slate-700">{action}</p>
+                  </div>
+                ))}
+              </div>
+
+              <button 
+                onClick={() => setIsPracticeModalOpen(true)}
+                className="w-full bg-gradient-to-r from-rose-500 to-orange-500 text-white py-4 rounded-2xl font-black shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+              >
+                <Play className="w-5 h-5 fill-white" />
+                Start Now
+              </button>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7 }}
+            className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm flex flex-col items-center justify-center text-center h-full"
+          >
+            <Target className="w-12 h-12 text-slate-300 mb-4" />
+            <h3 className="text-xl font-bold text-slate-800 mb-2">Keep Learning to Unlock Insights</h3>
+            <p className="text-slate-500 max-w-sm">
+              We need a bit more data on your practice attempts to accurately identify your weakest areas.
+            </p>
+          </motion.div>
+        )}
       </div>
 
-
+      {isPracticeModalOpen && weakestArea && (
+        <PracticeTestModal
+          topic={weakestArea.topic}
+          domain={dashboardStats?.domain || 'general'}
+          onClose={() => {
+            setIsPracticeModalOpen(false);
+            if (onRefresh) onRefresh();
+          }}
+          onComplete={() => {
+            // Just refresh data in the background; user will close modal via Done button
+            if (onRefresh) onRefresh();
+          }}
+        />
+      )}
     </div>
   );
 };
