@@ -158,9 +158,8 @@ const recalculateStats = (roadmap) => {
   const maxDay  = allDayNums.length > 0 ? Math.max(...allDayNums) : 1;
   roadmap.stats.totalDays = maxDay;
 
-  const remainingHours = remaining.reduce((sum, s) => sum + (s.estimatedHours || 1), 0);
   roadmap.stats.daysLeft = remaining.length > 0
-    ? Math.max(1, Math.ceil(remainingHours / hoursPerDay))
+    ? Math.max(1, maxDay - roadmap.stats.currentDay + 1)
     : 0;
 };
 
@@ -240,19 +239,13 @@ const smartRepackWithCap = (roadmap, startDay = null) => {
   const remainingHours   = toReschedule.reduce((sum, s) => sum + (s.estimatedHours || 1), 0);
 
   // ── 3. Pick adaptive mode based on MISSED TASK COUNT ────────────────────
-  // < 4 missed  → Light    (+1.0h/day to absorb quickly)
-  // 4–7 missed  → Medium   (+0h/day, just shift schedule / add extra day)
-  // 8+ missed   → Intensive(+0h/day, just shift schedule / add extra days)
   let mode, extraCap;
   if (missedCount < 4) {
     mode     = 'light';
-    extraCap = 1.0;
-  } else if (missedCount <= 7) {
-    mode     = 'medium';
-    extraCap = 0;
+    extraCap = 1.0; // Absorb by doing slightly more each day
   } else {
     mode     = 'intensive';
-    extraCap = 0;
+    extraCap = 0;   // Add extra days, no extra daily cap
   }
 
   // Never exceed 8 h/day or 2× the user's daily preference
@@ -264,27 +257,72 @@ const smartRepackWithCap = (roadmap, startDay = null) => {
   const effectiveStart = startDay ?? Math.max(roadmap.stats.currentDay || 1, maxCompleted + 1);
 
   // ── 5. Re-pack sessions onto days ─────────────────────────────────────────
-  let day        = effectiveStart;
-  let hoursInDay = 0;
-  let isFirst    = true;
+  let day = effectiveStart;
+  let isFirst = true;
 
-  toReschedule.forEach(session => {
-    const hrs = session.estimatedHours || 1;
+  if (missedCount < 4) {
+    // Mode: Light (<4 missed)
+    // Distribute 1 missed task per day alongside normal pending tasks
+    let missedIdx = 0;
+    let pendingIdx = 0;
+    const pendingSessions = toReschedule.filter(s => s.status !== 'missed');
 
-    // Roll to next day if this session won't fit
-    if (hoursInDay > 0 && hoursInDay + hrs > maxPerDay) {
+    while (missedIdx < missedSessions.length || pendingIdx < pendingSessions.length) {
+      let hoursInDay = 0;
+      
+      // 1. Assign up to 1 missed task to this day
+      if (missedIdx < missedSessions.length) {
+        const mTask = missedSessions[missedIdx];
+        mTask.day = day;
+        mTask.status = isFirst ? 'current' : 'locked';
+        hoursInDay += (mTask.estimatedHours || 1);
+        missedIdx++;
+        isFirst = false;
+      }
+
+      // 2. Fill the rest of the day with pending tasks
+      while (pendingIdx < pendingSessions.length) {
+        const pTask = pendingSessions[pendingIdx];
+        const hrs = pTask.estimatedHours || 1;
+        if (hoursInDay > 0 && hoursInDay + hrs > maxPerDay) {
+          break; // move to next day
+        }
+        pTask.day = day;
+        pTask.status = isFirst ? 'current' : 'locked';
+        hoursInDay += hrs;
+        pendingIdx++;
+        isFirst = false;
+      }
       day++;
-      hoursInDay = 0;
+    }
+  } else {
+    // Mode: Intensive (>= 4 missed)
+    // Assign each missed task to its own dedicated day
+    for (const mTask of missedSessions) {
+      mTask.day = day;
+      mTask.status = isFirst ? 'current' : 'locked';
+      day++;
+      isFirst = false;
     }
 
-    session.day    = day;
-    session.status = isFirst ? 'current' : 'locked';
-    hoursInDay    += hrs;
-    isFirst        = false;
-  });
+    // Then assign pending tasks normally on subsequent days
+    const pendingSessions = toReschedule.filter(s => s.status !== 'missed');
+    let hoursInDay = 0;
+    for (const pTask of pendingSessions) {
+      const hrs = pTask.estimatedHours || 1;
+      if (hoursInDay > 0 && hoursInDay + hrs > hoursPerDay) {
+        day++;
+        hoursInDay = 0;
+      }
+      pTask.day = day;
+      pTask.status = isFirst ? 'current' : 'locked';
+      hoursInDay += hrs;
+      isFirst = false;
+    }
+  }
 
   // ── 6. Compute new end day & extra days added ─────────────────────────────
-  const newEndDay     = toReschedule.length > 0
+  const newEndDay = toReschedule.length > 0
     ? Math.max(...toReschedule.map(s => s.day))
     : originalEndDay;
 
@@ -295,14 +333,14 @@ const smartRepackWithCap = (roadmap, startDay = null) => {
   }
 
   // ── 7. Build rescheduled-sessions list for frontend table ─────────────────
-  // Only includes sessions that were originally missed (not just pending)
+  // Only includes sessions that were originally missed
   const rescheduledSessions = missedSessions.map(s => ({
     id:             s.id,
     title:          s.title,
     phaseTitle:     s.phaseTitle || '',
     estimatedHours: s.estimatedHours || 1,
-    newDay:         s.day,   // already updated by step 5 above
-    status:         s.status // now 'current' or 'locked'
+    newDay:         s.day,   // updated during packing
+    status:         s.status 
   }));
 
   return {

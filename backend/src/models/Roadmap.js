@@ -93,7 +93,8 @@ const dailySessionSchema = new mongoose.Schema(
     practiceCompleted:    { type: Boolean, default: false },
     practiceAttempts:     { type: Number, default: 0 },
     hintsUsed:            { type: Number, default: 0 },
-    videoRewatches:       { type: Number, default: 0 }
+    videoRewatches:       { type: Number, default: 0 },
+    wrongAnswers:         { type: Number, default: 0 }   // failed practice submissions
   },
   { _id: false }
 );
@@ -107,7 +108,17 @@ const lastRescheduleSchema = new mongoose.Schema(
     originalEndDay:     { type: Number, default: 0 },   // totalDays BEFORE reschedule
     newEndDay:          { type: Number, default: 0 },   // totalDays AFTER reschedule
     totalRescheduled:   { type: Number, default: 0 },   // total sessions repacked
-    extraCapPerDay:     { type: Number, default: 1 }    // cap used (hours/day extra)
+    extraCapPerDay:     { type: Number, default: 1 },   // cap used (hours/day extra)
+    rescheduledSessions:[                               // exactly which sessions were moved
+      {
+        id: Number,
+        title: String,
+        phaseTitle: String,
+        estimatedHours: Number,
+        newDay: Number,
+        status: String
+      }
+    ]
   },
   { _id: false }
 );

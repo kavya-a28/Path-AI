@@ -83,13 +83,13 @@ export async function updateSessionTracking(sessionId, payload) {
 }
 
 /**
- * Track user engagement (hints used, video rewatches).
+ * Track user engagement (hints used, video rewatches, wrong answers).
  */
-export async function trackSessionEngagement(sessionId, { hintsAdded, rewatchesAdded }) {
+export async function trackSessionEngagement(sessionId, { hintsAdded, rewatchesAdded, wrongAnswerAdded }) {
   const res = await fetch(`${API_URL}/roadmap/session/${sessionId}/engagement`, {
     method:  'PATCH',
     headers: authHeaders(),
-    body:    JSON.stringify({ hintsAdded, rewatchesAdded })
+    body:    JSON.stringify({ hintsAdded, rewatchesAdded, wrongAnswerAdded })
   });
   const data = await res.json();
   if (!res.ok || !data.success) throw new Error(data.message || 'Failed to track engagement');

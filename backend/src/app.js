@@ -4,6 +4,7 @@ const authRoutes = require("./routes/authRoutes");
 const onboardingRoutes = require("./routes/onboardingRoutes");
 const questionnaireRoutes = require("./routes/questionnaireRoutes");
 const roadmapRoutes = require("./routes/roadmapRoutes");
+const settingsRoutes = require("./routes/settingsRoutes");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 
 const app = express();
@@ -16,7 +17,8 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({
@@ -31,6 +33,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/onboarding", onboardingRoutes);
 app.use("/api/questionnaire", questionnaireRoutes);
 app.use("/api/roadmap", roadmapRoutes);
+app.use("/api/settings", settingsRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

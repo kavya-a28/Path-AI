@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Home, Map, BarChart3, Users, Briefcase, Settings, 
@@ -16,6 +16,7 @@ import SettingsView from './SettingsView';
 import NotificationDropdown from './Notification';
 import CommunityView from './CommunityView';
 import { getDashboardStats, startSession, getMyRoadmap, rescheduleRoadmap, updateSession } from '../services/roadmapApi';
+import { fetchSettings } from '../services/settingsApi';
 
 const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => { 
   // State to track which sidebar tab is active
@@ -26,6 +27,11 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
 
   // State for Notifications
   const [showNotifications, setShowNotifications] = useState(false);
+  const [localUserData, setLocalUserData] = useState(userData);
+
+  useEffect(() => {
+    if (userData) setLocalUserData(userData);
+  }, [userData]);
 
   // ── Live dashboard stats from backend ─────────────────────────────────────
   const [dashStats, setDashStats] = useState(null);
@@ -35,6 +41,8 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
   const [toast, setToast] = useState(null);
   const [toastType, setToastType] = useState('info'); // 'info' | 'success' | 'warning'
   const [recoveryBanner, setRecoveryBanner] = useState(null); // { extraDaysAdded, mode, missedRescheduled, newEndDay }
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
 
   const showToast = (msg, type = 'info', duration = 4000) => {
     setToast(msg);
@@ -44,12 +52,14 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
 
   const refreshAll = useCallback(async () => {
     try {
-      const [stats, roadmap] = await Promise.all([
+      const [stats, roadmap, settings] = await Promise.all([
         getDashboardStats(),
-        getMyRoadmap()
+        getMyRoadmap(),
+        fetchSettings()
       ]);
       setDashStats(stats);
       if (roadmap && onRoadmapUpdate) onRoadmapUpdate(roadmap);
+      if (settings?.userData) setLocalUserData(settings.userData);
       return { stats, roadmap };
     } catch (err) {
       console.warn('Refresh failed:', err.message);
@@ -62,6 +72,25 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
   const fetchStats = useCallback(async () => {
     await refreshAll();
   }, [refreshAll]);
+
+  // ── Search Logic ────────────────────────────────────────────────────────────
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim() || !roadmapData?.dailySessions) return [];
+    const q = searchQuery.toLowerCase();
+    return roadmapData.dailySessions
+      .filter(s => 
+        s.title.toLowerCase().includes(q) || 
+        (s.phaseTitle && s.phaseTitle.toLowerCase().includes(q))
+      )
+      .slice(0, 5);
+  }, [searchQuery, roadmapData]);
+
+  const handleSearchResultClick = (session) => {
+    setSearchQuery('');
+    setShowSearchDropdown(false);
+    setActiveTask(session);
+    setActiveTab('roadmap');
+  };
 
   const handleReschedule = async () => {
     setRescheduling(true);
@@ -107,10 +136,22 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
     }
   };
 
-  // Load on mount + whenever activeTab returns to dashboard
+  // Load on mount
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
+
+  // Auto-refresh when switching to analytics tab, and poll every 30 s while on it
+  useEffect(() => {
+    if (activeTab !== 'analytics') return;
+    // Immediate refresh when tab becomes active
+    refreshAll();
+    // Poll every 30 seconds so wrong-answer / overtime data shows up automatically
+    const pollId = setInterval(() => {
+      refreshAll();
+    }, 30000);
+    return () => clearInterval(pollId);
+  }, [activeTab, refreshAll]);
 
   // Professional Emerald & Slate AI Theme
   const theme = {
@@ -192,7 +233,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
   };
 
   const displayName = roadmapData?.displayName || 'Learning';
-  const userName    = userData?.name || 'Explorer';
+  const userName    = localUserData?.name || 'Explorer';
   const level       = Math.floor(masteryProgress / 10) + 1;
 
   // ── Focus Zone: real current/pending task from API ─────────────────────────
@@ -329,13 +370,53 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
             
             <div className="flex items-center gap-6">
               {/* Search Bar */}
-              <div className="relative hidden md:block">
+              <div className="relative hidden md:block z-50">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input 
                   type="text" 
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setShowSearchDropdown(true);
+                  }}
+                  onFocus={() => setShowSearchDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
                   placeholder="Search resources..." 
                   className="pl-12 pr-6 py-3 bg-white/80 border border-white rounded-2xl text-sm focus:ring-4 focus:ring-emerald-100 w-80 shadow-sm outline-none" 
                 />
+                
+                {/* Search Dropdown */}
+                <AnimatePresence>
+                  {showSearchDropdown && searchQuery.trim().length > 0 && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      className="absolute top-full mt-2 w-full bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden"
+                    >
+                      {searchResults.length > 0 ? (
+                        <div className="max-h-80 overflow-y-auto">
+                          {searchResults.map((result) => (
+                            <button
+                              key={result.id}
+                              onClick={() => handleSearchResultClick(result)}
+                              className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-50 last:border-0 transition-colors"
+                            >
+                              <div className="text-sm font-bold text-slate-800 truncate">{result.title}</div>
+                              {result.phaseTitle && (
+                                <div className="text-xs text-slate-500 truncate mt-0.5">{result.phaseTitle}</div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="px-4 py-6 text-center text-sm text-slate-500">
+                          No resources found matching "{searchQuery}"
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               {/* === Notification Button === */}
@@ -352,8 +433,14 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                 onClick={() => setActiveTab('settings')}
                 className="flex items-center gap-3 bg-white border border-white rounded-[20px] px-2 py-2 pr-5 shadow-sm hover:scale-105 transition-all cursor-pointer"
               >
-                <div className={`${theme.accent} w-9 h-9 rounded-xl flex items-center justify-center font-black text-white`}>K</div>
-                <span className="font-bold text-slate-700">Kavya</span>
+                {localUserData?.avatarUrl ? (
+                  <img src={localUserData.avatarUrl} alt="Profile" className="w-9 h-9 rounded-xl object-cover" />
+                ) : (
+                  <div className={`${theme.accent} w-9 h-9 rounded-xl flex items-center justify-center font-black text-white`}>
+                    {userName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="font-bold text-slate-700">{userName}</span>
               </button>
             </div>
 
@@ -741,7 +828,11 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                   exit={{ opacity: 0, x: -20 }} 
                   className="mt-6"
                 >
-                  <SettingsView />
+                  <SettingsView 
+                    roadmapData={roadmapData} 
+                    dashStats={dashStats}
+                    onProfileUpdate={(newUserData) => setLocalUserData(newUserData)} 
+                  />
                 </motion.div>
               )}
 
@@ -783,6 +874,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
           task={activeTask}
           onBack={() => setActiveTask(null)}
           onComplete={handleTaskComplete}
+          onStatsRefresh={refreshAll}
         />
       )}
     </>

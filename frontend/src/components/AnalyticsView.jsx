@@ -487,7 +487,7 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
               <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Recovery Tips</p>
               <div className="space-y-3">
                 {(lastReschedule?.mode === 'intensive' ? [
-                  { icon: '🔴', text: '8+ missed tasks — shifted to extra days at the end of your roadmap.' },
+                  { icon: '🔴', text: '4+ missed tasks — shifted to extra days at the end of your roadmap.' },
                   { icon: '⏰', text: 'Daily study time remains normal. Just hit your regular daily goals.' },
                   { icon: '🎯', text: 'Use Reschedule after every missed week to stay on track.' }
                 ] : lastReschedule?.mode === 'medium' ? [
@@ -557,17 +557,35 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
                   );
                 })}
                 
-                {/* Data polygon */}
-                <motion.path
-                  d={radarPath}
-                  fill="url(#radar-gradient)"
-                  fillOpacity="0.3"
-                  stroke="url(#radar-gradient)"
-                  strokeWidth="3"
-                  initial={{ pathLength: 0 }}
-                  animate={{ pathLength: 1 }}
-                  transition={{ duration: 1.5, delay: 0.7 }}
-                />
+                {/* Data polygon or lines */}
+                {skillMastery.length > 2 ? (
+                  <motion.path
+                    d={radarPath}
+                    fill="url(#radar-gradient)"
+                    fillOpacity="0.3"
+                    stroke="url(#radar-gradient)"
+                    strokeWidth="3"
+                    initial={{ pathLength: 0 }}
+                    animate={{ pathLength: 1 }}
+                    transition={{ duration: 1.5, delay: 0.7 }}
+                  />
+                ) : (
+                  radarPoints.map((point, idx) => (
+                    <motion.line
+                      key={`line-${idx}`}
+                      x1="100"
+                      y1="100"
+                      x2={point.x}
+                      y2={point.y}
+                      stroke="url(#radar-gradient)"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      initial={{ pathLength: 0 }}
+                      animate={{ pathLength: 1 }}
+                      transition={{ duration: 1.5, delay: 0.7 }}
+                    />
+                  ))
+                )}
                 
                 {/* Data points */}
                 {radarPoints.map((point, idx) => (
@@ -715,8 +733,9 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
             if (onRefresh) onRefresh();
           }}
           onComplete={() => {
-            // Just refresh data in the background; user will close modal via Done button
-            if (onRefresh) onRefresh();
+            // Test submitted (before Done is clicked): silently pre-fetch updated stats
+            // so by the time the user clicks Done, the topic is already gone from spotlight
+            if (onRefresh) onRefresh().catch(() => {});
           }}
         />
       )}

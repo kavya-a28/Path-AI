@@ -482,10 +482,9 @@ const rescheduleRoadmap = async (req, res) => {
       originalEndDay:    result.originalEndDay,
       newEndDay:         result.newEndDay,
       totalRescheduled:  result.rescheduledCount,
-      extraCapPerDay:    result.extraCapPerDay
+      extraCapPerDay:    result.extraCapPerDay,
+      rescheduledSessions: result.rescheduledSessions
     };
-    // Store rescheduled sessions map separately (not in Mongoose schema — stored as roadmap metadata)
-    roadmap._rescheduledSessions = result.rescheduledSessions; // used only for response, not persisted
 
     syncRoadmap(roadmap);
     await roadmap.save();
@@ -634,11 +633,11 @@ const studyChat = async (req, res) => {
   }
 };
 
-// ─── Track Engagement (Hints & Rewatches) ────────────────────────────────────
+// ─── Track Engagement (Hints, Rewatches & Wrong Answers) ─────────────────────
 
 const trackSessionEngagement = async (req, res) => {
   try {
-    const { hintsAdded, rewatchesAdded } = req.body;
+    const { hintsAdded, rewatchesAdded, wrongAnswerAdded } = req.body;
     const roadmap = await Roadmap.findOne({ userId: req.user._id, status: 'active' });
     if (!roadmap) {
       return res.status(404).json({ success: false, message: 'No active roadmap found.' });
@@ -654,6 +653,10 @@ const trackSessionEngagement = async (req, res) => {
     }
     if (rewatchesAdded) {
       session.videoRewatches = (session.videoRewatches || 0) + rewatchesAdded;
+    }
+    if (wrongAnswerAdded) {
+      // wrongAnswers tracks failed practice submissions — a strong weakness signal
+      session.wrongAnswers = (session.wrongAnswers || 0) + wrongAnswerAdded;
     }
 
     await roadmap.save();
@@ -743,12 +746,34 @@ const submitAnalyticsPracticeResult = async (req, res) => {
       completedAt:    new Date()
     });
 
-    // Also boost the corresponding sessions' practiceCompleted if user got >= 60% correct
-    if (correctAnswers >= Math.ceil(totalQuestions * 0.6)) {
-      const normalizedTopic = (topic || '').toLowerCase();
-      const normalizedKey   = (topicKey || '').toLowerCase();
+    const normalizedTopic = (topic || '').toLowerCase();
+    const normalizedKey   = (topicKey || '').toLowerCase();
+    const passed          = correctAnswers >= Math.ceil(totalQuestions * 0.6);
 
-      // Find uncompleted sessions matching this topic and mark practice as boosted
+    // ── Always: reset wrongAnswers for matching sessions ─────────────────────
+    // Completing the practice test (any score) means the user has engaged with
+    // the topic, so we clear the "wrong answer" weakness signal so it no longer
+    // appears in the Weakest Link Spotlight.
+    roadmap.dailySessions.forEach(session => {
+      const sessionTopic = (session.title || '').toLowerCase();
+      const sessionKey   = (session.topicKey || '').toLowerCase();
+      const isMatch = (
+        sessionTopic.includes(normalizedTopic) ||
+        normalizedTopic.includes(sessionTopic) ||
+        sessionKey === normalizedKey
+      );
+      if (isMatch) {
+        // Clear wrong-answer weakness signal — topic should leave the spotlight
+        session.wrongAnswers   = 0;
+        // Also clear video rewatch signal if they passed (they understood it now)
+        if (passed) {
+          session.videoRewatches = 0;
+        }
+      }
+    });
+
+    // ── On pass (≥60%): boost practiceCompleted for matching sessions ─────────
+    if (passed) {
       roadmap.dailySessions.forEach(session => {
         const sessionTopic = (session.title || '').toLowerCase();
         const sessionKey   = (session.topicKey || '').toLowerCase();
@@ -757,8 +782,7 @@ const submitAnalyticsPracticeResult = async (req, res) => {
            sessionKey === normalizedKey) &&
           !session.practiceCompleted
         ) {
-          // Increase successful runs count to reflect the practice improvement
-          session.practiceAttempts = (session.practiceAttempts || 0) + 1;
+          session.practiceAttempts  = (session.practiceAttempts || 0) + 1;
           session.practiceCompleted = true;
         }
       });
@@ -767,7 +791,7 @@ const submitAnalyticsPracticeResult = async (req, res) => {
     syncRoadmap(roadmap);
     await roadmap.save();
 
-    console.log(`[Analytics] Practice result saved: ${topic} — ${correctAnswers}/${totalQuestions}`);
+    console.log(`[Analytics] Practice result saved: ${topic} — ${correctAnswers}/${totalQuestions} (passed: ${passed})`);
 
     return res.status(200).json({ success: true, message: 'Practice result recorded.' });
   } catch (err) {

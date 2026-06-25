@@ -465,10 +465,9 @@ const RoadmapView = ({
 
   // Days left: use backend value if available, otherwise estimate from remaining sessions
   const remainingSessions = dailySessions.filter(s => s.status !== 'completed');
-  const remainingHours = remainingSessions.reduce((sum, s) => sum + (s.estimatedHours || 1), 0);
   const hoursPerDay = stats.hoursPerDay || 3;
   const dynamicDaysLeft = stats.daysLeft ?? (remainingSessions.length > 0
-    ? Math.max(1, Math.ceil(remainingHours / hoursPerDay))
+    ? Math.max(1, Math.ceil(remainingSessions.length / hoursPerDay))
     : 0);
 
   const milestonesLabel = timelineView === 'Monthly'

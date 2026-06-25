@@ -42,6 +42,16 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    handle: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    location: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     college: {
       type: String,
       trim: true,
@@ -97,6 +107,35 @@ const userSchema = new mongoose.Schema(
         enum: ["morning", "afternoon", "evening", "night", "mixed"],
         default: "mixed",
       },
+    },
+    settings: {
+      notifications: {
+        dailyReminders: { type: Boolean, default: true },
+        weeklyReports: { type: Boolean, default: true },
+        careerAlerts: { type: Boolean, default: true },
+        communityUpdates: { type: Boolean, default: false },
+      },
+      studyTime: { type: Number, default: 2 },
+      profileVisibility: { type: String, enum: ['public', 'friends', 'private'], default: 'public' },
+      shareProgress: { type: Boolean, default: true },
+      connectedAccounts: {
+        github: { connected: { type: Boolean, default: false }, username: { type: String, default: null } },
+        linkedin: { connected: { type: Boolean, default: false }, username: { type: String, default: null } },
+        leetcode: { connected: { type: Boolean, default: false }, username: { type: String, default: null } },
+      },
+      smartScheduleEnabled: { type: Boolean, default: false },
+    },
+    stats: {
+      streak: { type: Number, default: 0 },
+      level: { type: Number, default: 1 },
+      xp: { type: Number, default: 0 },
+      skills: [
+        {
+          name: { type: String },
+          progress: { type: Number, default: 0 },
+          color: { type: String, default: "from-emerald-500 to-teal-500" }
+        }
+      ]
     },
     lastLoginAt: Date,
   },

@@ -109,7 +109,7 @@ const getDashboardStats = async (req, res) => {
     const remaining = sessions.filter(s => s.status !== 'completed');
     const remainingHours = remaining.reduce((sum, s) => sum + (s.estimatedHours || 1), 0);
     const daysLeft = remaining.length > 0
-      ? Math.max(1, Math.ceil(remainingHours / hoursPerDay))
+      ? Math.max(1, Math.ceil(remaining.length / hoursPerDay))
       : 0;
 
     const missedSessions    = sessions.filter(s => s.status === 'missed');
@@ -230,6 +230,7 @@ const getDashboardStats = async (req, res) => {
             successfulRuns: 0,
             hintsUsed: 0,
             videoRewatches: 0,
+            wrongAnswers: 0,
             actualTime: 0,
             expectedTime: 0
           };
@@ -244,12 +245,13 @@ const getDashboardStats = async (req, res) => {
         
         st.hintsUsed += session.hintsUsed || 0;
         st.videoRewatches += session.videoRewatches || 0;
+        st.wrongAnswers += session.wrongAnswers || 0;
         
         st.actualTime += (session.actualLearningSeconds || 0) + (session.actualPracticeSeconds || 0);
         st.expectedTime += ((session.estimatedLearningHours || 0) + (session.estimatedPracticeHours || 0)) * 3600;
       });
 
-      // ── Build analytics practice result map for score adjustment ──
+    // ── Build analytics practice result map for score adjustment ──
       const analyticsBoost = {};  // topicKey → { totalCorrect, totalQuestions, count }
       if (roadmap.analyticsTestResults && roadmap.analyticsTestResults.length > 0) {
         roadmap.analyticsTestResults.forEach(result => {
@@ -287,7 +289,11 @@ const getDashboardStats = async (req, res) => {
         const wMissed = Math.min(st.totalMissed / 3, 1) * 10;
         const wRewatches = Math.min(st.videoRewatches / 3, 1) * 5;
 
-        let score = wAccuracy + wFailed + wHints + wTime + wMissed + wRewatches;
+        // ── NEW: wrong answers signal (failed practice submissions) ──
+        // Each failed submit is a clear difficulty signal — worth up to 25 pts (capped at 3 wrongs)
+        const wWrong = Math.min((st.wrongAnswers || 0) / 3, 1) * 25;
+
+        let score = wAccuracy + wFailed + wHints + wTime + wMissed + wRewatches + wWrong;
 
         // ── Apply analytics practice boost ──
         // Check all possible matching keys for this topic
@@ -297,25 +303,31 @@ const getDashboardStats = async (req, res) => {
         
         if (boost && boost.count > 0) {
           const practiceAccuracy = boost.totalCorrect / boost.totalQuestions;
-          // Strong reduction: if user scored ≥80% on practice, reduce weakness by 70-90%
-          // If 60-80%, reduce by 40-70%
-          // If <60%, small reduction of 10-40%
-          let reduction;
-          if (practiceAccuracy >= 0.8) {
-            reduction = 0.7 + (practiceAccuracy - 0.8) * 1.0; // 70-90% reduction
-          } else if (practiceAccuracy >= 0.6) {
-            reduction = 0.4 + (practiceAccuracy - 0.6) * 1.5; // 40-70% reduction
+          if (practiceAccuracy >= 0.6) {
+            // ── Passed the practice test: completely remove from Weakest Link ──
+            // The user has demonstrated they can solve this topic now.
+            // Force score to 0 so it never wins the maxScore competition.
+            score = 0;
           } else {
-            reduction = practiceAccuracy * 0.67; // 0-40% reduction
+            // Failed the practice test (<60%): still weak, apply a small reduction
+            const reduction = practiceAccuracy * 0.4; // 0–40% reduction only
+            score *= (1 - reduction);
           }
-          // Cap at 95% reduction max
-          reduction = Math.min(reduction, 0.95);
-          // More practice tests = more confidence in the boost
-          const confidenceFactor = Math.min(boost.count / 3, 1); // caps at 3 tests
-          score *= (1 - reduction * confidenceFactor);
         }
 
-        if (score > maxScore && score > 0) {
+        // ── Include topic if it has ANY engagement signals ──
+        // Previously required score > 0 which excluded topics with only timer signals.
+        // Now we accept any topic with at least one meaningful engagement signal.
+        const hasEngagement = (
+          st.practiceAttempts > 0 ||
+          st.totalMissed > 0 ||
+          st.hintsUsed > 0 ||
+          st.videoRewatches > 0 ||
+          (st.wrongAnswers || 0) > 0 ||
+          (st.actualTime > 0 && st.expectedTime > 0 && st.actualTime > st.expectedTime)
+        );
+
+        if (score > maxScore && score > 0 && hasEngagement) {
           maxScore = score;
           
           let reason = '';
@@ -325,6 +337,10 @@ const getDashboardStats = async (req, res) => {
             reason = `Low practice accuracy (${Math.round(accuracy * 100)}%) with ${failedRuns} failed submissions`;
             actions.push(`Practice ${st.topic}: focus on edge cases and hidden test cases`);
             actions.push(`Solve 5 practice problems on ${st.topic}`);
+          } else if (wWrong > 15) {
+            reason = `${st.wrongAnswers} wrong answer(s) recorded during practice submissions`;
+            actions.push(`Review the core algorithm for ${st.topic} before resubmitting`);
+            actions.push(`Watch a revision video on ${st.topic} to identify the gap`);
           } else if (wFailed > 10) {
             reason = `Multiple failed submissions (${failedRuns}) during practice`;
             actions.push(`Solve 3 practice problems on ${st.topic}`);
@@ -338,6 +354,10 @@ const getDashboardStats = async (req, res) => {
           } else if (wTime > 5) {
             reason = `Taking significantly longer than estimated time`;
             actions.push(`Watch a revision video on ${st.topic} to reinforce concepts`);
+          } else if (st.videoRewatches > 1) {
+            reason = `Video rewatched ${st.videoRewatches} time(s) — topic may need more review`;
+            actions.push(`Revisit the reading section for ${st.topic}`);
+            actions.push(`Try practicing ${st.topic} to solidify understanding`);
           } else if (st.practiceAttempts === 0) {
             reason = `No practice attempts yet`;
             actions.push(`Start practicing ${st.topic}`);
@@ -346,7 +366,7 @@ const getDashboardStats = async (req, res) => {
             actions.push(`Solve 3 practice problems on ${st.topic}`);
           }
 
-          if (wTime > 5 || wRewatches > 0 || wHints > 5) {
+          if (wTime > 5 || wRewatches > 0 || wHints > 5 || wWrong > 0) {
             if (!actions.includes(`Watch a revision video on ${st.topic} to reinforce concepts`)) {
                actions.push(`Watch a revision video on ${st.topic} to reinforce concepts`);
             }
@@ -362,14 +382,9 @@ const getDashboardStats = async (req, res) => {
         }
       }
 
-      // If the maxScore is very low (< 2) after boosts, it means the user has
-      // improved enough — show a positive message instead
-      if (weakestArea && maxScore < 2) {
-        weakestArea.reason = 'Great improvement! Keep practicing to maintain your skills.';
-        weakestArea.suggestedActions = [
-          `Continue practicing ${weakestArea.topic} to solidify your understanding`,
-          `Try harder problems in ${weakestArea.topic} to push your skills further`
-        ];
+      // If score is 0 or near-zero after boosts, the user has improved — hide the spotlight entirely
+      if (weakestArea && maxScore <= 0) {
+        weakestArea = null;
       }
     }
     // ──────────────────────────────────────────────────────────────────────────
@@ -568,7 +583,8 @@ const getDashboardStats = async (req, res) => {
               originalEndDay:    roadmap.stats.lastReschedule.originalEndDay,
               newEndDay:         roadmap.stats.lastReschedule.newEndDay,
               totalRescheduled:  roadmap.stats.lastReschedule.totalRescheduled,
-              extraCapPerDay:    roadmap.stats.lastReschedule.extraCapPerDay
+              extraCapPerDay:    roadmap.stats.lastReschedule.extraCapPerDay,
+              rescheduledSessions: roadmap.stats.lastReschedule.rescheduledSessions || []
             }
           : null
       }

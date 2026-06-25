@@ -16,7 +16,7 @@ import {
   isOvertime
 } from '../utils/sessionTimeUtils';
 
-const TaskDetailView = ({ task, onBack, onComplete }) => {
+const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
   // ==================== STATE MANAGEMENT ====================
   const [activeTab, setActiveTab] = useState('watch');
   const [learningTimeSeconds, setLearningTimeSeconds] = useState(0);
@@ -75,6 +75,10 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
   const containerRef = useRef(null); // Reference for drag constraints
   const chatDragControls = useDragControls(); // For draggable chat
   const chatEndRef = useRef(null);
+  // Track whether the user has already visited the watch tab (so 2nd+ visit = rewatch)
+  const watchVisitCountRef = useRef(0);
+  // Track whether we've already fired overtime signal to avoid duplicate increments
+  const overtimeSyncedRef = useRef(false);
 
   // Task data with fallback
   const taskData = task || {
@@ -172,6 +176,26 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
     return () => clearInterval(timerRef.current);
   }, [isPaused, activeTab]);
 
+  // ── Fire a one-time overtime signal once the learning timer crosses the budget ──
+  useEffect(() => {
+    if (
+      learningOvertime &&
+      !overtimeSyncedRef.current &&
+      taskData?.id &&
+      typeof taskData.id === 'number'
+    ) {
+      overtimeSyncedRef.current = true;
+      // Persist the latest seconds immediately so backend can see actualTime > expectedTime
+      updateSessionTracking(taskData.id, {
+        actualLearningSeconds: learningSecondsRef.current,
+        actualPracticeSeconds: practiceSecondsRef.current
+      }).then(() => {
+        // Auto-refresh analytics so overtime signal shows up immediately
+        if (onStatsRefresh) onStatsRefresh().catch(() => {});
+      }).catch(() => {});
+    }
+  }, [learningOvertime, taskData?.id, onStatsRefresh]);
+
   // Keep refs in sync for interval/cleanup handlers
   useEffect(() => {
     learningSecondsRef.current = learningTimeSeconds;
@@ -242,7 +266,10 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
     setActiveTab(tab);
     if (tab === 'watch') {
       setCurrentStep(1);
-      if (taskData?.status === 'completed' && taskData?.id && typeof taskData.id === 'number') {
+      // Count visits: first visit is learning, every subsequent visit is a rewatch
+      watchVisitCountRef.current += 1;
+      if (watchVisitCountRef.current > 1 && taskData?.id && typeof taskData.id === 'number') {
+        // Track rewatch for any session (completed OR current) — signals the topic is hard
         trackSessionEngagement(taskData.id, { rewatchesAdded: 1 }).catch(() => {});
       }
     }
@@ -371,6 +398,13 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
           error: t.error
         }));
         setTestCaseResults({ compileError: result.compileError, tests, passed: false, isSubmission: true });
+        // ── Track wrong answer for analytics ──
+        // Each failed submission signals this topic as a weakness area
+        if (taskData?.id && typeof taskData.id === 'number') {
+          trackSessionEngagement(taskData.id, { wrongAnswerAdded: 1 }).catch(() => {});
+          // Auto-refresh dashboard stats so Analytics updates immediately
+          if (onStatsRefresh) onStatsRefresh().catch(() => {});
+        }
       }
     } catch (err) {
       setPracticeFeedback({ valid: false, message: err.message || 'Submission failed. Try again.' });
@@ -485,6 +519,11 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
       if (result.compileError) {
         setTestCaseResults({ compileError: result.compileError, tests: [], passed: false });
         setAllPublicTestsPassed(false);
+        // ── Track compile error as a wrong answer for analytics ──
+        if (taskData?.id && typeof taskData.id === 'number') {
+          trackSessionEngagement(taskData.id, { wrongAnswerAdded: 1 }).catch(() => {});
+          if (onStatsRefresh) onStatsRefresh().catch(() => {});
+        }
       } else {
         const tests = (result.testResults || []).map(t => ({
           index: t.index,
@@ -497,6 +536,14 @@ const TaskDetailView = ({ task, onBack, onComplete }) => {
         }));
         setTestCaseResults({ compileError: null, tests, passed: result.passed });
         setAllPublicTestsPassed(!!result.passed);
+
+        if (!result.passed) {
+          // ── Track test failure as a wrong answer for analytics ──
+          if (taskData?.id && typeof taskData.id === 'number') {
+            trackSessionEngagement(taskData.id, { wrongAnswerAdded: 1 }).catch(() => {});
+            if (onStatsRefresh) onStatsRefresh().catch(() => {});
+          }
+        }
 
         // Auto-select first failed test case
         const firstFailed = tests.findIndex(t => !t.passed);
