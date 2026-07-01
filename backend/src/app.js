@@ -5,6 +5,10 @@ const onboardingRoutes = require("./routes/onboardingRoutes");
 const questionnaireRoutes = require("./routes/questionnaireRoutes");
 const roadmapRoutes = require("./routes/roadmapRoutes");
 const settingsRoutes = require("./routes/settingsRoutes");
+const connectionRoutes = require("./routes/connectionRoutes");
+const peerRoutes = require("./routes/peerRoutes");
+const messageRoutes = require("./routes/messageRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 
 const app = express();
@@ -34,6 +38,10 @@ app.use("/api/onboarding", onboardingRoutes);
 app.use("/api/questionnaire", questionnaireRoutes);
 app.use("/api/roadmap", roadmapRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/connections", connectionRoutes);
+app.use("/api/peers", peerRoutes);
+app.use("/api/messages", messageRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
