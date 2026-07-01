@@ -83,16 +83,24 @@ exports.sendMessage = async (req, res) => {
     
     const populatedMessage = await message.populate('sender', 'fullName avatarUrl');
 
-    getIO().to(`conversation:${conversationId}`).emit('message:new', { message: populatedMessage, conversationId });
-
-    // Emit message and notification to all participants
+    // Emit message to each participant's personal room (NOT conversation room,
+    // to avoid the sender receiving it twice)
     conversation.participants.forEach(pId => {
       const pidStr = pId.toString();
-      // Emit to everyone so their Messages list updates in real-time
-      getIO().to(`user:${pidStr}`).emit('message:new', { message: populatedMessage, conversationId });
-      
       if (pidStr !== req.user._id.toString()) {
+        getIO().to(`user:${pidStr}`).emit('message:new', { message: populatedMessage, conversationId });
         getIO().to(`user:${pidStr}`).emit('notification:new');
+        Notification.create({
+          recipient: pidStr,
+          sender: req.user._id,
+          type: 'new_message',
+          data: {
+            senderName: req.user.fullName,
+            senderAvatar: req.user.avatarUrl,
+            conversationId,
+            messageText: text.substring(0, 50)
+          }
+        }).catch(() => {});
       }
     });
 
@@ -111,6 +119,34 @@ exports.markAsRead = async (req, res) => {
       conversation.unreadCounts.set(req.user._id.toString(), 0);
       await conversation.save();
     }
+    res.status(200).json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.deleteMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ success: false, message: 'Message not found' });
+    if (message.sender.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    const conversationId = message.conversation;
+    await message.deleteOne();
+
+    const conversation = await Conversation.findById(conversationId);
+    if (conversation) {
+      conversation.participants.forEach(pId => {
+        const pidStr = pId.toString();
+        if (pidStr !== req.user._id.toString()) {
+          getIO().to(`user:${pidStr}`).emit('message:deleted', { messageId, conversationId });
+        }
+      });
+    }
+
     res.status(200).json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

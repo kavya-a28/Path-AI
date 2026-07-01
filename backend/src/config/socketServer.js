@@ -47,8 +47,12 @@ const initSocketServer = (httpServer) => {
     // Join personal room
     socket.join(`user:${userId}`);
 
-    // Broadcast online status
+    // Broadcast online status to others
     socket.broadcast.emit('user:online', { userId });
+
+    // Send current online users list to the newly connected socket
+    const onlineUserIds = Array.from(onlineUsers.keys());
+    socket.emit('users:online', { userIds: onlineUserIds });
 
     // Join group rooms
     socket.on('group:join', (groupId) => {

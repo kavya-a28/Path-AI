@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Check, X, User, Clock } from 'lucide-react';
 import { fetchPendingConnections as fetchPendingRequests, acceptConnection as acceptRequest, rejectConnection as rejectRequest } from '../../services/communityApi';
 
-const ConnectionRequests = ({ onOpenChat }) => {
+const ConnectionRequests = ({ onOpenChat, socket }) => {
   const [incoming, setIncoming] = useState([]);
   const [outgoing, setOutgoing] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -11,6 +11,20 @@ const ConnectionRequests = ({ onOpenChat }) => {
   useEffect(() => {
     loadRequests();
   }, []);
+
+  // Listen for real-time incoming connection requests via socket
+  useEffect(() => {
+    if (!socket) return;
+    const handleNewRequest = () => {
+      loadRequests();
+    };
+    socket.on('connection:request', handleNewRequest);
+    socket.on('notification:new', handleNewRequest);
+    return () => {
+      socket.off('connection:request', handleNewRequest);
+      socket.off('notification:new', handleNewRequest);
+    };
+  }, [socket]);
 
   const loadRequests = async () => {
     try {

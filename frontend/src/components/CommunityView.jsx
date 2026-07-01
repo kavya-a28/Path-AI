@@ -31,6 +31,11 @@ const CommunityView = () => {
     if (s) {
       setSocket(s);
 
+      // Receive the full list of online users on connect
+      s.on('users:online', ({ userIds }) => {
+        setOnlineUsers(new Set(userIds));
+      });
+
       s.on('user:online', ({ userId }) => {
         setOnlineUsers(prev => new Set([...prev, userId]));
       });
@@ -43,6 +48,7 @@ const CommunityView = () => {
         });
       });
 
+      // Notification badge for real notifications (connection requests, etc.)
       s.on('notification:new', () => {
         setNotificationCount(prev => prev + 1);
       });
@@ -174,6 +180,7 @@ const CommunityView = () => {
                 openDirectChat(conversationId, peerData);
               }}
               socket={socket}
+              onMarkAllRead={() => setNotificationCount(0)}
             />
           )}
 

@@ -60,7 +60,8 @@ export async function fetchConversations() {
   const res = await fetch(`${API_URL}/messages/conversations`, { headers: authHeaders() });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || 'Failed to fetch conversations');
-  return data.conversations;
+  // Return full object so callers can do data.conversations
+  return data;
 }
 
 export async function fetchMessages(conversationId, page = 1) {

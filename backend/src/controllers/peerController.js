@@ -10,14 +10,20 @@ exports.getRecommendations = async (req, res) => {
     const mySkills = myProfile.currentSkills || [];
     const myGoals = myProfile.goals || [];
     
-    const users = await User.find({
-      _id: { $ne: req.user._id },
-      onboardingStatus: 'completed'
-    });
+    const [users, connections, conversations] = await Promise.all([
+      User.find({
+        _id: { $ne: req.user._id },
+        onboardingStatus: { $in: ['completed', 'in_progress'] }
+      }).select('_id fullName avatarUrl location college profile stats onboardingStatus').lean(),
 
-    const connections = await Connection.find({
-      $or: [{ sender: req.user._id }, { receiver: req.user._id }]
-    });
+      Connection.find({
+        $or: [{ sender: req.user._id }, { receiver: req.user._id }]
+      }).select('sender receiver status').lean(),
+
+      Conversation.find({
+        participants: req.user._id
+      }).select('participants type').lean()
+    ]);
 
     const connectionMap = new Map();
     connections.forEach(c => {
@@ -25,9 +31,6 @@ exports.getRecommendations = async (req, res) => {
       connectionMap.set(otherId, c);
     });
 
-    const conversations = await Conversation.find({
-      participants: req.user._id
-    });
     const conversationMap = new Map();
     conversations.forEach(c => {
       if (c.type === 'direct') {
@@ -108,7 +111,7 @@ exports.getRecommendations = async (req, res) => {
       return b.match - a.match;
     });
     
-    res.status(200).json({ success: true, peers: scoredUsers.slice(0, 500) });
+    res.status(200).json({ success: true, peers: scoredUsers });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

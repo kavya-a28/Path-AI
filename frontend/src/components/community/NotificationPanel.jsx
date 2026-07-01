@@ -1,27 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Check } from 'lucide-react';
+import { Bell, Check, MessageCircle, UserPlus, Users } from 'lucide-react';
 import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from '../../services/communityApi';
 import { getSocket } from '../../services/socket';
 
-const NotificationPanel = ({ onBack, onOpenConnectionRequests, onOpenChat, socket }) => {
+const NotificationPanel = ({ onBack, onOpenConnectionRequests, onOpenChat, socket, onMarkAllRead }) => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadNotifications();
-    const socket = getSocket();
-    if (socket) {
-      socket.on('notification:new', loadNotifications);
+    const s = getSocket();
+    if (s) {
+      s.on('notification:new', loadNotifications);
     }
     return () => {
-      if (socket) socket.off('notification:new', loadNotifications);
+      if (s) s.off('notification:new', loadNotifications);
     };
   }, []);
 
   const loadNotifications = async () => {
     try {
       const data = await fetchNotifications();
-      setNotifications(data || []);
+      setNotifications((data || []).filter(n => !n.read));
     } catch (error) {
       console.error(error);
     } finally {
@@ -32,7 +32,7 @@ const NotificationPanel = ({ onBack, onOpenConnectionRequests, onOpenChat, socke
   const handleRead = async (id) => {
     try {
       await markNotificationRead(id);
-      setNotifications(prev => prev.map(n => n._id === id ? { ...n, read: true } : n));
+      setNotifications(prev => prev.filter(n => n._id !== id));
     } catch (error) {
       console.error(error);
     }
@@ -41,9 +41,55 @@ const NotificationPanel = ({ onBack, onOpenConnectionRequests, onOpenChat, socke
   const handleReadAll = async () => {
     try {
       await markAllNotificationsRead();
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setNotifications([]);
+      if (onMarkAllRead) onMarkAllRead();
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const getNotifIcon = (type) => {
+    switch (type) {
+      case 'connection_request': return <UserPlus className="h-4 w-4 text-blue-400" />;
+      case 'connection_accepted': return <Users className="h-4 w-4 text-emerald-400" />;
+      case 'new_message': return <MessageCircle className="h-4 w-4 text-indigo-400" />;
+      default: return <Bell className="h-4 w-4 text-indigo-400" />;
+    }
+  };
+
+  const getNotifText = (notif) => {
+    switch (notif.type) {
+      case 'connection_request':
+        return `New connection request from ${notif.data?.senderName || notif.sender?.fullName || 'someone'}`;
+      case 'connection_accepted':
+        return `🎉 ${notif.data?.senderName || notif.sender?.fullName} accepted your connection request!`;
+      case 'new_message':
+        return `${notif.data?.senderName || notif.sender?.fullName || 'Someone'}: ${notif.data?.messageText || 'sent a message'}`;
+      case 'group_invite':
+        return `You were invited to ${notif.data?.groupName}`;
+      default:
+        return 'New notification';
+    }
+  };
+
+  const handleNotifClick = (notif) => {
+    if (!notif.read) handleRead(notif._id);
+    if (notif.type === 'connection_request' && onOpenConnectionRequests) {
+      onOpenConnectionRequests();
+    }
+    if (notif.type === 'connection_accepted' && onOpenChat && notif.data?.conversationId) {
+      onOpenChat(notif.data.conversationId, {
+        _id: notif.sender?._id || notif.data?.senderId,
+        fullName: notif.data?.senderName,
+        avatarUrl: notif.data?.senderAvatar || notif.sender?.avatarUrl
+      });
+    }
+    if (notif.type === 'new_message' && onOpenChat && notif.data?.conversationId) {
+      onOpenChat(notif.data.conversationId, {
+        _id: notif.sender?._id,
+        fullName: notif.data?.senderName || notif.sender?.fullName,
+        avatarUrl: notif.data?.senderAvatar || notif.sender?.avatarUrl
+      });
     }
   };
 
@@ -55,7 +101,7 @@ const NotificationPanel = ({ onBack, onOpenConnectionRequests, onOpenChat, socke
         <h3 className="font-semibold text-white flex items-center gap-2">
           <Bell className="h-4 w-4 text-indigo-400" /> Notifications
         </h3>
-        <button onClick={handleReadAll} className="text-xs text-indigo-400 hover:text-indigo-300">
+        <button onClick={handleReadAll} className="text-xs text-indigo-400 hover:text-indigo-300 font-medium">
           Mark all read
         </button>
       </div>
@@ -69,35 +115,21 @@ const NotificationPanel = ({ onBack, onOpenConnectionRequests, onOpenChat, socke
           notifications.map(notif => (
             <div 
               key={notif._id} 
-              onClick={() => {
-                if (!notif.read) handleRead(notif._id);
-                if (notif.type === 'connection_request' && onOpenConnectionRequests) {
-                  onOpenConnectionRequests();
-                }
-                if (notif.type === 'connection_accepted' && onOpenChat && notif.data?.conversationId) {
-                  onOpenChat(notif.data.conversationId, {
-                    _id: notif.sender?._id || notif.data?.senderId,
-                    fullName: notif.data?.senderName,
-                    avatarUrl: notif.data?.senderAvatar || notif.sender?.avatarUrl
-                  });
-                }
-              }}
-              className={`p-3 border-b border-gray-800/50 hover:bg-gray-800 transition-colors cursor-pointer flex gap-3 ${!notif.read ? 'bg-indigo-500/5' : ''}`}
+              onClick={() => handleNotifClick(notif)}
+              className={`p-3 border-b border-gray-800/50 hover:bg-gray-800 transition-colors cursor-pointer flex gap-3 ${!notif.read ? 'bg-indigo-500/10' : ''}`}
             >
-              <div className="mt-1">
-                {!notif.read && <div className="h-2 w-2 rounded-full bg-indigo-500"></div>}
+              <div className="mt-0.5 flex-shrink-0">
+                {getNotifIcon(notif.type)}
               </div>
-              <div className="flex-1">
-                <p className={`text-sm ${notif.read ? 'text-gray-400' : 'text-gray-200'}`}>
-                  {notif.type === 'connection_request' && `New connection request from ${notif.data?.senderName}`}
-                  {notif.type === 'connection_accepted' && `🎉 You are now friends with ${notif.data?.senderName}! They accepted your connection request.`}
-                  {notif.type === 'group_invite' && `You were invited to ${notif.data?.groupName}`}
-                  {notif.type === 'new_message' && `New message received`}
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm leading-snug ${notif.read ? 'text-gray-400' : 'text-gray-200'}`}>
+                  {getNotifText(notif)}
                 </p>
                 <span className="text-[10px] text-gray-500 mt-1 block">
                   {new Date(notif.createdAt).toLocaleDateString()}
                 </span>
               </div>
+              {!notif.read && <div className="h-2 w-2 rounded-full bg-indigo-500 mt-1.5 flex-shrink-0" />}
             </div>
           ))
         )}

@@ -10,7 +10,7 @@
  * GET  /api/roadmap/topic-resources  →  catalog resources only (no AI)
  * ─────────────────────────────────────────────────────────────────────────────
  */
-
+ 
 const Roadmap                       = require('../models/Roadmap');
 const User                          = require('../models/User');
 const { generateRoadmap }           = require('../services/roadmapGenerator');
@@ -140,6 +140,7 @@ const updateMilestone = async (req, res) => {
 };
 
 // ─── Check if a session can be started ───────────────────────────────────────
+  
 
 const canStartSession = (roadmap, session) => {
   if (session.status === 'completed') return false;
