@@ -22,14 +22,22 @@ exports.sendRequest = async (req, res) => {
     });
 
     if (existing) {
-      return res.status(400).json({ success: false, message: 'Connection already exists' });
+      if (existing.status === 'rejected') {
+        existing.status = 'pending';
+        existing.sender = req.user._id;
+        existing.receiver = receiverId;
+        await existing.save();
+        var connection = existing;
+      } else {
+        return res.status(400).json({ success: false, message: 'Connection already exists' });
+      }
+    } else {
+      var connection = await Connection.create({
+        sender: req.user._id,
+        receiver: receiverId,
+        status: 'pending'
+      });
     }
-
-    const connection = await Connection.create({
-      sender: req.user._id,
-      receiver: receiverId,
-      status: 'pending'
-    });
 
     const notification = await Notification.create({
       recipient: receiverId,

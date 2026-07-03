@@ -7,6 +7,7 @@ import {
   RefreshCw, ExternalLink, PlayCircle, Plus
 } from 'lucide-react';
 import { getMyRoadmap, rescheduleRoadmap } from '../services/roadmapApi';
+import { calculateRealtimeStats } from '../utils/statsCalculator';
 
 // ─── Icon resolver ────────────────────────────────────────────────────────────
 const ICON_MAP = {
@@ -455,20 +456,15 @@ const RoadmapView = ({
   const fullPath      = getSmoothPath(scaledPoints);
   const segmentPaths  = getSegmentPaths(scaledPoints);
 
-  // ── Stats bar values (computed dynamically from actual session data) ────────
-  const completedSessionCount = dailySessions.filter(s => s.status === 'completed').length;
-  const completedMilestoneCount = milestones.filter(m => m.status === 'completed').length;
+  const realStats = calculateRealtimeStats(roadmap);
+  
+  const completedSessionCount = realStats.completedSessionCount;
+  const completedMilestoneCount = realStats.completedMilestoneCount;
   const dynamicProgress = dailySessions.length > 0
     ? Math.round((completedSessionCount / dailySessions.length) * 100)
     : (stats.progressPercent || 0);
-  const dynamicXP = stats.xpScore || (completedSessionCount * 25 + completedMilestoneCount * 100);
-
-  // Days left: use backend value if available, otherwise estimate from remaining sessions
-  const remainingSessions = dailySessions.filter(s => s.status !== 'completed');
-  const hoursPerDay = stats.hoursPerDay || 3;
-  const dynamicDaysLeft = stats.daysLeft ?? (remainingSessions.length > 0
-    ? Math.max(1, Math.ceil(remainingSessions.length / hoursPerDay))
-    : 0);
+  const dynamicXP = realStats.xpScore;
+  const dynamicDaysLeft = realStats.daysLeft;
 
   const milestonesLabel = timelineView === 'Monthly'
     ? `${stats.currentDay || 1}/${stats.totalDays || 30}`

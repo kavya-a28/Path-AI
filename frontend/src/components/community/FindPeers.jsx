@@ -190,6 +190,17 @@ const FindPeers = ({ socket, onOpenChat, onShowRequests, onlineUsers = new Set()
         </button>
       );
     }
+    if (status === 'pending_incoming') {
+      return (
+        <button
+          onClick={onShowRequests}
+          className="w-full py-2.5 rounded-xl bg-blue-100 text-blue-600 font-bold text-sm hover:bg-blue-200 transition-colors flex items-center justify-center gap-2"
+        >
+          <Users className="w-4 h-4" />
+          Respond
+        </button>
+      );
+    }
     return (
       <button
         onClick={() => handleConnect(peer._id)}
@@ -321,18 +332,16 @@ const FindPeers = ({ socket, onOpenChat, onShowRequests, onlineUsers = new Set()
                   </div>
                 </div>
 
-                {/* Match Percentage */}
-                {peer.match != null && (
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-emerald-500 to-blue-500 rounded-full transition-all duration-500"
-                        style={{ width: `${peer.match}%` }}
-                      />
-                    </div>
-                    <span className="text-sm font-bold text-emerald-600">{peer.match}%</span>
+                {/* Completion Progress */}
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-500 to-blue-500 rounded-full transition-all duration-500"
+                      style={{ width: `${peer.completionPercent || 0}%` }}
+                    />
                   </div>
-                )}
+                  <span className="text-sm font-bold text-emerald-600">{peer.completionPercent || 0}%</span>
+                </div>
 
                 {/* Skills Tags */}
                 {peer.skills?.length > 0 && (

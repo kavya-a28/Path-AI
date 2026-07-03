@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Connection = require('../models/Connection');
 const Conversation = require('../models/Conversation');
+const Roadmap = require('../models/Roadmap');
 
 exports.getRecommendations = async (req, res) => {
   try {
@@ -13,7 +14,8 @@ exports.getRecommendations = async (req, res) => {
     const [users, connections, conversations] = await Promise.all([
       User.find({
         _id: { $ne: req.user._id },
-        onboardingStatus: { $in: ['completed', 'in_progress'] }
+        onboardingStatus: { $in: ['completed', 'in_progress'] },
+        'settings.profileVisibility': { $ne: 'private' }
       }).select('_id fullName avatarUrl location college profile stats onboardingStatus').lean(),
 
       Connection.find({
@@ -24,6 +26,23 @@ exports.getRecommendations = async (req, res) => {
         participants: req.user._id
       }).select('participants type').lean()
     ]);
+
+    // Fetch roadmap completion for all peer users
+    const peerIds = users.map(u => u._id);
+    const roadmaps = await Roadmap.find(
+      { userId: { $in: peerIds }, status: 'active' }
+    ).select('userId stats.progressPercent dailySessions').lean();
+
+    // Build a map of userId -> completionPercent
+    const completionMap = new Map();
+    roadmaps.forEach(r => {
+      let pct = r.stats?.progressPercent;
+      if (pct == null && r.dailySessions?.length) {
+        const completed = r.dailySessions.filter(s => s.status === 'completed').length;
+        pct = Math.round((completed / r.dailySessions.length) * 100);
+      }
+      completionMap.set(r.userId.toString(), pct ?? 0);
+    });
 
     const connectionMap = new Map();
     connections.forEach(c => {
@@ -96,6 +115,7 @@ exports.getRecommendations = async (req, res) => {
         level: uStats.level || 1,
         xp: uStats.xp || 0,
         match: Math.min(Math.round(score), 100),
+        completionPercent: completionMap.get(user._id.toString()) ?? 0,
         connectionStatus,
         conversationId
       };

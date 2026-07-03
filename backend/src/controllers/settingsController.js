@@ -21,6 +21,7 @@ exports.getSettings = async (req, res, next) => {
           email: user.email,
           handle: user.handle,
           location: user.location,
+          college: user.college || user.handle,
           avatarUrl: user.avatarUrl,
         },
         settings: user.settings,
@@ -61,7 +62,7 @@ exports.updateSettings = async (req, res, next) => {
 // @access  Private
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { name, handle, location, avatarUrl } = req.body;
+    const { name, handle, location, college, avatarUrl } = req.body;
     
     const user = await User.findById(req.user.id);
     if (!user) {
@@ -71,6 +72,7 @@ exports.updateProfile = async (req, res, next) => {
     if (name !== undefined) user.fullName = name;
     if (handle !== undefined) user.handle = handle;
     if (location !== undefined) user.location = location;
+    if (college !== undefined) user.college = college;
     if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
 
     await user.save();
@@ -82,6 +84,7 @@ exports.updateProfile = async (req, res, next) => {
         name: user.fullName,
         handle: user.handle,
         location: user.location,
+        college: user.college,
         avatarUrl: user.avatarUrl
       }
     });
@@ -170,9 +173,10 @@ exports.deleteAccount = async (req, res, next) => {
       throw new ErrorResponse("User not found", 404);
     }
 
-    // Delete user
+    // Delete user and associated roadmaps
     await User.findByIdAndDelete(req.user.id);
-    // Alternatively, could delete related documents (roadmaps, etc.) if needed here
+    const Roadmap = require("../models/Roadmap");
+    await Roadmap.deleteMany({ userId: req.user.id });
 
     res.status(200).json({
       success: true,

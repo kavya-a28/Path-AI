@@ -13,10 +13,10 @@ import TaskDetailView from './TaskDetailView';
 import AnalyticsView from './AnalyticsView';
 import CareerHub from './CareerHub';
 import SettingsView from './SettingsView';
-import NotificationDropdown from './Notification';
 import CommunityView from './CommunityView';
 import { getDashboardStats, startSession, getMyRoadmap, rescheduleRoadmap, updateSession } from '../services/roadmapApi';
 import { fetchSettings } from '../services/settingsApi';
+import { calculateRealtimeStats } from '../utils/statsCalculator';
 
 const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => { 
   // State to track which sidebar tab is active
@@ -25,8 +25,6 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
   // State to track active task (for TaskDetailView)
   const [activeTask, setActiveTask] = useState(null);
 
-  // State for Notifications
-  const [showNotifications, setShowNotifications] = useState(false);
   const [localUserData, setLocalUserData] = useState(userData);
 
   useEffect(() => {
@@ -222,10 +220,13 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
   const completionPct   = dashStats?.completionPct    ?? 0;
   const streak          = dashStats?.streak           ?? roadmapData?.stats?.streak ?? 0;
   const completionRate  = dashStats?.completionRate   ?? 100;
-  const xpScore         = dashStats?.xpScore          ?? roadmapData?.stats?.xpScore ?? 0;
+  
+  const realStats = calculateRealtimeStats(roadmapData);
+  const xpScore         = realStats.xpScore;
+  const daysLeft        = realStats.daysLeft;
+  
   const pendingCount    = dashStats?.pendingCount     ?? 0;
   const completedCount  = dashStats?.completedCount   ?? dashStats?.completedSessions ?? 0;
-  const daysLeft        = dashStats?.daysLeft         ?? roadmapData?.stats?.daysLeft ?? '—';
 
   const goToRoadmap = (filter = 'all') => {
     setRoadmapFilter(filter);
@@ -354,9 +355,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                   <p className="text-[10px] text-slate-400 mt-1">Best: {dashStats.longestStreak} days</p>
                 )}
               </div>
-              <button className="w-full bg-[#0f172a] text-white py-4 rounded-2xl font-black shadow-lg flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-800 transition-colors">
-                <MessageCircle className="w-5 h-5" /> AI Mentor
-              </button>
+             
             </div>
           </nav>
         </motion.div>
@@ -419,14 +418,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                 </AnimatePresence>
               </div>
 
-              {/* === Notification Button === */}
-              <button 
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="relative w-12 h-12 bg-white border border-white rounded-[20px] flex items-center justify-center shadow-sm hover:scale-105 transition-all cursor-pointer group"
-              >
-                <Bell className="w-5 h-5 text-slate-600 group-hover:text-emerald-600 transition-colors" />
-                <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
-              </button>
+
 
               {/* === User Profile Button (Links to Settings) === */}
               <button 
@@ -444,11 +436,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
               </button>
             </div>
 
-            {/* Notification Dropdown Component */}
-            <NotificationDropdown 
-              isOpen={showNotifications} 
-              onClose={() => setShowNotifications(false)} 
-            />
+
           </header>
 
           {/* Dynamic Content Area */}
@@ -486,13 +474,6 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                             <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-1">Studied</p>
                             <p className="text-2xl font-black text-slate-800">
                               {statsLoading ? '—' : `${studiedHours}h`}
-                            </p>
-                          </div>
-                          {/* Completion Rate */}
-                          <div>
-                            <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-1">Completion</p>
-                            <p className={`text-2xl font-black ${completionRate >= 80 ? 'text-emerald-600' : completionRate >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
-                              {statsLoading ? '—' : `${completionRate}%`}
                             </p>
                           </div>
                         </div>

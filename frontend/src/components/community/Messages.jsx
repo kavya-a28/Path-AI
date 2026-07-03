@@ -70,7 +70,7 @@ const MessageBubble = ({ msg, isMe, onDelete }) => {
   if (msg.type === 'system') {
     return (
       <div className="flex justify-center my-4">
-        <span className="bg-amber-50 border border-amber-200 text-amber-800 text-xs px-4 py-1.5 rounded-full font-medium shadow-sm">
+        <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs px-4 py-1.5 rounded-full font-medium shadow-sm">
           {msg.text}
         </span>
       </div>
@@ -265,17 +265,17 @@ const ChatPanel = ({ conversation, currentUser, onBack, onlineUsers, onMessageSe
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#efeae2] rounded-2xl overflow-hidden shadow-xl relative">
+    <div className="flex flex-col h-full bg-gradient-to-br from-slate-50 via-blue-50/30 to-emerald-50/30 rounded-2xl overflow-hidden shadow-xl relative">
       {/* WhatsApp-style subtle pattern background */}
       <div
-        className="absolute inset-0 opacity-[0.06] pointer-events-none"
+        className="absolute inset-0 opacity-[0.03] pointer-events-none"
         style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2310b981' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
         }}
       />
 
       {/* Header */}
-      <div className="flex-shrink-0 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3 z-10 shadow-sm">
+      <div className="flex-shrink-0 bg-white/90 backdrop-blur-sm border-b border-slate-200 px-4 py-3 flex items-center gap-3 z-10 shadow-sm">
         <button
           onClick={onBack}
           className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors lg:hidden"
@@ -307,18 +307,12 @@ const ChatPanel = ({ conversation, currentUser, onBack, onlineUsers, onMessageSe
           </div>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-3">
-            <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm px-5 py-2.5 rounded-full font-medium shadow-sm">
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm px-5 py-2.5 rounded-full font-medium shadow-sm">
               You are now connected! Start messaging.
             </div>
           </div>
         ) : (
           <>
-            {/* Connection banner */}
-            <div className="flex justify-center mb-4">
-              <span className="bg-amber-50 border border-amber-200 text-amber-800 text-xs px-4 py-1.5 rounded-full font-medium shadow-sm">
-                You are now connected! Start messaging.
-              </span>
-            </div>
             {messages.map((msg, idx) => (
               <MessageBubble key={msg._id || idx} msg={msg} isMe={isMine(msg)} onDelete={handleDelete} />
             ))}
@@ -328,7 +322,7 @@ const ChatPanel = ({ conversation, currentUser, onBack, onlineUsers, onMessageSe
       </div>
 
       {/* Input area */}
-      <div className="flex-shrink-0 bg-[#f0f2f5] px-3 py-3 z-10 relative">
+      <div className="flex-shrink-0 bg-white/80 backdrop-blur-sm border-t border-slate-200 px-3 py-3 z-10 relative">
         {showEmoji && (
           <div className="absolute bottom-16 left-3 bg-white rounded-xl shadow-xl border border-slate-200 p-3 grid grid-cols-8 gap-1 z-50 w-72">
             {EMOJI_LIST.map(emoji => (
@@ -535,7 +529,7 @@ const Messages = ({ onSelectConversation, activeChatId, activeChatPeer, onCloseC
   const showChat = !!activeConv;
 
   return (
-    <div className="flex h-[calc(100vh-220px)] min-h-[500px] bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+    <div className="flex h-[calc(100vh-220px)] min-h-[500px] bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/80 overflow-hidden">
 
       {/* ── Left Panel: Conversation List ── */}
       <div className={`${showChat ? 'hidden lg:flex' : 'flex'} lg:flex flex-col w-full lg:w-[360px] flex-shrink-0 border-r border-slate-200 bg-white`}>
@@ -597,7 +591,7 @@ const Messages = ({ onSelectConversation, activeChatId, activeChatPeer, onCloseC
       </div>
 
       {/* ── Right Panel: Chat View ── */}
-      <div className={`${showChat ? 'flex' : 'hidden'} lg:flex flex-1 flex-col bg-[#efeae2]`}>
+      <div className={`${showChat ? 'flex' : 'hidden'} lg:flex flex-1 flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-emerald-50/30`}>
         {activeConv ? (
           <ChatPanel
             key={activeConv._id}

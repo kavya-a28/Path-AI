@@ -5,7 +5,7 @@ import {
   Globe, Shield, Github, Linkedin, Code2,
   ChevronRight, Check, X, Edit2, Camera,
   Sparkles, Target, Save, AlertTriangle,
-  CheckCircle2, Info, Upload, Eye, EyeOff, LogOut
+  CheckCircle2, Info, Upload, Eye, EyeOff, LogOut, GraduationCap
 } from 'lucide-react';
 
 import { 
@@ -16,13 +16,14 @@ import {
   updatePassword, 
   deleteAccount 
 } from '../services/settingsApi';
+import { calculateRealtimeStats } from '../utils/statsCalculator';
 
 const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
   // ── Defaults ────────────────────────────────────────────────────────────────
   const defaults = {
     userData: {
       name: 'Kavya',
-      handle: '@kavya_learns',
+      college: 'My University',
       location: 'Ahmedabad, Gujarat',
       email: 'kavya@example.com',
       avatarUrl: null
@@ -35,9 +36,8 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
     },
     studyTime: 2,
     profileVisibility: 'public',
-    shareProgress: true,
     connectedAccounts: {
-      github: { connected: true, username: '@kavyatech' },
+      github: { connected: false, username: null },
       linkedin: { connected: false, username: null },
       leetcode: { connected: false, username: null }
     },
@@ -64,7 +64,6 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
   const [notifications, setNotifications] = useState(defaults.notifications);
   const [studyTime, setStudyTime] = useState(defaults.studyTime);
   const [profileVisibility, setProfileVisibility] = useState(defaults.profileVisibility);
-  const [shareProgress, setShareProgress] = useState(defaults.shareProgress);
   const [connectedAccounts, setConnectedAccounts] = useState(defaults.connectedAccounts);
   const [smartScheduleEnabled, setSmartScheduleEnabled] = useState(defaults.smartScheduleEnabled);
   const [stats, setStats] = useState({
@@ -76,6 +75,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
 
   // --- 4. Toast state ---
   const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' | 'info' }
+  const realStats = calculateRealtimeStats(roadmapData);
 
   // --- 5. File input ref ---
   const fileInputRef = useRef(null);
@@ -87,12 +87,11 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
         const data = await fetchSettings();
         if (data) {
           if (data.userData) setUserData(prev => ({ ...prev, ...data.userData }));
-          if (data.notifications) setNotifications(prev => ({ ...prev, ...data.notifications }));
-          if (data.studyTime !== undefined) setStudyTime(data.studyTime);
-          if (data.profileVisibility) setProfileVisibility(data.profileVisibility);
-          if (data.shareProgress !== undefined) setShareProgress(data.shareProgress);
-          if (data.connectedAccounts) setConnectedAccounts(prev => ({ ...prev, ...data.connectedAccounts }));
-          if (data.smartScheduleEnabled !== undefined) setSmartScheduleEnabled(data.smartScheduleEnabled);
+          if (data.settings?.notifications) setNotifications(prev => ({ ...prev, ...data.settings.notifications }));
+          if (data.settings?.studyTime !== undefined) setStudyTime(data.settings.studyTime);
+          if (data.settings?.profileVisibility) setProfileVisibility(data.settings.profileVisibility);
+          if (data.settings?.connectedAccounts) setConnectedAccounts(prev => ({ ...prev, ...data.settings.connectedAccounts }));
+          if (data.settings?.smartScheduleEnabled !== undefined) setSmartScheduleEnabled(data.settings.smartScheduleEnabled);
           if (data.stats) setStats(prev => ({ ...prev, ...data.stats }));
         }
       } catch (err) {
@@ -114,7 +113,6 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
           notifications,
           studyTime,
           profileVisibility,
-          shareProgress,
           connectedAccounts,
           smartScheduleEnabled
         });
@@ -124,7 +122,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
     };
     const timeout = setTimeout(saveToServer, 500);
     return () => clearTimeout(timeout);
-  }, [notifications, studyTime, profileVisibility, shareProgress, connectedAccounts, smartScheduleEnabled, isInitialized]);
+  }, [notifications, studyTime, profileVisibility, connectedAccounts, smartScheduleEnabled, isInitialized]);
 
   // --- Helpers ---
   const theme = {
@@ -181,7 +179,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
     try {
       await updateProfile({
         name: userData.name,
-        handle: userData.handle,
+        college: userData.college,
         location: userData.location,
         avatarUrl: userData.avatarUrl,
       });
@@ -327,7 +325,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
       try {
         await updateProfile({
           name: updatedUser.name,
-          handle: updatedUser.handle,
+          college: updatedUser.college,
           location: updatedUser.location,
           avatarUrl: updatedUser.avatarUrl,
         });
@@ -363,14 +361,6 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
     setProfileVisibility(value);
     showToast(`Profile visibility set to ${value}`, 'success');
   };
-
-  const handleShareProgressToggle = () => {
-    setShareProgress(prev => {
-      showToast(`Progress sharing ${!prev ? 'enabled' : 'disabled'}`, 'success');
-      return !prev;
-    });
-  };
-
   // --- Sub-Components ---
 
   const ToggleSwitch = ({ enabled, onToggle }) => (
@@ -766,12 +756,15 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
                     className="w-full text-3xl font-black text-slate-900 bg-white/50 border-b-2 border-emerald-500 outline-none px-2 py-1"
                     placeholder="Your Name"
                   />
-                   <input 
-                    value={userData.handle}
-                    onChange={(e) => setUserData({...userData, handle: e.target.value})}
-                    className="w-full text-slate-500 font-medium bg-white/50 border-b-2 border-slate-200 focus:border-emerald-500 outline-none px-2 py-1"
-                    placeholder="@handle"
-                  />
+                   <div className="flex items-center gap-2">
+                     <GraduationCap className="w-4 h-4 text-slate-400" />
+                     <input 
+                      value={userData.college}
+                      onChange={(e) => setUserData({...userData, college: e.target.value})}
+                      className="w-full text-slate-500 font-medium bg-white/50 border-b-2 border-slate-200 focus:border-emerald-500 outline-none px-2 py-1"
+                      placeholder="College / University"
+                    />
+                  </div>
                   <div className="flex items-center gap-2">
                     <Globe className="w-4 h-4 text-slate-400" />
                     <input 
@@ -785,9 +778,11 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
               ) : (
                 <>
                   <h3 className="text-3xl font-black text-slate-900 mb-2">{userData.name}</h3>
-                  <p className="text-slate-500 font-medium">{userData.handle}</p>
-                  <p className="text-slate-400 text-sm flex items-center gap-2 mt-2">
-                    <Globe className="w-4 h-4" /> {userData.location}
+                  <p className="text-slate-500 font-medium flex items-center gap-2">
+                    <GraduationCap className="w-4 h-4" /> {userData.college || 'Add your college/university'}
+                  </p>
+                  <p className="text-slate-500 font-medium flex items-center gap-2 mt-2">
+                    <Globe className="w-4 h-4" /> {userData.location || 'Add your location'}
                   </p>
                 </>
               )}
@@ -813,7 +808,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
                 <div className="text-2xl">💎</div>
                 <div>
                   <p className="text-xs font-black text-slate-400 uppercase">XP</p>
-                  <p className="text-xl font-black text-slate-800">{(dashStats?.xpScore ?? roadmapData?.stats?.xpScore ?? stats.xp ?? 0).toLocaleString()}</p>
+                  <p className="text-xl font-black text-slate-800">{(realStats.xpScore ?? dashStats?.xpScore ?? stats.xp ?? 0).toLocaleString()}</p>
                 </div>
               </div>
             </div>
@@ -917,126 +912,6 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
           </div>
         </motion.div>
 
-        {/* Daily Study Time */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2 }}
-          className={`${theme.glass} rounded-[32px] p-8 relative overflow-hidden`}
-        >
-          <Clock className="absolute top-8 right-8 w-32 h-32 text-emerald-500/5" />
-          
-          <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-emerald-600" /> Daily Study Time
-          </h3>
-          
-          <div className="relative z-10">
-            <div className="bg-gradient-to-br from-emerald-50 to-blue-50 p-8 rounded-[28px] border border-emerald-100 mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-sm font-black text-slate-500 uppercase tracking-wider">Target Duration</span>
-                <motion.span 
-                  key={studyTime}
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-blue-600"
-                >
-                  {formatStudyTime(studyTime)}
-                </motion.span>
-              </div>
-              
-              <div className="space-y-3">
-                <input 
-                  type="range" 
-                  min="0.5" 
-                  max="8" 
-                  step="0.5"
-                  value={studyTime}
-                  onChange={(e) => handleStudyTimeChange(e.target.value)}
-                  className="w-full h-2 bg-white rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gradient-to-r [&::-webkit-slider-thumb]:from-emerald-500 [&::-webkit-slider-thumb]:to-blue-500 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:cursor-pointer"
-                />
-                <div className="flex justify-between text-xs font-bold text-slate-400">
-                  <span>30 min</span>
-                  <span>2 hours</span>
-                  <span>4 hours</span>
-                  <span>8 hours</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <p className="text-xs font-black text-slate-400 uppercase mb-3 tracking-wider">Quick Presets</p>
-              <div className="grid grid-cols-4 gap-3">
-                {studyPresets.map((preset, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handlePresetClick(preset.hours)}
-                    className={`py-4 px-3 rounded-2xl font-black text-sm transition-all ${
-                      studyTime === preset.hours
-                        ? 'bg-gradient-to-br from-emerald-500 to-blue-500 text-white shadow-lg shadow-emerald-200 scale-105'
-                        : 'bg-white border border-slate-200 text-slate-600 hover:border-emerald-300 hover:shadow-md hover:scale-[1.02]'
-                    }`}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-6 flex items-center justify-between p-5 bg-white border border-slate-100 rounded-2xl">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
-                  <Target className="w-6 h-6 text-purple-600" />
-                </div>
-                <div>
-                  <p className="font-bold text-slate-800">Smart Schedule</p>
-                  <p className="text-xs text-slate-500">Let AI optimize your study times</p>
-                </div>
-              </div>
-              <button 
-                onClick={handleSmartScheduleToggle}
-                className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                  smartScheduleEnabled
-                    ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-md'
-                    : 'bg-slate-900 text-white hover:scale-105'
-                }`}
-              >
-                {smartScheduleEnabled ? 'Active ✓' : 'Setup'}
-              </button>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Notifications */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className={`${theme.glass} rounded-[32px] p-8`}
-        >
-          <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
-            <Bell className="w-5 h-5 text-emerald-600" /> Notifications
-          </h3>
-          
-          <div className="space-y-4">
-            {[
-              { key: 'dailyReminders', label: 'Daily Reminders', desc: 'Get reminded to study' },
-              { key: 'weeklyReports', label: 'Weekly Reports', desc: 'Progress summaries' },
-              { key: 'careerAlerts', label: 'Career Alerts', desc: 'Job matches & opportunities' },
-              { key: 'communityUpdates', label: 'Community Updates', desc: 'Comments & mentions' }
-            ].map(notif => (
-              <div key={notif.key} className="flex items-center justify-between p-4 hover:bg-slate-50/50 rounded-2xl transition-all">
-                <div>
-                  <p className="font-bold text-slate-800">{notif.label}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{notif.desc}</p>
-                </div>
-                <ToggleSwitch
-                  enabled={notifications[notif.key]}
-                  onToggle={() => toggleNotification(notif.key)}
-                />
-              </div>
-            ))}
-          </div>
-        </motion.div>
 
         {/* Connected Accounts */}
         <motion.div
@@ -1054,19 +929,19 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
               const IconComp = accountIcons[key];
               return (
                 <div key={key} className="flex items-center justify-between p-5 bg-white border border-slate-100 rounded-2xl hover:shadow-md transition-all">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+                  <div className="flex items-center gap-4 min-w-0 pr-4">
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
                       <IconComp className="w-5 h-5 text-slate-600" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-bold text-slate-800">{accountLabels[key]}</p>
                       {account.username && (
-                        <p className="text-xs text-slate-500">{account.username}</p>
+                        <p className="text-xs text-slate-500 truncate">{account.username}</p>
                       )}
                     </div>
                   </div>
                   {account.connected ? (
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 shrink-0">
                       <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm">
                         <Check className="w-4 h-4" /> Connected
                       </div>
@@ -1104,7 +979,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
           <Shield className="w-5 h-5 text-emerald-600" /> Privacy & Security
         </h3>
         
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="space-y-6">
           <div className="flex items-center justify-between p-6 bg-white border border-slate-100 rounded-2xl">
             <div>
               <p className="font-bold text-slate-800 mb-1">Profile Visibility</p>
@@ -1116,20 +991,8 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
               className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 font-bold text-sm text-slate-700 outline-none focus:ring-2 focus:ring-emerald-200"
             >
               <option value="public">Public</option>
-              <option value="friends">Friends Only</option>
               <option value="private">Private</option>
             </select>
-          </div>
-
-          <div className="flex items-center justify-between p-6 bg-white border border-slate-100 rounded-2xl">
-            <div>
-              <p className="font-bold text-slate-800 mb-1">Share Progress</p>
-              <p className="text-xs text-slate-500">Let others see your achievements</p>
-            </div>
-            <ToggleSwitch
-              enabled={shareProgress}
-              onToggle={handleShareProgressToggle}
-            />
           </div>
         </div>
       </motion.div>

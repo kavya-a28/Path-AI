@@ -116,8 +116,7 @@ const userSchema = new mongoose.Schema(
         communityUpdates: { type: Boolean, default: false },
       },
       studyTime: { type: Number, default: 2 },
-      profileVisibility: { type: String, enum: ['public', 'friends', 'private'], default: 'public' },
-      shareProgress: { type: Boolean, default: true },
+      profileVisibility: { type: String, enum: ['public', 'private'], default: 'public' },
       connectedAccounts: {
         github: { connected: { type: Boolean, default: false }, username: { type: String, default: null } },
         linkedin: { connected: { type: Boolean, default: false }, username: { type: String, default: null } },
