@@ -1,169 +1,141 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Briefcase, DollarSign, TrendingUp, Target, Clock, MapPin,
+import {
+  Briefcase, TrendingUp, Target, Clock, MapPin,
   CheckCircle2, AlertCircle, ArrowRight, ExternalLink, Bookmark,
-  Zap, Award, Star, TrendingDown, Sparkles, Brain, Rocket,
-  ChevronRight, Info, RefreshCw, Calendar, Users
+  Zap, Award, Sparkles, Brain, Rocket,
+  RefreshCw, Users, AlertTriangle, Star
 } from 'lucide-react';
-import RoadmapAdjustmentModal from './RoadmapAdjustmentModal';
+import { fetchCareerInsights, addRecommendedSkill } from '../services/careerApi';
 
-const CareerHub = () => {
-  const [activeTab, setActiveTab] = useState('insights');
-  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+// ─── Skill status config ─────────────────────────────────────────────────────
+const STATUS_CONFIG = {
+  'Not Started':  { color: 'bg-slate-100 text-slate-500 border-slate-200',    icon: AlertCircle,    iconColor: 'text-slate-400'  },
+  'Beginner':     { color: 'bg-amber-100 text-amber-700 border-amber-200',     icon: AlertTriangle,  iconColor: 'text-amber-500'   },
+  'Intermediate': { color: 'bg-blue-100 text-blue-700 border-blue-200',        icon: Clock,          iconColor: 'text-blue-500'    },
+  'Advanced':     { color: 'bg-emerald-100 text-emerald-700 border-emerald-200',icon: CheckCircle2,  iconColor: 'text-emerald-500' },
+  'Mastered':     { color: 'bg-violet-100 text-violet-700 border-violet-200',  icon: Star,           iconColor: 'text-violet-500'  },
+};
+
+// ─── Hardcoded job matches (Job Matches tab stays unchanged) ─────────────────
+const JOB_MATCHES = [
+  {
+    id: 1, company: 'Amazon', role: 'Software Engineer Intern',
+    location: 'Bangalore', salary: '₹50k/month', postedDays: '2d ago',
+    matchScore: 85, requiredSkills: ['DSA', 'Java', 'Problem Solving'],
+    missingSkills: ['System Design'], applyReadiness: 85,
+    improvementPath: 'System Design (3 days)',
+    whyRecommended: 'Your DSA accuracy (82%) and Java usage match this role\'s core requirements.', logo: '🟠',
+  },
+  {
+    id: 2, company: 'Microsoft', role: 'Cloud Developer Intern',
+    location: 'Hyderabad', salary: '₹45k/month', postedDays: '5d ago',
+    matchScore: 72, requiredSkills: ['Python', 'Azure', 'APIs'],
+    missingSkills: ['Azure Certification', 'Docker'], applyReadiness: 72,
+    improvementPath: 'Azure Fundamentals (5 days)',
+    whyRecommended: 'Your Python proficiency aligns with 78% of their tech stack requirements.', logo: '🔷',
+  },
+  {
+    id: 3, company: 'Google', role: 'Security Analyst Intern',
+    location: 'Remote', salary: '₹55k/month', postedDays: '1w ago',
+    matchScore: 68, requiredSkills: ['Cybersecurity', 'Python', 'Network Security'],
+    missingSkills: ['CEH', 'SIEM Tools'], applyReadiness: 68,
+    improvementPath: 'CEH Preparation (2 weeks)',
+    whyRecommended: 'Your cybersecurity roadmap progress matches 68% of required competencies.', logo: '🔴',
+  },
+];
+
+// ─── Skeleton loader ─────────────────────────────────────────────────────────
+const SkillSkeleton = () => (
+  <div className="bg-white/5 border border-white/10 rounded-3xl p-6 animate-pulse">
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 rounded-2xl bg-white/10" />
+        <div className="space-y-2">
+          <div className="h-5 w-32 bg-white/10 rounded-xl" />
+          <div className="h-3 w-24 bg-white/10 rounded-xl" />
+        </div>
+      </div>
+      <div className="h-8 w-16 bg-white/10 rounded-xl" />
+    </div>
+    <div className="h-3 bg-white/10 rounded-full mb-4" />
+    <div className="h-8 w-28 bg-white/10 rounded-full" />
+  </div>
+);
+
+const StatSkeleton = () => (
+  <div className="bg-white/80 border border-white rounded-3xl p-6 shadow-xl animate-pulse">
+    <div className="flex items-center gap-3 mb-4">
+      <div className="w-12 h-12 rounded-2xl bg-slate-200" />
+      <div className="space-y-2">
+        <div className="h-3 w-20 bg-slate-200 rounded" />
+        <div className="h-7 w-16 bg-slate-200 rounded" />
+      </div>
+    </div>
+    <div className="h-4 w-36 bg-slate-200 rounded" />
+  </div>
+);
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+const CareerHub = ({ roadmapData }) => {
+  const [activeTab, setActiveTab]             = useState('insights');
+  const [addingSkill, setAddingSkill]         = useState(false);
+  const [insights, setInsights]               = useState(null);
+  const [loading, setLoading]                 = useState(true);
+  const [refreshing, setRefreshing]           = useState(false);
+  const [error, setError]                     = useState(null);
 
   const tabs = [
     { id: 'insights', label: 'Market Insights', icon: TrendingUp },
-    { id: 'jobs', label: 'Job Matches', icon: Briefcase },
-    { id: 'freelance', label: 'Freelance Projects', icon: DollarSign }
+    { id: 'jobs',     label: 'Job Matches',     icon: Briefcase  },
   ];
 
-  // Trending Skills Data
-  const trendingSkills = [
-    { 
-      name: 'Python', 
-      demand: 78, 
-      status: 'learning', 
-      userLevel: 'Beginner',
-      color: 'from-blue-500 to-cyan-500',
-      jobs: 450
-    },
-    { 
-      name: 'AWS / Cloud', 
-      demand: 65, 
-      status: 'not-started', 
-      userLevel: 'Not Started',
-      color: 'from-orange-500 to-amber-500',
-      jobs: 380
-    },
-    { 
-      name: 'CEH Certification', 
-      demand: 52, 
-      status: 'planned', 
-      userLevel: 'Planned',
-      color: 'from-purple-500 to-pink-500',
-      jobs: 290
-    },
-    { 
-      name: 'Penetration Testing', 
-      demand: 48, 
-      status: 'not-started', 
-      userLevel: 'Not Started',
-      color: 'from-red-500 to-rose-500',
-      jobs: 245
+  // ── Load insights from API ────────────────────────────────────────────────
+  const loadInsights = useCallback(async (isRefresh = false) => {
+    try {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+      setError(null);
+      const data = await fetchCareerInsights();
+      setInsights(data);
+    } catch (err) {
+      setError(err.message || 'Failed to load career insights');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-  ];
+  }, []);
 
-  // Job Matches Data
-  const jobMatches = [
-    {
-      id: 1,
-      company: 'Amazon',
-      role: 'Software Engineer Intern',
-      location: 'Bangalore',
-      salary: '₹50k/month',
-      postedDays: '2d ago',
-      matchScore: 85,
-      requiredSkills: ['DSA', 'Java', 'Problem Solving'],
-      missingSkills: ['System Design'],
-      applyReadiness: 85,
-      improvementPath: 'System Design (3 days)',
-      whyRecommended: 'Your DSA accuracy (82%) and Java usage match this role\'s core requirements.',
-      logo: '🟠'
-    },
-    {
-      id: 2,
-      company: 'Microsoft',
-      role: 'Cloud Developer Intern',
-      location: 'Hyderabad',
-      salary: '₹45k/month',
-      postedDays: '5d ago',
-      matchScore: 72,
-      requiredSkills: ['Python', 'Azure', 'APIs'],
-      missingSkills: ['Azure Certification', 'Docker'],
-      applyReadiness: 72,
-      improvementPath: 'Azure Fundamentals (5 days)',
-      whyRecommended: 'Your Python proficiency aligns with 78% of their tech stack requirements.',
-      logo: '🔷'
-    },
-    {
-      id: 3,
-      company: 'Google',
-      role: 'Security Analyst Intern',
-      location: 'Remote',
-      salary: '₹55k/month',
-      postedDays: '1w ago',
-      matchScore: 68,
-      requiredSkills: ['Cybersecurity', 'Python', 'Network Security'],
-      missingSkills: ['CEH', 'SIEM Tools'],
-      applyReadiness: 68,
-      improvementPath: 'CEH Preparation (2 weeks)',
-      whyRecommended: 'Your cybersecurity roadmap progress matches 68% of required competencies.',
-      logo: '🔴'
-    }
-  ];
+  useEffect(() => { loadInsights(); }, [loadInsights]);
 
-  // Freelance Projects Data
-  const freelanceProjects = [
-    {
-      id: 1,
-      title: 'Build E-commerce Website',
-      budget: '₹15k–₹25k',
-      duration: '2–3 weeks',
-      matchScore: 90,
-      requiredSkills: ['React', 'JavaScript', 'REST APIs'],
-      missingSkills: ['Payment APIs'],
-      learningOpportunity: 'Completing this improves your Web Dev + Project Portfolio score.',
-      icon: '🛒',
-      color: 'from-emerald-500 to-teal-500'
-    },
-    {
-      id: 2,
-      title: 'Python Data Analysis Dashboard',
-      budget: '₹10k–₹18k',
-      duration: '1–2 weeks',
-      matchScore: 85,
-      requiredSkills: ['Python', 'Pandas', 'Visualization'],
-      missingSkills: ['Advanced Statistics'],
-      learningOpportunity: 'Strengthens your data analysis portfolio and Python mastery.',
-      icon: '📊',
-      color: 'from-blue-500 to-indigo-500'
-    },
-    {
-      id: 3,
-      title: 'Mobile App UI/UX Design',
-      budget: '₹8k–₹15k',
-      duration: '1 week',
-      matchScore: 75,
-      requiredSkills: ['Figma', 'UI Design', 'Prototyping'],
-      missingSkills: ['User Research', 'Animation'],
-      learningOpportunity: 'Builds design thinking skills valuable for product roles.',
-      icon: '🎨',
-      color: 'from-pink-500 to-rose-500'
-    }
-  ];
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  const getStatusConfig = (status) => STATUS_CONFIG[status] || STATUS_CONFIG['Not Started'];
 
-  const getStatusIcon = (status) => {
-    switch(status) {
-      case 'learning': return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
-      case 'planned': return <Clock className="w-4 h-4 text-blue-500" />;
-      case 'not-started': return <AlertCircle className="w-4 h-4 text-orange-500" />;
-      default: return null;
+  const readinessColor = (pct) => {
+    if (pct >= 70) return 'text-emerald-600';
+    if (pct >= 40) return 'text-amber-500';
+    return 'text-red-500';
+  };
+
+  const handleAddSkill = async (skillName) => {
+    try {
+      setAddingSkill(true);
+      await addRecommendedSkill(skillName);
+      // Reload insights to reflect new skill
+      await loadInsights(true);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to add skill. Please try again.');
+    } finally {
+      setAddingSkill(false);
     }
   };
 
-  const getStatusBadge = (status) => {
-    const badges = {
-      'learning': 'bg-emerald-100 text-emerald-700 border-emerald-200',
-      'planned': 'bg-blue-100 text-blue-700 border-blue-200',
-      'not-started': 'bg-orange-100 text-orange-700 border-orange-200'
-    };
-    return badges[status] || '';
-  };
-
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
       <div className="space-y-8">
+
         {/* Tab Navigation */}
         <div className="flex items-center gap-3 bg-white/80 backdrop-blur-sm border border-white p-2 rounded-3xl shadow-lg w-fit">
           {tabs.map((tab) => (
@@ -183,10 +155,10 @@ const CareerHub = () => {
         </div>
 
         <AnimatePresence mode="wait">
-          
-          {/* ============================================================
-              TAB 1: MARKET INSIGHTS (MOST IMPORTANT)
-             ============================================================ */}
+
+          {/* ================================================================
+              TAB 1: MARKET INSIGHTS — fully dynamic
+             ================================================================ */}
           {activeTab === 'insights' && (
             <motion.div
               key="insights"
@@ -195,28 +167,22 @@ const CareerHub = () => {
               exit={{ opacity: 0, y: -20 }}
               className="space-y-8"
             >
-              
-              {/* Hero Section - Trending Skills */}
+
+              {/* ── Hero Section – Trending Skills ─────────────────────────── */}
               <motion.div
                 initial={{ scale: 0.95 }}
                 animate={{ scale: 1 }}
                 className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-[48px] p-10 overflow-hidden shadow-2xl"
               >
-                {/* Animated Background Elements */}
+                {/* Animated background blobs */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
                   <motion.div
-                    animate={{
-                      scale: [1, 1.2, 1],
-                      opacity: [0.1, 0.2, 0.1]
-                    }}
+                    animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.2, 0.1] }}
                     transition={{ duration: 8, repeat: Infinity }}
                     className="absolute -top-20 -right-20 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl"
                   />
                   <motion.div
-                    animate={{
-                      scale: [1, 1.3, 1],
-                      opacity: [0.1, 0.15, 0.1]
-                    }}
+                    animate={{ scale: [1, 1.3, 1], opacity: [0.1, 0.15, 0.1] }}
                     transition={{ duration: 10, repeat: Infinity, delay: 1 }}
                     className="absolute -bottom-20 -left-20 w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl"
                   />
@@ -229,239 +195,381 @@ const CareerHub = () => {
                       <div className="flex items-center gap-3 mb-4">
                         <motion.div
                           animate={{ rotate: [0, 360] }}
-                          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                          transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
                           className="w-14 h-14 rounded-2xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-xl"
                         >
                           <TrendingUp className="w-7 h-7 text-white" />
                         </motion.div>
                         <div>
                           <h2 className="text-3xl font-black text-white tracking-tight">
-                            Trending Skills for Cybersecurity
+                            {loading
+                              ? 'Loading Market Insights...'
+                              : insights
+                                ? `Trending Skills for ${insights.displayName}`
+                                : 'Market Insights'}
                           </h2>
                           <p className="text-slate-400 font-medium mt-1">
-                            Based on 500 recent job postings
+                            {insights
+                              ? `Based on ${insights.totalPostings}+ recent job postings`
+                              : 'Personalised to your career path'}
                           </p>
                         </div>
                       </div>
                     </div>
+
+                    {/* Refresh button */}
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className="flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white px-4 py-2 rounded-2xl font-bold hover:bg-white/20 transition-all"
+                      onClick={() => loadInsights(true)}
+                      disabled={refreshing}
+                      className="flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white px-4 py-2 rounded-2xl font-bold hover:bg-white/20 transition-all disabled:opacity-50"
                     >
-                      <RefreshCw className="w-4 h-4" />
-                      <span>Refresh</span>
+                      <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                      <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
                     </motion.button>
                   </div>
 
-                  {/* Skills List */}
+                  {/* ── Skills List ──────────────────────────────────────── */}
                   <div className="space-y-6 mb-8">
-                    {trendingSkills.map((skill, index) => (
-                      <motion.div
-                        key={skill.name}
-                        initial={{ x: -20, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        transition={{ delay: index * 0.1 }}
-                        className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl p-6 hover:bg-white/10 transition-all"
-                      >
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${skill.color} flex items-center justify-center shadow-lg`}>
-                              <Zap className="w-6 h-6 text-white" />
-                            </div>
-                            <div>
-                              <h3 className="text-xl font-black text-white tracking-tight">
-                                {skill.name}
-                              </h3>
-                              <p className="text-sm text-slate-400 font-medium">
-                                {skill.jobs} jobs require this skill
+                    {loading
+                      ? [...Array(4)].map((_, i) => <SkillSkeleton key={i} />)
+                      : error
+                        ? (
+                          <div className="bg-red-500/20 border border-red-500/30 rounded-3xl p-6 text-center">
+                            <p className="text-red-300 font-bold">{error}</p>
+                            <button
+                              onClick={() => loadInsights()}
+                              className="mt-3 text-sm text-white/70 underline hover:text-white"
+                            >
+                              Try again
+                            </button>
+                          </div>
+                        )
+                        : !insights
+                          ? (
+                            <div className="bg-white/5 border border-white/10 rounded-3xl p-8 text-center">
+                              <Brain className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                              <p className="text-slate-300 font-bold text-lg">No Roadmap Yet</p>
+                              <p className="text-slate-400 text-sm mt-1">
+                                Complete your onboarding to get personalised market insights.
                               </p>
                             </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-3xl font-black text-white mb-1">
-                              {skill.demand}%
-                            </div>
-                            <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">
-                              Demand
-                            </div>
-                          </div>
-                        </div>
+                          )
+                          : insights.skills.map((skill, index) => {
+                              const cfg = getStatusConfig(skill.status);
+                              const StatusIcon = cfg.icon;
+                              const isHighDemandGap = skill.demand >= 60 && skill.progress <= 20;
 
-                        {/* Progress Bar */}
-                        <div className="mb-4">
-                          <div className="h-3 bg-white/10 rounded-full overflow-hidden">
-                            <motion.div
-                              initial={{ width: 0 }}
-                              animate={{ width: `${skill.demand}%` }}
-                              transition={{ delay: index * 0.1 + 0.3, duration: 1, ease: "easeOut" }}
-                              className={`h-full bg-gradient-to-r ${skill.color} rounded-full`}
-                            />
-                          </div>
-                        </div>
+                              return (
+                                <motion.div
+                                  key={skill.name}
+                                  initial={{ x: -20, opacity: 0 }}
+                                  animate={{ x: 0, opacity: 1 }}
+                                  transition={{ delay: index * 0.08 }}
+                                  className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl p-6 hover:bg-white/10 transition-all"
+                                >
+                                  <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-4">
+                                      <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${skill.color} flex items-center justify-center shadow-lg`}>
+                                        <Zap className="w-6 h-6 text-white" />
+                                      </div>
+                                      <div>
+                                        <h3 className="text-xl font-black text-white tracking-tight">
+                                          {skill.name}
+                                        </h3>
+                                        <p className="text-sm text-slate-400 font-medium">
+                                          {skill.jobs} jobs require this skill
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-3xl font-black text-white mb-1">{skill.demand}%</div>
+                                      <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">Demand</div>
+                                    </div>
+                                  </div>
 
-                        {/* User Status */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            {getStatusIcon(skill.status)}
-                            <span className="text-sm font-bold text-slate-300">
-                              Your Status:
-                            </span>
-                            <span className={`text-sm font-black px-3 py-1 rounded-full border ${getStatusBadge(skill.status)}`}>
-                              {skill.userLevel}
-                            </span>
-                          </div>
-                          {skill.status === 'not-started' && (
-                            <div className="flex items-center gap-2 bg-orange-500/20 border border-orange-500/30 px-3 py-1 rounded-full">
-                              <AlertCircle className="w-4 h-4 text-orange-400" />
-                              <span className="text-xs font-bold text-orange-300">
-                                High Demand!
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </motion.div>
-                    ))}
+                                  {/* Market Demand bar */}
+                                  <div className="mb-3">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Market Demand</span>
+                                    </div>
+                                    <div className="h-3 bg-white/10 rounded-full overflow-hidden">
+                                      <motion.div
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${skill.demand}%` }}
+                                        transition={{ delay: index * 0.08 + 0.3, duration: 1, ease: 'easeOut' }}
+                                        className={`h-full bg-gradient-to-r ${skill.color} rounded-full`}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {/* Your Progress bar */}
+                                  <div className="mb-4">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Your Progress</span>
+                                      <span className="text-xs text-white font-bold">
+                                        {skill.totalSessions > 0
+                                          ? `${skill.completedSessions}/${skill.totalSessions} sessions`
+                                          : skill.progress > 0
+                                            ? `${skill.progress}%`
+                                            : 'Not in roadmap'}
+                                      </span>
+                                    </div>
+                                    <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                                      <motion.div
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${skill.progress}%` }}
+                                        transition={{ delay: index * 0.08 + 0.5, duration: 0.8, ease: 'easeOut' }}
+                                        className="h-full bg-white/60 rounded-full"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {/* Status row */}
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <StatusIcon className={`w-4 h-4 ${cfg.iconColor}`} />
+                                      <span className="text-sm font-bold text-slate-300">Your Status:</span>
+                                      <span className={`text-sm font-black px-3 py-1 rounded-full border ${cfg.color}`}>
+                                        {skill.status}
+                                      </span>
+                                    </div>
+                                    {isHighDemandGap && (
+                                      <div className="flex items-center gap-2 bg-orange-500/20 border border-orange-500/30 px-3 py-1 rounded-full">
+                                        <AlertCircle className="w-4 h-4 text-orange-400" />
+                                        <span className="text-xs font-bold text-orange-300">High Demand!</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </motion.div>
+                              );
+                            })
+                    }
                   </div>
 
-                  {/* AI Recommendation Card */}
-                  <motion.div
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.5 }}
-                    className="bg-gradient-to-br from-emerald-500/20 via-cyan-500/20 to-blue-500/20 backdrop-blur-sm border border-white/20 rounded-3xl p-8"
-                  >
-                    <div className="flex items-start gap-4 mb-6">
-                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-400 flex items-center justify-center shadow-xl flex-shrink-0">
-                        <Brain className="w-7 h-7 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-2xl font-black text-white mb-3 tracking-tight">
-                          💡 AI Recommendation
-                        </h3>
-                        <p className="text-lg text-slate-200 font-medium leading-relaxed mb-6">
-                          "Adding <span className="font-black text-white">AWS / Cloud</span> will significantly improve your job match score. 
-                          Based on current market trends, cloud skills are in the top 3 most demanded competencies for cybersecurity roles."
-                        </p>
-                        
-                        {/* Impact Preview */}
-                        <div className="grid grid-cols-2 gap-4 mb-6">
-                          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Target className="w-5 h-5 text-emerald-400" />
-                              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                                Job Match
-                              </span>
-                            </div>
-                            <div className="flex items-baseline gap-2">
-                              <span className="text-3xl font-black text-white">+18%</span>
-                              <TrendingUp className="w-5 h-5 text-emerald-400" />
-                            </div>
-                          </div>
-                          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Award className="w-5 h-5 text-cyan-400" />
-                              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                                Career Readiness
-                              </span>
-                            </div>
-                            <div className="flex items-baseline gap-2">
-                              <span className="text-3xl font-black text-white">+12%</span>
-                              <TrendingUp className="w-5 h-5 text-cyan-400" />
-                            </div>
-                          </div>
+                  {/* ── AI Recommendation Card ───────────────────────────── */}
+                  {!loading && !error && insights?.aiRecommendation && (
+                    <motion.div
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.5 }}
+                      className="bg-gradient-to-br from-emerald-500/20 via-cyan-500/20 to-blue-500/20 backdrop-blur-sm border border-white/20 rounded-3xl p-8"
+                    >
+                      <div className="flex items-start gap-4 mb-6">
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-400 flex items-center justify-center shadow-xl flex-shrink-0">
+                          <Brain className="w-7 h-7 text-white" />
                         </div>
+                        <div className="flex-1">
+                          <h3 className="text-2xl font-black text-white mb-3 tracking-tight">
+                            💡 AI Recommendation
+                          </h3>
+                          <p className="text-lg text-slate-200 font-medium leading-relaxed mb-6">
+                            "Focus on{' '}
+                            <span className="font-black text-white">
+                              {insights.aiRecommendation.skill}
+                            </span>
+                            {'. '}
+                            {insights.aiRecommendation.reason}"
+                          </p>
+                          
+                          <div className="mb-6">
+                            <p className="text-slate-300 font-medium text-sm">
+                              <span className="font-bold text-white">Market Demand:</span> {insights.aiRecommendation.skillDemand}% of {insights.displayName} roles require this skill.
+                            </p>
+                          </div>
 
-                        <motion.button
-                          onClick={() => setShowAdjustmentModal(true)}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          className="w-full bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500 text-white px-8 py-4 rounded-2xl font-black text-lg shadow-2xl hover:shadow-emerald-500/50 transition-all flex items-center justify-center gap-3 group"
-                        >
-                          <Rocket className="w-6 h-6 group-hover:translate-y-[-2px] transition-transform" />
-                          <span>Adjust My Roadmap</span>
-                          <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
-                        </motion.button>
+                          {/* Impact cards */}
+                          <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Target className="w-5 h-5 text-emerald-400" />
+                                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Job Match</span>
+                              </div>
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-black text-white">
+                                  +{insights.aiRecommendation.jobMatchBoost}%
+                                </span>
+                                <TrendingUp className="w-5 h-5 text-emerald-400" />
+                              </div>
+                            </div>
+                            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Award className="w-5 h-5 text-cyan-400" />
+                                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Career Readiness</span>
+                              </div>
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-black text-white">
+                                  +{insights.aiRecommendation.readinessBoost}%
+                                </span>
+                                <TrendingUp className="w-5 h-5 text-cyan-400" />
+                              </div>
+                            </div>
+                          </div>
+
+                          <motion.button
+                            onClick={() => handleAddSkill(insights.aiRecommendation.skill)}
+                            disabled={addingSkill}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="w-full bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500 text-white px-8 py-4 rounded-2xl font-black text-lg shadow-2xl hover:shadow-emerald-500/50 transition-all flex items-center justify-center gap-3 group disabled:opacity-70 disabled:cursor-not-allowed"
+                          >
+                            {addingSkill ? (
+                              <>
+                                <RefreshCw className="w-6 h-6 animate-spin" />
+                                <span>Adding to Roadmap...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Rocket className="w-6 h-6 group-hover:translate-y-[-2px] transition-transform" />
+                                <span>Add To My Roadmap</span>
+                                <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+                              </>
+                            )}
+                          </motion.button>
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
+                    </motion.div>
+                  )}
                 </div>
               </motion.div>
 
-              {/* Market Statistics Cards */}
+              {/* ── Market Statistics Cards ─────────────────────────────────── */}
               <div className="grid md:grid-cols-3 gap-6">
-                <motion.div
-                  whileHover={{ y: -5 }}
-                  className="bg-white/80 backdrop-blur-sm border border-white rounded-3xl p-6 shadow-xl"
-                >
+                {/* Active Jobs */}
+                <motion.div whileHover={{ y: -5 }} className="bg-white/80 backdrop-blur-sm border border-white rounded-3xl p-6 shadow-xl">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
                       <Users className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        Active Jobs
-                      </p>
-                      <p className="text-2xl font-black text-slate-900">
-                        1,247
-                      </p>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Jobs</p>
+                      {loading
+                        ? <div className="h-7 w-20 bg-slate-200 rounded animate-pulse mt-1" />
+                        : <p className="text-2xl font-black text-slate-900">
+                            {insights ? insights.marketData.activeJobs.toLocaleString() : '—'}
+                          </p>
+                      }
                     </div>
                   </div>
                   <p className="text-sm text-slate-600 font-medium">
-                    New cybersecurity positions this week
+                    {insights ? `Open positions in ${insights.displayName}` : 'Loading...'}
                   </p>
                 </motion.div>
 
-                <motion.div
-                  whileHover={{ y: -5 }}
-                  className="bg-white/80 backdrop-blur-sm border border-white rounded-3xl p-6 shadow-xl"
-                >
+                {/* Avg Salary */}
+                <motion.div whileHover={{ y: -5 }} className="bg-white/80 backdrop-blur-sm border border-white rounded-3xl p-6 shadow-xl">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg">
                       <TrendingUp className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        Avg Salary
-                      </p>
-                      <p className="text-2xl font-black text-slate-900">
-                        ₹8.5L
-                      </p>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Avg Salary</p>
+                      {loading
+                        ? <div className="h-7 w-20 bg-slate-200 rounded animate-pulse mt-1" />
+                        : <p className="text-2xl font-black text-slate-900">
+                            {insights ? insights.marketData.avgSalary : '—'}
+                          </p>
+                      }
                     </div>
                   </div>
                   <p className="text-sm text-slate-600 font-medium">
-                    Entry-level cybersecurity roles
+                    {insights ? `Entry-level ${insights.displayName} roles` : 'Loading...'}
                   </p>
                 </motion.div>
 
-                <motion.div
-                  whileHover={{ y: -5 }}
-                  className="bg-white/80 backdrop-blur-sm border border-white rounded-3xl p-6 shadow-xl"
-                >
+                {/* Growth Rate */}
+                <motion.div whileHover={{ y: -5 }} className="bg-white/80 backdrop-blur-sm border border-white rounded-3xl p-6 shadow-xl">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
                       <Sparkles className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        Growth Rate
-                      </p>
-                      <p className="text-2xl font-black text-slate-900">
-                        +32%
-                      </p>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Growth Rate</p>
+                      {loading
+                        ? <div className="h-7 w-20 bg-slate-200 rounded animate-pulse mt-1" />
+                        : <p className="text-2xl font-black text-slate-900">
+                            {insights ? `+${insights.marketData.growthRate}%` : '—'}
+                          </p>
+                      }
                     </div>
                   </div>
-                  <p className="text-sm text-slate-600 font-medium">
-                    Year-over-year job growth
-                  </p>
+                  <p className="text-sm text-slate-600 font-medium">Year-over-year job growth</p>
                 </motion.div>
               </div>
+
+              {/* ── Career Readiness & Job Match banner ───────────────────────── */}
+              {!loading && insights && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="grid md:grid-cols-2 gap-6"
+                >
+                  {/* Job Match */}
+                  <div className="bg-white/80 backdrop-blur-sm border border-white rounded-3xl p-6 shadow-xl">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center">
+                          <Target className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Job Match</p>
+                          <p className={`text-2xl font-black ${readinessColor(insights.jobMatchPercent)}`}>
+                            {insights.jobMatchPercent}%
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-500 font-medium text-right max-w-[120px]">
+                        Based on skill coverage &amp; roadmap progress
+                      </p>
+                    </div>
+                    <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${insights.jobMatchPercent}%` }}
+                        transition={{ duration: 1, ease: 'easeOut' }}
+                        className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Career Readiness */}
+                  <div className="bg-white/80 backdrop-blur-sm border border-white rounded-3xl p-6 shadow-xl">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center">
+                          <Award className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Career Readiness</p>
+                          <p className={`text-2xl font-black ${readinessColor(insights.careerReadinessPercent)}`}>
+                            {insights.careerReadinessPercent}%
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-500 font-medium text-right max-w-[120px]">
+                        Roadmap progress, practice accuracy &amp; streak
+                      </p>
+                    </div>
+                    <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${insights.careerReadinessPercent}%` }}
+                        transition={{ duration: 1, ease: 'easeOut', delay: 0.1 }}
+                        className="h-full bg-gradient-to-r from-violet-500 to-purple-500 rounded-full"
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
             </motion.div>
           )}
 
-          {/* ============================================================
+          {/* ================================================================
               TAB 2: JOB MATCHES
-             ============================================================ */}
+             ================================================================ */}
           {activeTab === 'jobs' && (
             <motion.div
               key="jobs"
@@ -470,7 +578,7 @@ const CareerHub = () => {
               exit={{ opacity: 0, y: -20 }}
               className="space-y-6"
             >
-              {jobMatches.map((job, index) => (
+              {JOB_MATCHES.map((job, index) => (
                 <motion.div
                   key={job.id}
                   initial={{ x: -20, opacity: 0 }}
@@ -489,18 +597,8 @@ const CareerHub = () => {
                           {job.company} • {job.role}
                         </h3>
                         <div className="flex items-center gap-4 text-sm text-slate-600 font-medium">
-                          <div className="flex items-center gap-1">
-                            <MapPin className="w-4 h-4" />
-                            <span>{job.location}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <DollarSign className="w-4 h-4" />
-                            <span>{job.salary}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-4 h-4" />
-                            <span>{job.postedDays}</span>
-                          </div>
+                          <div className="flex items-center gap-1"><MapPin className="w-4 h-4" /><span>{job.location}</span></div>
+                          <div className="flex items-center gap-1"><Clock className="w-4 h-4" /><span>{job.postedDays}</span></div>
                         </div>
                       </div>
                     </div>
@@ -514,13 +612,9 @@ const CareerHub = () => {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <Target className="w-5 h-5 text-emerald-500" />
-                        <span className="font-black text-slate-800 uppercase text-sm tracking-wider">
-                          Skill Match
-                        </span>
+                        <span className="font-black text-slate-800 uppercase text-sm tracking-wider">Skill Match</span>
                       </div>
-                      <span className="text-3xl font-black text-emerald-600">
-                        {job.matchScore}%
-                      </span>
+                      <span className="text-3xl font-black text-emerald-600">{job.matchScore}%</span>
                     </div>
                     <div className="h-4 bg-slate-100 rounded-full overflow-hidden">
                       <motion.div
@@ -535,32 +629,18 @@ const CareerHub = () => {
                   {/* Skills Tags */}
                   <div className="grid md:grid-cols-2 gap-4 mb-6">
                     <div>
-                      <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-3">
-                        ✓ Required Skills
-                      </p>
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-3">✓ Required Skills</p>
                       <div className="flex flex-wrap gap-2">
                         {job.requiredSkills.map((skill) => (
-                          <span
-                            key={skill}
-                            className="px-4 py-2 bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-2xl text-sm font-bold"
-                          >
-                            {skill}
-                          </span>
+                          <span key={skill} className="px-4 py-2 bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-2xl text-sm font-bold">{skill}</span>
                         ))}
                       </div>
                     </div>
                     <div>
-                      <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-3">
-                        ⚠ Missing Skills
-                      </p>
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-3">⚠ Missing Skills</p>
                       <div className="flex flex-wrap gap-2">
                         {job.missingSkills.map((skill) => (
-                          <span
-                            key={skill}
-                            className="px-4 py-2 bg-orange-100 border border-orange-200 text-orange-700 rounded-2xl text-sm font-bold"
-                          >
-                            {skill}
-                          </span>
+                          <span key={skill} className="px-4 py-2 bg-orange-100 border border-orange-200 text-orange-700 rounded-2xl text-sm font-bold">{skill}</span>
                         ))}
                       </div>
                     </div>
@@ -573,12 +653,8 @@ const CareerHub = () => {
                         <Brain className="w-5 h-5 text-white" />
                       </div>
                       <div className="flex-1">
-                        <h4 className="font-black text-slate-900 mb-2 flex items-center gap-2">
-                          🧠 Why this job?
-                        </h4>
-                        <p className="text-slate-700 font-medium text-sm leading-relaxed">
-                          {job.whyRecommended}
-                        </p>
+                        <h4 className="font-black text-slate-900 mb-2">🧠 Why this job?</h4>
+                        <p className="text-slate-700 font-medium text-sm leading-relaxed">{job.whyRecommended}</p>
                       </div>
                     </div>
                   </div>
@@ -588,13 +664,9 @@ const CareerHub = () => {
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
                         <Rocket className="w-5 h-5 text-emerald-600" />
-                        <span className="font-black text-slate-900 uppercase text-sm tracking-wider">
-                          Apply Readiness
-                        </span>
+                        <span className="font-black text-slate-900 uppercase text-sm tracking-wider">Apply Readiness</span>
                       </div>
-                      <span className="text-2xl font-black text-emerald-600">
-                        {job.applyReadiness}%
-                      </span>
+                      <span className="text-2xl font-black text-emerald-600">{job.applyReadiness}%</span>
                     </div>
                     <div className="h-3 bg-white rounded-full overflow-hidden mb-4">
                       <motion.div
@@ -605,178 +677,21 @@ const CareerHub = () => {
                       />
                     </div>
                     <p className="text-sm text-slate-700 font-medium">
-                      <span className="font-black">Improve to 95%</span> by learning: 
+                      <span className="font-black">Improve to 95%</span> by learning:
                       <span className="ml-2 text-emerald-700 font-bold">→ {job.improvementPath}</span>
                     </p>
                   </div>
 
-                  {/* Action Buttons */}
+                  {/* Actions */}
                   <div className="flex gap-3">
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       className="flex-1 bg-slate-900 text-white px-6 py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-lg"
                     >
-                      <ExternalLink className="w-5 h-5" />
-                      <span>Apply Now</span>
+                      <ExternalLink className="w-5 h-5" /><span>Apply Now</span>
                     </motion.button>
-                    <button className="px-6 py-4 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 transition-all">
-                      View Details
-                    </button>
-                    <button className="px-6 py-4 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 transition-all">
-                      Save
-                    </button>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          )}
-
-          {/* ============================================================
-              TAB 3: FREELANCE PROJECTS
-             ============================================================ */}
-          {activeTab === 'freelance' && (
-            <motion.div
-              key="freelance"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="space-y-6"
-            >
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-3xl p-6 mb-6">
-                <div className="flex items-start gap-3">
-                  <Info className="w-5 h-5 text-purple-600 flex-shrink-0 mt-1" />
-                  <div>
-                    <h4 className="font-black text-slate-900 mb-2">
-                      Skill-to-Income Opportunities
-                    </h4>
-                    <p className="text-sm text-slate-700 font-medium leading-relaxed">
-                      These curated projects match your current skill level and help you earn while learning. 
-                      Each project strengthens your portfolio and career readiness.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {freelanceProjects.map((project, index) => (
-                <motion.div
-                  key={project.id}
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="bg-white/80 backdrop-blur-sm border border-white rounded-[40px] p-8 shadow-xl hover:shadow-2xl transition-all"
-                >
-                  <div className="flex items-start gap-6 mb-6">
-                    <div className={`w-20 h-20 rounded-3xl bg-gradient-to-br ${project.color} flex items-center justify-center text-4xl shadow-xl flex-shrink-0`}>
-                      {project.icon}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-2xl font-black text-slate-900 tracking-tight mb-3">
-                        💼 {project.title}
-                      </h3>
-                      <div className="flex items-center gap-6 text-sm font-bold text-slate-600 mb-4">
-                        <div className="flex items-center gap-2">
-                          <DollarSign className="w-4 h-4 text-emerald-600" />
-                          <span className="text-emerald-700">{project.budget}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-blue-600" />
-                          <span className="text-blue-700">{project.duration}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Skill Match */}
-                  <div className="mb-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <Target className="w-5 h-5 text-emerald-500" />
-                        <span className="font-black text-slate-800 uppercase text-sm tracking-wider">
-                          Skill Match
-                        </span>
-                        <span className="text-sm font-bold text-emerald-600">
-                          (You can do this!)
-                        </span>
-                      </div>
-                      <span className="text-3xl font-black text-emerald-600">
-                        {project.matchScore}%
-                      </span>
-                    </div>
-                    <div className="h-4 bg-slate-100 rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${project.matchScore}%` }}
-                        transition={{ delay: index * 0.1 + 0.3, duration: 1 }}
-                        className={`h-full bg-gradient-to-r ${project.color} rounded-full`}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Skills */}
-                  <div className="grid md:grid-cols-2 gap-4 mb-6">
-                    <div>
-                      <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-3">
-                        ✓ You Have
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {project.requiredSkills.map((skill) => (
-                          <span
-                            key={skill}
-                            className="px-4 py-2 bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-2xl text-sm font-bold"
-                          >
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-3">
-                        ⚠ Learn While Doing
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {project.missingSkills.map((skill) => (
-                          <span
-                            key={skill}
-                            className="px-4 py-2 bg-orange-100 border border-orange-200 text-orange-700 rounded-2xl text-sm font-bold"
-                          >
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Learning Opportunity */}
-                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-3xl p-6 mb-6">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center flex-shrink-0">
-                        <Brain className="w-5 h-5 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-black text-slate-900 mb-2 flex items-center gap-2">
-                          🧠 Learning Opportunity
-                        </h4>
-                        <p className="text-slate-700 font-medium text-sm leading-relaxed">
-                          {project.learningOpportunity}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-3">
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className={`flex-1 bg-gradient-to-r ${project.color} text-white px-6 py-4 rounded-2xl font-black flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all`}
-                    >
-                      <ExternalLink className="w-5 h-5" />
-                      <span>Apply Externally</span>
-                    </motion.button>
-                    <button className="px-6 py-4 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 transition-all">
-                      View Details
-                    </button>
+                    <button className="px-6 py-4 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 transition-all">Save</button>
                   </div>
                 </motion.div>
               ))}
@@ -785,16 +700,6 @@ const CareerHub = () => {
 
         </AnimatePresence>
       </div>
-
-      {/* Roadmap Adjustment Modal */}
-      <RoadmapAdjustmentModal
-        isOpen={showAdjustmentModal}
-        onClose={() => setShowAdjustmentModal(false)}
-        onApply={() => {
-          console.log('Roadmap adjusted!');
-          // Handle roadmap update logic here
-        }}
-      />
     </>
   );
 };

@@ -9,6 +9,7 @@ const connectionRoutes = require("./routes/connectionRoutes");
 const peerRoutes = require("./routes/peerRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const careerRoutes = require("./routes/careerRoutes");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 
 const app = express();
@@ -42,6 +43,7 @@ app.use("/api/connections", connectionRoutes);
 app.use("/api/peers", peerRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/career", careerRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
