@@ -796,7 +796,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                   exit={{ opacity: 0, x: -20 }} 
                   className="mt-6"
                 >
-                  <CareerHub roadmapData={roadmapData} />
+                  <CareerHub roadmapData={roadmapData} onRoadmapUpdate={refreshAll} />
                 </motion.div>
               )}
 

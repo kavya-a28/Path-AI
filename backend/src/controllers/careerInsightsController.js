@@ -2,15 +2,25 @@
  * careerInsightsController.js
  * Computes dynamic, personalized Career Hub Market Insights from
  * the user's roadmap domain, session progress, practice accuracy, and streak.
+ *
+ * Market skill data is now fetched dynamically via Tavily + Groq AI,
+ * cached for 24 hours per user + career path.
+ *
+ * AI Recommendation is fully dynamic — priority score, reason text,
+ * job match improvement, and career readiness improvement are all computed
+ * from live market data + user roadmap progress.
  */
 
-const Roadmap = require('../models/Roadmap');
-const User    = require('../models/User');
+const Groq = require('groq-sdk');
+const Roadmap              = require('../models/Roadmap');
+const User                 = require('../models/User');
+const MarketInsightsCache  = require('../models/MarketInsightsCache');
 const { generateTopicContent } = require('../services/topicContentGenerator');
+const { fetchLiveMarketData }  = require('../services/tavilyMarketService');
 
-// ─── Domain market data (mirrors frontend marketData.js) ─────────────────────
-// Stored here so the backend can compute job match & career readiness
-// without knowing about React imports.
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+// ─── Static fallback data (used when Tavily / Groq are unavailable) ──────────
 
 const DOMAIN_MARKET_DATA = {
   cybersecurity:          { displayName: 'Cybersecurity',              activeJobs: 1247, avgSalary: '₹8.5L',  growthRate: 32, totalPostings: 500,
@@ -145,6 +155,9 @@ const DOMAIN_MARKET_DATA = {
   },
 };
 
+// ─── Cache TTL: 24 hours ─────────────────────────────────────────────────────
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Normalise domain key coming from roadmap.domain */
@@ -158,7 +171,10 @@ function normaliseDomain(domain) {
  * roadmap session titles & topicKeys against the skill's keywords.
  */
 function computeSkillProgress(skill, dailySessions) {
-  const kws = skill.keywords;
+  // Use explicit keywords if available, otherwise fallback to the skill name itself
+  const kws = (skill.keywords && skill.keywords.length > 0)
+    ? skill.keywords.map(k => k.toLowerCase())
+    : [skill.name.toLowerCase()];
 
   const match = (text) =>
     text && kws.some(kw => text.toLowerCase().includes(kw));
@@ -184,10 +200,9 @@ function progressToStatus(pct) {
   return 'Mastered';
 }
 
-/** Compute overall job match %. */
+/** Compute overall job match %: (skills with roadmap presence / total skills). */
 function computeJobMatch(enrichedSkills, roadmapProgress) {
   if (!enrichedSkills.length) return 0;
-  // Weighted average: demand-weighted skill coverage
   let totalWeight = 0;
   let weightedProgress = 0;
   for (const s of enrichedSkills) {
@@ -195,7 +210,6 @@ function computeJobMatch(enrichedSkills, roadmapProgress) {
     weightedProgress += (s.progress / 100) * s.demand;
   }
   const skillCoverage = totalWeight > 0 ? (weightedProgress / totalWeight) * 100 : 0;
-  // Blend 70% skill coverage + 30% roadmap overall progress
   return Math.round(skillCoverage * 0.7 + (roadmapProgress || 0) * 0.3);
 }
 
@@ -204,45 +218,321 @@ function computeJobMatch(enrichedSkills, roadmapProgress) {
  * Factors: roadmap progress (40%), practice accuracy (30%), project completion (20%), streak bonus (10%)
  */
 function computeCareerReadiness(roadmapProgress, practiceAccuracy, streak, projectCompletion = 0) {
-  const streakBonus = Math.min(streak * 2, 100); // max 100
+  const streakBonus = Math.min(streak * 2, 100);
   const readiness   = (roadmapProgress * 0.40) + (practiceAccuracy * 0.30) + (projectCompletion * 0.20) + (streakBonus * 0.10);
   return Math.min(100, Math.round(readiness));
 }
 
+// ─── Dynamic AI Recommendation ──────────────────────────────────────────────
+
 /**
- * Find the AI recommendation: skill with highest demand-gap
- * (demand - userProgress) — the biggest opportunity.
+ * Compute the AI recommendation with accurate job match and career readiness
+ * improvement calculations.
+ *
+ * Priority Score = Market Demand % − User Progress %
+ * Recommends the skill with the highest gap (not mastered).
  */
-function computeAiRecommendation(enrichedSkills, displayName) {
+function computeAiRecommendation(enrichedSkills, displayName, currentJobMatch, currentReadiness, roadmapProgress, practiceAccuracy, streak) {
   if (!enrichedSkills.length) return null;
 
-  // Score each skill: gap = demand - progress, weighted by demand
-  const scored = enrichedSkills
-    .filter(s => s.progress < 100)
-    .map(s => ({ ...s, gap: s.demand - s.progress }))
-    .sort((a, b) => b.gap - a.gap);
+  // Filter: exclude skills already in the roadmap (totalSessions > 0) or mastered
+  const candidates = enrichedSkills
+    .filter(s => s.status !== 'Mastered' && s.progress < 100 && s.totalSessions === 0)
+    .map(s => ({
+      ...s,
+      priorityScore: s.demand - s.progress,
+    }))
+    .sort((a, b) => b.priorityScore - a.priorityScore);
 
-  if (!scored.length) return null;
+  if (!candidates.length) return null;
 
-  const top = scored[0];
+  const top = candidates[0];
 
-  const jobMatchBoost     = Math.round(top.demand * 0.20);
-  const readinessBoost    = Math.round(top.demand * 0.15);
+  // ── Job Match Improvement ──
+  // Current: count skills with > 0 progress / total skills
+  const totalSkills      = enrichedSkills.length;
+  const currentCovered   = enrichedSkills.filter(s => s.progress > 0).length;
+  const currentMatchPct  = totalSkills > 0 ? Math.round((currentCovered / totalSkills) * 100) : 0;
 
+  // After adding this skill: if it's not already in roadmap, coverage goes up by 1
+  const newCovered       = top.progress === 0 ? currentCovered + 1 : currentCovered;
+  const newMatchPct      = totalSkills > 0 ? Math.round((newCovered / totalSkills) * 100) : 0;
+  const jobMatchBoost    = Math.max(0, newMatchPct - currentMatchPct);
+
+  // ── Career Readiness Improvement ──
+  // Estimate: adding this skill would increase roadmap progress proportionally
+  const projectedProgress = Math.min(100, roadmapProgress + Math.round(100 / Math.max(totalSkills, 1)));
+  const projectedReadiness = computeCareerReadiness(projectedProgress, practiceAccuracy, streak, roadmapProgress > 20 ? 50 : 0);
+  const readinessBoost = Math.max(0, projectedReadiness - currentReadiness);
+
+  // ── Dynamic Reason Text ──
   let reason;
   if (top.progress === 0) {
-    reason = `${top.name} is highly demanded (${top.demand}%) for ${displayName} roles but you haven't started it yet. Adding it now gives the highest return on your effort.`;
+    reason = `${top.name} is one of the most demanded skills for ${displayName} roles. ` +
+             `Your progress in this skill is currently zero, making it the highest-impact skill to learn next. ` +
+             `${top.demand}% of recent job postings require ${top.name}.`;
+  } else if (top.progress <= 30) {
+    reason = `You've started learning ${top.name} (${top.progress}% progress) but there's a significant gap versus market demand (${top.demand}%). ` +
+             `Completing it will substantially boost your employability in ${displayName} roles.`;
   } else {
-    reason = `You've made a start on ${top.name} (${top.progress}% progress) but it still has a large gap versus market demand (${top.demand}%). Completing it will significantly boost your employability.`;
+    reason = `${top.name} has a strong market demand of ${top.demand}% but your current progress is only ${top.progress}%. ` +
+             `Closing this gap will meaningfully improve your ${displayName} career readiness.`;
   }
 
   return {
     skill:           top.name,
     skillProgress:   top.progress,
     skillDemand:     top.demand,
+    skillJobs:       top.jobs,
+    priorityScore:   top.priorityScore,
     reason,
     jobMatchBoost,
     readinessBoost,
+    currentJobMatch,
+    projectedJobMatch:     currentMatchPct + jobMatchBoost,
+    currentReadiness,
+    projectedReadiness,
+    generatedAt:     new Date(),
+  };
+}
+
+// ─── Generate AI recommendation text via Groq ────────────────────────────────
+
+async function generateAiRecommendationText(skill, displayName, progress, demand, jobs) {
+  try {
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a career advisor AI. Generate a concise, motivating recommendation in 2-3 sentences. Be specific about the skill, career path, and why it matters now. Do NOT use markdown. Return plain text only.'
+        },
+        {
+          role: 'user',
+          content: `Generate a career recommendation for a student.\nCareer Path: ${displayName}\nRecommended Skill: ${skill}\nCurrent Progress: ${progress}%\nMarket Demand: ${demand}%\nJobs requiring this: ${jobs}\n\nExplain why they should focus on "${skill}" next for their ${displayName} career. Be specific and motivating.`
+        },
+      ],
+      temperature: 0.5,
+      max_tokens: 200,
+    });
+
+    const text = completion.choices?.[0]?.message?.content?.trim();
+    return text || null;
+  } catch (err) {
+    console.error('[careerInsights] Groq recommendation text generation failed:', err.message);
+    return null;
+  }
+}
+
+// ─── Market Data Resolution (Cache → Tavily/Groq → Static fallback) ─────────
+
+async function resolveMarketData(userId, domain, displayName, forceRefresh = false) {
+  const fallback = DOMAIN_MARKET_DATA[domain] || DOMAIN_MARKET_DATA.web_development;
+
+  // ── 1. Check cache ──
+  if (!forceRefresh) {
+    try {
+      const cached = await MarketInsightsCache.findOne({ userId, careerPath: domain }).lean();
+      if (cached && cached.lastUpdated) {
+        const age = Date.now() - new Date(cached.lastUpdated).getTime();
+        if (age < CACHE_TTL_MS) {
+          console.log(`[careerInsights] Using cached data for ${domain} (age: ${Math.round(age / 60000)}min)`);
+          return {
+            skills:     cached.skills,
+            marketData: cached.marketData,
+            dataSource: 'cached',
+            lastUpdated: cached.lastUpdated,
+          };
+        }
+      }
+    } catch (err) {
+      console.error('[careerInsights] Cache lookup error:', err.message);
+    }
+  }
+
+  // ── 2. Try Tavily + Groq live fetch ──
+  try {
+    const liveData = await fetchLiveMarketData(domain, displayName || fallback.displayName, fallback.skills);
+    if (liveData && liveData.skills && liveData.skills.length > 0) {
+      const now = new Date();
+
+      await MarketInsightsCache.findOneAndUpdate(
+        { userId, careerPath: domain },
+        {
+          userId,
+          careerPath:  domain,
+          skills:      liveData.skills,
+          marketData:  liveData.marketData,
+          lastUpdated: now,
+        },
+        { upsert: true, new: true }
+      );
+
+      console.log(`[careerInsights] Live data fetched and cached for ${domain}`);
+      return {
+        skills:     liveData.skills,
+        marketData: liveData.marketData,
+        dataSource: 'ai_tavily',
+        lastUpdated: now,
+      };
+    }
+  } catch (err) {
+    console.error('[careerInsights] Live market fetch failed:', err.message);
+  }
+
+  // ── 3. Fallback to static data ──
+  console.log(`[careerInsights] Using static fallback for ${domain}`);
+  return {
+    skills: fallback.skills.map(s => ({
+      name:     s.name,
+      demand:   s.demand,
+      jobs:     s.jobs,
+      keywords: s.keywords,
+      color:    s.color || 'from-blue-500 to-cyan-500',
+    })),
+    marketData: {
+      activeJobs:    fallback.activeJobs,
+      avgSalary:     fallback.avgSalary,
+      growthRate:    fallback.growthRate,
+      totalPostings: fallback.totalPostings,
+    },
+    dataSource: 'static',
+    lastUpdated: null,
+  };
+}
+
+// ─── Shared logic: build full insights response ─────────────────────────────
+
+async function buildInsightsResponse(roadmap, domains, forceRefresh = false) {
+  const userId          = roadmap.userId;
+  const dailySessions   = roadmap.dailySessions || [];
+  const roadmapStats    = roadmap.stats || {};
+
+  // ── 1. Resolve market data for ALL domains (cache → live → static) ──
+  let combinedSkills = [];
+  let displayNames = [];
+  let globalDataSource = 'static';
+  let globalLastUpdated = null;
+
+  for (const domain of domains) {
+    const fallbackData = DOMAIN_MARKET_DATA[domain] || DOMAIN_MARKET_DATA.web_development;
+    displayNames.push(fallbackData.displayName);
+    const { skills: marketSkills, dataSource, lastUpdated } =
+      await resolveMarketData(userId, domain, fallbackData.displayName, forceRefresh);
+    
+    combinedSkills.push(...marketSkills);
+    if (dataSource === 'ai_tavily') globalDataSource = 'ai_tavily';
+    if (lastUpdated && (!globalLastUpdated || new Date(lastUpdated) > new Date(globalLastUpdated))) {
+      globalLastUpdated = lastUpdated;
+    }
+  }
+
+  // Deduplicate skills by name
+  const uniqueSkillsMap = new Map();
+  for (const s of combinedSkills) {
+    const key = s.name.toLowerCase();
+    if (!uniqueSkillsMap.has(key)) {
+      uniqueSkillsMap.set(key, s);
+    } else {
+      if (s.demand > uniqueSkillsMap.get(key).demand) uniqueSkillsMap.set(key, s);
+    }
+  }
+  const mergedMarketSkills = Array.from(uniqueSkillsMap.values()).sort((a, b) => b.demand - a.demand);
+
+  // Format combined display name
+  const uniqueDisplayNames = [...new Set(displayNames)];
+  let combinedDisplayName = uniqueDisplayNames[0];
+  if (uniqueDisplayNames.length > 1) {
+    const last = uniqueDisplayNames.pop();
+    combinedDisplayName = uniqueDisplayNames.join(', ') + ' & ' + last;
+  }
+
+  // ── 2. Roadmap progress ──
+  const roadmapProgress = roadmapStats.progressPercent
+    || (dailySessions.length > 0
+      ? Math.round((dailySessions.filter(s => s.status === 'completed').length / dailySessions.length) * 100)
+      : 0);
+
+  // ── 3. Practice accuracy ──
+  const analyticsResults = roadmap.analyticsTestResults || [];
+  let practiceAccuracy = 0;
+  if (analyticsResults.length > 0) {
+    const totalCorrect   = analyticsResults.reduce((s, r) => s + (r.correctAnswers   || 0), 0);
+    const totalQuestions = analyticsResults.reduce((s, r) => s + (r.totalQuestions || 5), 0);
+    practiceAccuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+  } else {
+    const withPractice   = dailySessions.filter(s => s.practiceCompleted);
+    const completedSess  = dailySessions.filter(s => s.status === 'completed');
+    practiceAccuracy = completedSess.length > 0
+      ? Math.round((withPractice.length / completedSess.length) * 100)
+      : 0;
+  }
+
+  // ── 4. Streak ──
+  const streak = roadmapStats.streak || 0;
+
+  // ── 5. Compute per-skill progress ──
+  const enrichedSkills = mergedMarketSkills.map(skill => {
+    const { progress, completedSessions, totalSessions } = computeSkillProgress(skill, dailySessions);
+    return {
+      name:              skill.name,
+      demand:            skill.demand,
+      jobs:              skill.jobs,
+      color:             skill.color || 'from-blue-500 to-cyan-500',
+      progress,
+      completedSessions,
+      totalSessions,
+      status:            progressToStatus(progress),
+    };
+  });
+
+  // ── 6. Aggregate metrics ──
+  const projectCompletion = roadmapStats.projectCompletion || (roadmapProgress > 20 ? 50 : 0);
+  const jobMatchPercent        = computeJobMatch(enrichedSkills, roadmapProgress);
+  const careerReadinessPercent = computeCareerReadiness(roadmapProgress, practiceAccuracy, streak, projectCompletion);
+
+  // ── 7. Dynamic AI Recommendation ──
+  const aiRecommendation = computeAiRecommendation(
+    enrichedSkills,
+    combinedDisplayName,
+    jobMatchPercent,
+    careerReadinessPercent,
+    roadmapProgress,
+    practiceAccuracy,
+    streak
+  );
+
+  // Try to generate AI-powered recommendation text (non-blocking)
+  if (aiRecommendation) {
+    try {
+      const aiText = await generateAiRecommendationText(
+        aiRecommendation.skill,
+        combinedDisplayName,
+        aiRecommendation.skillProgress,
+        aiRecommendation.skillDemand,
+        aiRecommendation.skillJobs
+      );
+      if (aiText) {
+        aiRecommendation.aiGeneratedReason = aiText;
+      }
+    } catch (e) {
+      // Non-critical: the formula-based reason is always available
+      console.warn('[careerInsights] AI text generation failed, using formula-based reason');
+    }
+  }
+
+  return {
+    domain: domains.join(','),
+    displayName:  combinedDisplayName,
+    skills:               enrichedSkills,
+    jobMatchPercent,
+    careerReadinessPercent,
+    roadmapProgress,
+    practiceAccuracy,
+    streak,
+    aiRecommendation,
+    dataSource: globalDataSource,
+    lastUpdated: globalLastUpdated,
   };
 }
 
@@ -257,7 +547,6 @@ exports.getInsights = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // ── 1. Fetch active roadmap ──────────────────────────────────────────────
     const roadmap = await Roadmap.findOne({ userId, status: 'active' }).lean();
 
     if (!roadmap) {
@@ -268,79 +557,14 @@ exports.getInsights = async (req, res) => {
       });
     }
 
-    const domain          = normaliseDomain(roadmap.domain || roadmap.domains?.[0]);
-    const domainData      = DOMAIN_MARKET_DATA[domain] || DOMAIN_MARKET_DATA.web_development;
-    const dailySessions   = roadmap.dailySessions || [];
-    const roadmapStats    = roadmap.stats || {};
+    const domainsArray = (roadmap.domains && roadmap.domains.length > 0) 
+      ? roadmap.domains 
+      : [roadmap.domain || 'web_development'];
+    const normalizedDomains = domainsArray.map(normaliseDomain);
+    
+    const data = await buildInsightsResponse(roadmap, normalizedDomains, false);
 
-    // ── 2. Roadmap progress ──────────────────────────────────────────────────
-    const roadmapProgress = roadmapStats.progressPercent
-      || (dailySessions.length > 0
-        ? Math.round((dailySessions.filter(s => s.status === 'completed').length / dailySessions.length) * 100)
-        : 0);
-
-    // ── 3. Practice accuracy from analyticsTestResults ───────────────────────
-    const analyticsResults = roadmap.analyticsTestResults || [];
-    let practiceAccuracy = 0;
-    if (analyticsResults.length > 0) {
-      const totalCorrect   = analyticsResults.reduce((s, r) => s + (r.correctAnswers   || 0), 0);
-      const totalQuestions = analyticsResults.reduce((s, r) => s + (r.totalQuestions || 5), 0);
-      practiceAccuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
-    } else {
-      // Fall back to session-level practice completion ratio
-      const withPractice   = dailySessions.filter(s => s.practiceCompleted);
-      const completedSess  = dailySessions.filter(s => s.status === 'completed');
-      practiceAccuracy = completedSess.length > 0
-        ? Math.round((withPractice.length / completedSess.length) * 100)
-        : 0;
-    }
-
-    // ── 4. Streak ────────────────────────────────────────────────────────────
-    const streak = roadmapStats.streak || 0;
-
-    // ── 5. Compute per-skill progress ────────────────────────────────────────
-    const enrichedSkills = domainData.skills.map(skill => {
-      const { progress, completedSessions, totalSessions } = computeSkillProgress(skill, dailySessions);
-      return {
-        name:              skill.name,
-        demand:            skill.demand,
-        jobs:              skill.jobs,
-        color:             skill.color || 'from-blue-500 to-cyan-500',
-        progress,
-        completedSessions,
-        totalSessions,
-        status:            progressToStatus(progress),
-      };
-    });
-
-    // ── 6. Aggregate metrics ─────────────────────────────────────────────────
-    // Assume projectCompletion from roadmapStats or default to 50 for realistic numbers
-    const projectCompletion = roadmapStats.projectCompletion || (roadmapProgress > 20 ? 50 : 0);
-    const jobMatchPercent        = computeJobMatch(enrichedSkills, roadmapProgress);
-    const careerReadinessPercent = computeCareerReadiness(roadmapProgress, practiceAccuracy, streak, projectCompletion);
-    const aiRecommendation       = computeAiRecommendation(enrichedSkills, domainData.displayName);
-
-    // ── 7. Response ──────────────────────────────────────────────────────────
-    return res.status(200).json({
-      success: true,
-      data: {
-        domain,
-        displayName:  domainData.displayName,
-        totalPostings: domainData.totalPostings,
-        marketData: {
-          activeJobs: domainData.activeJobs,
-          avgSalary:  domainData.avgSalary,
-          growthRate: domainData.growthRate,
-        },
-        skills:               enrichedSkills,
-        jobMatchPercent,
-        careerReadinessPercent,
-        roadmapProgress,
-        practiceAccuracy,
-        streak,
-        aiRecommendation,
-      }
-    });
+    return res.status(200).json({ success: true, data });
 
   } catch (err) {
     console.error('[careerInsightsController] getInsights error:', err);
@@ -349,9 +573,50 @@ exports.getInsights = async (req, res) => {
 };
 
 /**
+ * @desc   Force-refresh career market insights
+ * @route  POST /api/career/insights/refresh
+ * @access Private
+ */
+exports.refreshInsights = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const roadmap = await Roadmap.findOne({ userId, status: 'active' }).lean();
+
+    if (!roadmap) {
+      return res.status(200).json({
+        success:  true,
+        noRoadmap: true,
+        message:  'No active roadmap found. Generate a roadmap first.',
+      });
+    }
+
+    const domainsArray = (roadmap.domains && roadmap.domains.length > 0) 
+      ? roadmap.domains 
+      : [roadmap.domain || 'web_development'];
+    const normalizedDomains = domainsArray.map(normaliseDomain);
+    
+    const data = await buildInsightsResponse(roadmap, normalizedDomains, true);
+
+    return res.status(200).json({ success: true, data });
+
+  } catch (err) {
+    console.error('[careerInsightsController] refreshInsights error:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/**
  * @desc   Add an AI recommended skill to the user's roadmap
  * @route  POST /api/career/add-skill
  * @access Private
+ *
+ * Steps:
+ * 1. Check if skill already exists in roadmap
+ * 2. Generate full learning content (watch, read, practice, projects)
+ * 3. Insert as a new session at the end of the roadmap
+ * 4. Recalculate roadmap progress
+ * 5. Return fresh insights with new recommendation
  */
 exports.addRecommendedSkill = async (req, res) => {
   try {
@@ -367,9 +632,51 @@ exports.addRecommendedSkill = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Active roadmap not found' });
     }
 
+    // ── 1. Check for duplicates ──
+    const normalizedSkill = skillName.toLowerCase().trim();
+    const existingSession = roadmap.dailySessions.find(s => {
+      const title    = (s.title || '').toLowerCase().trim();
+      const topicKey = (s.topicKey || '').toLowerCase().trim();
+      
+      if (!title && !topicKey) return false;
+
+      // Exact matches
+      if (title === normalizedSkill || topicKey === normalizedSkill.replace(/\s+/g, '_')) {
+        console.log(`[DuplicateCheck] Exact match found! title: "${title}", topicKey: "${topicKey}", skill: "${normalizedSkill}"`);
+        return true;
+      }
+
+      // Safe substring matches (only if the title is substantial, avoiding generic short words)
+      if (title.length > 4 && normalizedSkill.includes(title)) {
+        console.log(`[DuplicateCheck] Substring match (normalizedSkill includes title)! title: "${title}", skill: "${normalizedSkill}"`);
+        return true;
+      }
+      if (normalizedSkill.length > 4 && title.includes(normalizedSkill)) {
+        console.log(`[DuplicateCheck] Substring match (title includes normalizedSkill)! title: "${title}", skill: "${normalizedSkill}"`);
+        return true;
+      }
+
+      return false;
+    });
+
+    if (existingSession) {
+      console.log(`[DuplicateCheck] Blocking "${skillName}" because it matched existing session "${existingSession.title}" (ID: ${existingSession.id})`);
+      return res.status(200).json({
+        success: true,
+        alreadyExists: true,
+        message: `"${skillName}" already exists in your roadmap.`,
+        existingSession: {
+          id:     existingSession.id,
+          day:    existingSession.day,
+          title:  existingSession.title,
+          status: existingSession.status,
+        },
+      });
+    }
+
     const domain = roadmap.domain || (roadmap.domains && roadmap.domains[0]) || 'web_development';
     
-    // Generate AI content for the recommended skill
+    // ── 2. Generate full AI content (watch + read + practice + projects) ──
     const content = await generateTopicContent(
       skillName, 
       domain, 
@@ -377,10 +684,13 @@ exports.addRecommendedSkill = async (req, res) => {
       roadmap.preferredLanguage || 'javascript'
     );
 
-    // Create a new session node
+    // ── 3. Create new session with full content ──
+    const maxId  = roadmap.dailySessions.length > 0 ? Math.max(...roadmap.dailySessions.map(s => s.id || 0)) : 0;
+    const maxDay = roadmap.dailySessions.length > 0 ? Math.max(...roadmap.dailySessions.map(s => s.day || 0)) : 0;
+
     const newSession = {
-      id: roadmap.dailySessions.length > 0 ? Math.max(...roadmap.dailySessions.map(s => s.id)) + 1 : 1,
-      day: roadmap.dailySessions.length > 0 ? Math.max(...roadmap.dailySessions.map(s => s.day)) + 1 : 1,
+      id: maxId + 1,
+      day: maxDay + 1,
       time: 'Flexible',
       title: skillName,
       topicKey: skillName.toLowerCase().replace(/\s+/g, '_'),
@@ -392,58 +702,129 @@ exports.addRecommendedSkill = async (req, res) => {
       domain: domain,
       preferredLanguage: content.preferredLanguage,
       preferredLanguageDisplay: content.preferredLanguageDisplay,
-      phaseId: 999, // dynamic AI phase
+      phaseId: 999,
       phaseTitle: 'AI Recommended Skills',
       details: [
         `• Part of: AI Recommendations`,
         `• Topic: ${skillName}`,
-        `• Estimated: 2 hours`,
-        `• Added dynamically based on market demand`
+        `• Estimated: 2 hours (1h learning + 1h practice)`,
+        `• Added based on market demand analysis`
       ],
-      status: 'locked', // or current if it's the next up
+      status: 'locked',
       icon: 'Zap',
-      color: '#10b981', // emerald
+      color: '#10b981',
       videoId: content.videoId,
       embedUrl: content.embedUrl,
       watchUrl: content.watchUrl,
       resources: []
     };
 
-    if (content.videoTitle) {
+    // Add video resource
+    if (content.videoTitle || content.videoId) {
       newSession.resources.push({
         type: 'video',
-        title: content.videoTitle,
+        title: content.videoTitle || `${skillName} Tutorial`,
         videoId: content.videoId,
         url: content.watchUrl,
-        channel: content.videoChannel
+        channel: content.videoChannel || 'YouTube'
       });
     }
 
+    // Add documentation resource
     if (content.documentation) {
       newSession.resources.push({
         type: 'article',
-        title: content.documentation.title,
+        title: content.documentation.title || `${skillName} Documentation`,
         url: content.documentation.url
       });
     }
 
-    // Insert the new session into the roadmap at the end for simplicity
+    // Add practice resource
+    if (content.practice) {
+      newSession.resources.push({
+        type: 'practice',
+        title: content.practice.title || `Practice ${skillName}`,
+        url: content.practice.url
+      });
+    }
+
+    // Add project resource
+    if (content.project) {
+      newSession.resources.push({
+        type: 'course',
+        title: content.project.title || `${skillName} Project`,
+        url: content.project.url
+      });
+    }
+
+    // ── 4. Insert into roadmap ──
     roadmap.dailySessions.push(newSession);
-    
-    // Check if the user is currently at the end of their roadmap
-    // If they have no active session, we could make this one active
+
+    const maxMilestoneId = roadmap.milestones && roadmap.milestones.length > 0 
+      ? Math.max(...roadmap.milestones.map(m => m.id || 0)) 
+      : 0;
+
+    if (!roadmap.milestones) roadmap.milestones = [];
+    roadmap.milestones.push({
+      id: maxMilestoneId + 1,
+      title: skillName,
+      subtitle: 'AI Recommended',
+      color: '#10b981',
+      durationWeeks: 1,
+      estimatedHours: 2,
+      status: 'locked',
+      progress: 0,
+      position: { x: 50, y: 50 },
+      topics: [
+        {
+          name: skillName,
+          topicKey: skillName.toLowerCase().replace(/\s+/g, '_'),
+          completed: false,
+          duration: '2h',
+          estimatedHours: 2
+        }
+      ],
+      resources: newSession.resources,
+      domain: domain
+    });
+
+    // If no session is currently active, make this one active
     const hasCurrent = roadmap.dailySessions.some(s => s.status === 'current');
     if (!hasCurrent) {
       newSession.status = 'current';
+      roadmap.milestones[roadmap.milestones.length - 1].status = 'current';
     }
 
+    // ── 5. Recalculate roadmap stats ──
+    const totalSessions   = roadmap.dailySessions.length;
+    const completedCount  = roadmap.dailySessions.filter(s => s.status === 'completed').length;
+    const newProgress     = totalSessions > 0 ? Math.round((completedCount / totalSessions) * 100) : 0;
+
+    if (!roadmap.stats) roadmap.stats = {};
+    roadmap.stats.progressPercent = newProgress;
+    roadmap.stats.totalSessions   = totalSessions;
+    roadmap.stats.totalDays       = Math.max(roadmap.stats.totalDays || 0, maxDay + 1);
+    roadmap.stats.daysLeft        = (roadmap.stats.totalDays || maxDay + 1) - (roadmap.stats.currentDay || 1) + 1;
+
     roadmap.markModified('dailySessions');
+    roadmap.markModified('milestones');
+    roadmap.markModified('stats');
     await roadmap.save();
+
+    // ── 6. Return fresh insights with new recommendation ──
+    const freshRoadmap = await Roadmap.findOne({ userId, status: 'active' }).lean();
+    const domainsArray = (freshRoadmap.domains && freshRoadmap.domains.length > 0) 
+      ? freshRoadmap.domains 
+      : [freshRoadmap.domain || 'web_development'];
+    const normalizedDomains = domainsArray.map(normaliseDomain);
+    
+    const freshData = await buildInsightsResponse(freshRoadmap, normalizedDomains, false);
 
     return res.status(200).json({
       success: true,
-      message: `Successfully added ${skillName} to your roadmap.`,
-      session: newSession
+      message: `Successfully added "${skillName}" to your roadmap with full learning content.`,
+      session: newSession,
+      freshInsights: freshData,
     });
 
   } catch (err) {

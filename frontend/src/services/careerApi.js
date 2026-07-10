@@ -13,6 +13,7 @@ const authHeaders = () => ({
 
 /**
  * Fetch dynamic, personalised career market insights.
+ * Uses 24h cached data if available.
  * Returns null if no roadmap exists yet.
  */
 export async function fetchCareerInsights() {
@@ -21,6 +22,22 @@ export async function fetchCareerInsights() {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || 'Failed to fetch career insights');
+  if (data.noRoadmap) return null;
+  return data.data;
+}
+
+/**
+ * Force-refresh career market insights.
+ * Bypasses the 24h cache and runs fresh AI + Tavily analysis.
+ * Returns null if no roadmap exists yet.
+ */
+export async function refreshCareerInsights() {
+  const res = await fetch(`${API_URL}/career/insights/refresh`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to refresh career insights');
   if (data.noRoadmap) return null;
   return data.data;
 }
