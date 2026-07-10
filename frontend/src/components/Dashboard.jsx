@@ -796,7 +796,14 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                   exit={{ opacity: 0, x: -20 }} 
                   className="mt-6"
                 >
-                  <CareerHub roadmapData={roadmapData} onRoadmapUpdate={refreshAll} />
+                  <CareerHub
+                    roadmapData={roadmapData}
+                    onRoadmapUpdate={refreshAll}
+                    onSkillAdded={() => {
+                      showToast('✨ Skill added! Check your Roadmap to see it highlighted.', 'success', 5000);
+                      setTimeout(() => setActiveTab('roadmap'), 1200);
+                    }}
+                  />
                 </motion.div>
               )}
 

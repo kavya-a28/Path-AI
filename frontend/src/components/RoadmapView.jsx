@@ -4,7 +4,7 @@ import {
   Map as MapIcon, CheckCircle2, Lock, AlertCircle,
   Zap, Star, BookOpen, Code, Rocket, X, Flag, ChevronDown, ChevronLeft, ChevronRight,
   Laptop, Server, Database, Shield, Globe, Loader2,
-  RefreshCw, ExternalLink, PlayCircle, Plus
+  RefreshCw, ExternalLink, PlayCircle, Plus, Sparkles
 } from 'lucide-react';
 import { getMyRoadmap, rescheduleRoadmap } from '../services/roadmapApi';
 import { calculateRealtimeStats } from '../utils/statsCalculator';
@@ -350,20 +350,15 @@ const RoadmapView = ({
   const milestones = React.useMemo(() => {
     if (rawMilestones.length <= 1) return rawMilestones;
 
-    // Check if positions have duplicates (old data)
-    const posSet = new Set(rawMilestones.map(m => `${m.position?.x},${m.position?.y}`));
-    const hasDuplicates = posSet.size < rawMilestones.length;
-    const hasManyMilestones = rawMilestones.length > 8;
-    
-    if (!hasDuplicates && !hasManyMilestones) return rawMilestones;
-
-    // Recompute positions along the SVG bezier path
+    // ALWAYS recompute positions along the SVG bezier path
+    // This ensures newly added milestones (which default to {x:50,y:50}) are
+    // correctly placed after existing ones on the winding road.
     const bezPt = (t, p0, p1, p2, p3) => {
       const u = 1 - t;
       return u*u*u*p0 + 3*u*u*t*p1 + 3*u*t*t*p2 + t*t*t*p3;
     };
     const segs = [
-      { type: 'line', x0: 6, y0: 20, x1: 16, y1: 20 },
+      { type: 'line',  x0: 6,  y0: 20, x1: 16, y1: 20 },
       { type: 'cubic', x0: 16, y0: 20, cx1: 55, cy1: 20, cx2: 92, cy2: 28, x1: 92, y1: 48 },
       { type: 'cubic', x0: 92, y0: 48, cx1: 92, cy1: 72, cx2: 35, cy2: 55, x1: 10, y1: 65 },
       { type: 'cubic', x0: 10, y0: 65, cx1: -5, cy1: 75, cx2: 30, cy2: 90, x1: 94, y1: 90 },
@@ -380,16 +375,16 @@ const RoadmapView = ({
         }
       }
     }
-    // Arc lengths
+    // Build arc-length table for uniform spacing
     const arcLen = [0];
     for (let i = 1; i < pts.length; i++) {
       const dx = pts[i].x - pts[i-1].x, dy = pts[i].y - pts[i-1].y;
       arcLen.push(arcLen[i-1] + Math.sqrt(dx*dx + dy*dy));
     }
-    const total = arcLen[arcLen.length - 1];
-    const pad = total * 0.06;
+    const total  = arcLen[arcLen.length - 1];
+    const pad    = total * 0.06;
     const usable = total - 2 * pad;
-    const count = rawMilestones.length;
+    const count  = rawMilestones.length;
 
     return rawMilestones.map((ms, m) => {
       const dist = pad + (count <= 1 ? usable / 2 : (m / (count - 1)) * usable);
@@ -458,13 +453,32 @@ const RoadmapView = ({
 
   const realStats = calculateRealtimeStats(roadmap);
   
-  const completedSessionCount = realStats.completedSessionCount;
+  const completedSessionCount   = realStats.completedSessionCount;
   const completedMilestoneCount = realStats.completedMilestoneCount;
   const dynamicProgress = dailySessions.length > 0
     ? Math.round((completedSessionCount / dailySessions.length) * 100)
     : (stats.progressPercent || 0);
   const dynamicXP = realStats.xpScore;
-  const dynamicDaysLeft = realStats.daysLeft;
+
+  // Days Left: prefer the server's pre-computed daysLeft (totalDays − currentDay + 1)
+  // which naturally counts DOWN as the user progresses day-by-day.
+  // Fall back to pending (non-completed) session count when server value is missing.
+  const dynamicDaysLeft = (() => {
+    // Server value: totalDays - currentDay + 1
+    if (stats.daysLeft != null && stats.daysLeft >= 0) return stats.daysLeft;
+    // Derive from server totals if daysLeft not stored
+    if (stats.totalDays && stats.currentDay) {
+      return Math.max(0, stats.totalDays - (stats.currentDay - 1));
+    }
+    // Last resort: count non-completed sessions
+    return dailySessions.filter(s => s.status !== 'completed').length;
+  })();
+
+  // Detect AI-recommended milestones (added from Career Hub)
+  const isAiRecommended = (ms) =>
+    ms?.subtitle === 'AI Recommended' ||
+    ms?.phaseTitle === 'AI Recommended Skills' ||
+    ms?.phaseId === 999;
 
   const milestonesLabel = timelineView === 'Monthly'
     ? `${stats.currentDay || 1}/${stats.totalDays || 30}`
@@ -649,15 +663,17 @@ const RoadmapView = ({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-5 border-2 border-blue-200">
                 <p className="text-3xl font-black text-slate-800">{milestonesLabel}</p>
-                <p className="text-xs font-bold text-slate-600 uppercase">Milestones</p>
+                <p className="text-xs font-bold text-slate-600 uppercase">Sessions</p>
               </div>
               <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-2xl p-5 border-2 border-cyan-200">
                 <p className="text-3xl font-black text-slate-800">{dynamicProgress}%</p>
                 <p className="text-xs font-bold text-slate-600 uppercase">Progress</p>
               </div>
               <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl p-5 border-2 border-purple-200">
-                <p className="text-3xl font-black text-slate-800">{dynamicDaysLeft}</p>
-                <p className="text-xs font-bold text-slate-600 uppercase">Days Left</p>
+                <p className="text-3xl font-black text-slate-800">
+                  {dailySessions.filter(s => s.status !== 'completed').length}
+                </p>
+                <p className="text-xs font-bold text-slate-600 uppercase">Pending</p>
               </div>
               <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl p-5">
                 <p className="text-3xl font-black text-white">{dynamicXP}</p>
@@ -754,25 +770,50 @@ const RoadmapView = ({
                 const labelClass = n > 8
                   ? 'opacity-0 group-hover:opacity-100 transition-opacity duration-200'
                   : '';
-                return milestones.map((ms, i) => (
-                  <motion.div key={ms.id}
-                    initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: 0.5 + i * 0.08, type: 'spring' }}
-                    onClick={() => setSelectedMilestone(ms)}
-                    className="absolute cursor-pointer group flex flex-col items-center"
-                    style={{ left: `${ms.position.x}%`, top: `${ms.position.y}%`, transform: 'translate(-50%,-50%)', zIndex: 20 }}>
-                    <div className={`${circleSize} rounded-full border-4 border-white shadow-xl flex items-center justify-center relative z-20 transition-transform group-hover:scale-110`}
-                      style={{ backgroundColor: ms.color }}>
-                      <span className={`${fontSize} font-black text-white`}>{i + 1}</span>
-                    </div>
-                    <div className={`absolute top-full mt-1 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-emerald-100 shadow-md whitespace-nowrap transform transition-all group-hover:-translate-y-1 z-30 ${labelClass}`}>
-                      <p className="text-xs font-bold text-slate-800 max-w-[160px] truncate">{ms.title}</p>
-                    </div>
-                    {ms.status === 'current' && (
-                      <div className={`absolute inset-0 rounded-full bg-white animate-ping opacity-30 z-10 ${circleSize}`} />
-                    )}
-                  </motion.div>
-                ));
+                return milestones.map((ms, i) => {
+                  const isNew = isAiRecommended(ms);
+                  // Flip label ABOVE the marker when near the bottom of the map
+                  // to prevent it being clipped by overflow-hidden
+                  const flipUp = ms.position.y > 60;
+                  return (
+                    <motion.div key={ms.id}
+                      initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: 0.5 + i * 0.08, type: 'spring' }}
+                      onClick={() => setSelectedMilestone(ms)}
+                      className="absolute cursor-pointer group flex flex-col items-center"
+                      style={{ left: `${ms.position.x}%`, top: `${ms.position.y}%`, transform: 'translate(-50%,-50%)', zIndex: 20 }}>
+                      {/* Outer glow ring for new AI-recommended milestones */}
+                      {isNew && (
+                        <motion.div
+                          animate={{ scale: [1, 1.4, 1], opacity: [0.5, 0, 0.5] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                          className={`absolute inset-0 rounded-full z-10 ${circleSize}`}
+                          style={{ backgroundColor: '#6ee7b7' }}
+                        />
+                      )}
+                      <div
+                        className={`${circleSize} rounded-full border-4 shadow-xl flex items-center justify-center relative z-20 transition-transform group-hover:scale-110 ${
+                          isNew ? 'border-emerald-300' : 'border-white'
+                        }`}
+                        style={{ backgroundColor: isNew ? '#a7f3d0' : ms.color }}>
+                        <span className={`${fontSize} font-black ${isNew ? 'text-emerald-800' : 'text-white'}`}>{i + 1}</span>
+                      </div>
+                      {/* Label: flips above when near bottom edge, below when near top */}
+                      <div className={`absolute ${flipUp ? 'bottom-full mb-2' : 'top-full mt-1'} backdrop-blur-md px-3 py-1.5 rounded-xl shadow-lg whitespace-nowrap transform transition-all z-30 pointer-events-none ${labelClass} ${
+                        isNew ? 'bg-emerald-50 border border-emerald-300' : 'bg-white/95 border border-emerald-100'
+                      }`}>
+                        <p className={`text-xs font-bold ${isNew ? 'text-emerald-700' : 'text-slate-800'}`}>{ms.title}</p>
+                        {isNew && (
+                          <span className="text-[9px] font-black text-emerald-500 uppercase tracking-wider">✨ New — AI Added</span>
+                        )}
+                      </div>
+                      {(ms.status === 'current' || isNew) && (
+                        <div className={`absolute inset-0 rounded-full animate-ping opacity-30 z-10 ${circleSize}`}
+                          style={{ backgroundColor: isNew ? '#6ee7b7' : 'white' }} />
+                      )}
+                    </motion.div>
+                  );
+                });
               })()}
             </>
           )}
@@ -811,49 +852,63 @@ const RoadmapView = ({
               <PineTree   x={95} y={60} delay={0.6} scale={0.9} />
 
               {/* Day nodes */}
-              {monthlyData.slice(1).map((day) => (
-                <motion.div key={day.id}
-                  initial={{ scale: 0 }} animate={{ scale: 1 }}
-                  transition={{ delay: day.id * 0.02, type: 'spring' }}
-                  onClick={() => setSelectedMilestone(day)}
-                  className="absolute cursor-pointer flex flex-col items-center group"
-                  style={{ left: `${day.position.x}%`, top: `${day.position.y}%`, transform: 'translate(-50%,-50%)', zIndex: 20 }}>
+              {monthlyData.slice(1).map((day) => {
+                // A monthly day node is 'new/AI-added' if its milestone is AI-recommended
+                const dayMs = milestones.find(m => day.milestoneTitle && m.title === day.milestoneTitle);
+                const isNewDay = isAiRecommended(dayMs);
+                return (
+                  <motion.div key={day.id}
+                    initial={{ scale: 0 }} animate={{ scale: 1 }}
+                    transition={{ delay: day.id * 0.02, type: 'spring' }}
+                    onClick={() => setSelectedMilestone(day)}
+                    className="absolute cursor-pointer flex flex-col items-center group"
+                    style={{ left: `${day.position.x}%`, top: `${day.position.y}%`, transform: 'translate(-50%,-50%)', zIndex: 20 }}>
 
-                  {/* Hover tooltip — shown for ALL days */}
-                  <div className="absolute bottom-full mb-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-                    <div className="bg-slate-900/95 backdrop-blur text-white px-3 py-2 rounded-xl shadow-xl border border-slate-700/50 flex flex-col items-center">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: day.topicColor }}></span>
-                        <p className="font-bold text-xs">{day.milestoneTitle || `Day ${day.id}`}</p>
+                    {/* Hover tooltip — shown for ALL days */}
+                    <div className="absolute bottom-full mb-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                      <div className={`backdrop-blur text-white px-3 py-2 rounded-xl shadow-xl flex flex-col items-center ${
+                        isNewDay ? 'bg-emerald-900/95 border border-emerald-600/50' : 'bg-slate-900/95 border border-slate-700/50'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: isNewDay ? '#6ee7b7' : day.topicColor }}></span>
+                          <p className="font-bold text-xs">{day.milestoneTitle || `Day ${day.id}`}</p>
+                          {isNewDay && <span className="text-[9px] font-black text-emerald-300">✨ NEW</span>}
+                        </div>
+                        {day.subtitle && day.subtitle !== day.milestoneTitle && (
+                          <p className="text-slate-400 font-medium text-[10px] max-w-[200px] truncate text-center">
+                            {day.subtitle.replace(day.milestoneTitle + ' — ', '')}
+                          </p>
+                        )}
                       </div>
-                      {day.subtitle && day.subtitle !== day.milestoneTitle && (
-                        <p className="text-slate-400 font-medium text-[10px] max-w-[200px] truncate text-center">
-                          {day.subtitle.replace(day.milestoneTitle + ' — ', '')}
-                        </p>
-                      )}
+                      <div className={`w-2.5 h-2.5 rotate-45 mx-auto -mt-1.5 border-r border-b ${
+                        isNewDay ? 'bg-emerald-900/95 border-emerald-600/50' : 'bg-slate-900/95 border-slate-700/50'
+                      }`} />
                     </div>
-                    <div className="w-2.5 h-2.5 bg-slate-900/95 rotate-45 mx-auto -mt-1.5 border-r border-b border-slate-700/50" />
-                  </div>
 
-                  <div className={`w-7 h-7 rounded-full shadow-md border-2 flex items-center justify-center transition-transform group-hover:scale-125 ${
-                    day.status === 'completed' ? 'bg-emerald-500 border-emerald-600 text-white' :
-                    day.status === 'missed'    ? 'bg-amber-400 border-amber-500 text-white' :
-                    day.status === 'current'   ? 'bg-white text-slate-700' :
-                                                 'bg-slate-200 border-slate-300 text-slate-400'
-                  }`} style={day.status === 'current' ? { borderColor: day.topicColor } : {}}>
-                    {day.status === 'locked'
-                      ? <Lock className="w-3 h-3" />
-                      : day.status === 'completed'
-                      ? <CheckCircle2 className="w-3.5 h-3.5" />
-                      : day.status === 'missed'
-                      ? <AlertCircle className="w-3.5 h-3.5" />
-                      : <span className="font-bold text-[10px]">{day.id}</span>}
-                  </div>
-                  {day.status === 'current' && (
-                    <div className="absolute inset-0 rounded-full bg-blue-400 animate-ping opacity-40 -z-10" />
-                  )}
-                </motion.div>
-              ))}
+                    <div className={`w-7 h-7 rounded-full shadow-md border-2 flex items-center justify-center transition-transform group-hover:scale-125 ${
+                      isNewDay
+                        ? 'bg-emerald-100 border-emerald-400 text-emerald-700'
+                        : day.status === 'completed' ? 'bg-emerald-500 border-emerald-600 text-white'
+                        : day.status === 'missed'    ? 'bg-amber-400 border-amber-500 text-white'
+                        : day.status === 'current'   ? 'bg-white text-slate-700'
+                        :                              'bg-slate-200 border-slate-300 text-slate-400'
+                    }`} style={(!isNewDay && day.status === 'current') ? { borderColor: day.topicColor } : {}}>
+                      {day.status === 'locked'
+                        ? <Lock className="w-3 h-3" />
+                        : day.status === 'completed'
+                        ? <CheckCircle2 className="w-3.5 h-3.5" />
+                        : day.status === 'missed'
+                        ? <AlertCircle className="w-3.5 h-3.5" />
+                        : <span className="font-bold text-[10px]">{day.id}</span>}
+                    </div>
+                    {(day.status === 'current' || isNewDay) && (
+                      <div className={`absolute inset-0 rounded-full animate-ping opacity-40 -z-10 ${
+                        isNewDay ? 'bg-emerald-400' : 'bg-blue-400'
+                      }`} />
+                    )}
+                  </motion.div>
+                );
+              })}
             </div>
           )}
 
@@ -946,6 +1001,7 @@ const RoadmapView = ({
                       const isCurrent = session.status === 'current';
                       const isMissed  = session.status === 'missed';
                       const isLocked  = session.status === 'locked';
+                      const isNewSession = isAiRecommended(session);
                       return (
                         <motion.div key={session.id}
                           initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
@@ -967,6 +1023,16 @@ const RoadmapView = ({
                             });
                           }}
                         >
+                          {/* NEW badge for AI-recommended sessions */}
+                          {isNewSession && (
+                            <motion.span
+                              animate={{ scale: [1, 1.05, 1] }}
+                              transition={{ duration: 1.5, repeat: Infinity }}
+                              className="mb-2 bg-emerald-400/30 border border-emerald-400/60 text-emerald-200 font-black text-[10px] px-4 py-1.5 rounded-full uppercase tracking-wider backdrop-blur-sm"
+                            >
+                              ✨ AI Added — New Skill
+                            </motion.span>
+                          )}
                           {/* Action buttons */}
                           {isComp && (
                             <span className="mb-3 bg-emerald-100 text-emerald-700 font-black text-[10px] px-4 py-1.5 rounded-full uppercase tracking-wider">
@@ -987,16 +1053,23 @@ const RoadmapView = ({
                             </button>
                           )}
 
-                          {/* Icon box – no ping, no hover scale */}
+                          {/* Icon box */}
                           <div className="mb-5">
-                            <div className={`w-24 h-24 rounded-2xl flex items-center justify-center shadow-xl border-4 border-white relative z-10 ${
-                              isComp    ? 'bg-gradient-to-br from-green-400 to-emerald-600' :
-                              isCurrent ? 'bg-gradient-to-br from-blue-500 to-indigo-600' :
-                              isMissed  ? 'bg-gradient-to-br from-amber-400 to-orange-500' :
-                                          'bg-gradient-to-br from-slate-300 to-slate-400 grayscale'
+                            <div className={`w-24 h-24 rounded-2xl flex items-center justify-center shadow-xl relative z-10 ${
+                              isNewSession
+                                ? 'bg-gradient-to-br from-emerald-300 to-teal-400 border-4 border-emerald-200'
+                                : isComp    ? 'bg-gradient-to-br from-green-400 to-emerald-600 border-4 border-white'
+                                : isCurrent ? 'bg-gradient-to-br from-blue-500 to-indigo-600 border-4 border-white'
+                                : isMissed  ? 'bg-gradient-to-br from-amber-400 to-orange-500 border-4 border-white'
+                                :             'bg-gradient-to-br from-slate-300 to-slate-400 grayscale border-4 border-white'
                             }`}>
                               <Icon className="w-12 h-12 text-white drop-shadow-md" />
-                              {isComp && (
+                              {isNewSession && (
+                                <div className="absolute -right-2 -top-2 bg-emerald-400 rounded-full p-1 shadow-sm">
+                                  <Sparkles className="w-4 h-4 text-white" />
+                                </div>
+                              )}
+                              {isComp && !isNewSession && (
                                 <div className="absolute -right-2 -top-2 bg-white rounded-full p-1 shadow-sm">
                                   <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                                 </div>

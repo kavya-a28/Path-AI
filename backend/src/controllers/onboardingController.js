@@ -2,8 +2,7 @@ const stateManager = require('../services/stateManager');
 const { extractProfile } = require('../services/profileExtractor');
 const { checkCompletion } = require('../services/completionChecker');
 const { buildQuestionQueue } = require('../services/nodes/aggregatorNode');
-const Groq = require('groq-sdk');
-
+const Groq = require('groq-sdk'); 
 const WELCOME_MESSAGE = "Hey there! I'm your AI mentor at PathAI. Instead of a boring quiz, let's have a quick conversation.\n\nTell me what you are aiming for right now. Placements, DSA, web development, cybersecurity, AI/ML, freelancing, or something else?";
 
 const WELCOME_SUGGESTIONS = ['FAANG placements', 'Build web apps', 'Explore AI/ML'];

@@ -167,20 +167,68 @@ function normaliseDomain(domain) {
 }
 
 /**
+ * Normalise a name to bare lowercase tokens (strips punctuation, splits on
+ * spaces / slashes / hyphens).  Used for fuzzy skill-name matching.
+ */
+function tokenize(str) {
+  if (!str) return [];
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')  // replace punctuation with space
+    .split(/\s+/)
+    .filter(t => t.length > 1);    // ignore single-char tokens
+}
+
+/**
+ * Returns true when the two strings share at least one significant token.
+ * E.g. "AWS / Cloud" vs "Amazon Web Services Cloud" → shares 'cloud'.
+ */
+function tokenOverlap(a, b) {
+  const ta = new Set(tokenize(a));
+  const tb = tokenize(b);
+  return tb.some(t => ta.has(t));
+}
+
+/**
  * Compute progress percentage for one market skill by matching
  * roadmap session titles & topicKeys against the skill's keywords.
+ *
+ * Matching strategy:
+ *   1. Keyword match  – session text contains one of the skill's explicit keywords.
+ *   2. AI-added match – session was added from Career Hub (phaseTitle =
+ *      'AI Recommended Skills') AND the session title directly matches the
+ *      skill name (exact or single-token overlap).
+ *
+ * We intentionally do NOT do broad bidirectional token matching for regular
+ * roadmap sessions – that causes false positives (e.g. a "Python Basics"
+ * session matching the "Python / Django" market skill even when the keywords
+ * don't include it).
  */
 function computeSkillProgress(skill, dailySessions) {
-  // Use explicit keywords if available, otherwise fallback to the skill name itself
+  const skillNameLower = skill.name.toLowerCase();
+
+  // Keyword list: use explicit keywords if available, else the skill name itself
   const kws = (skill.keywords && skill.keywords.length > 0)
     ? skill.keywords.map(k => k.toLowerCase())
-    : [skill.name.toLowerCase()];
+    : [skillNameLower];
 
-  const match = (text) =>
+  const keywordMatch = (text) =>
     text && kws.some(kw => text.toLowerCase().includes(kw));
 
-  const related = dailySessions.filter(
-    s => match(s.title) || match(s.topicKey) || match(s.phaseTitle)
+  // Only used for sessions that were explicitly added from Career Hub
+  const aiAddedMatch = (s) => {
+    if (s.phaseTitle !== 'AI Recommended Skills') return false;
+    const titleLower = (s.title || '').toLowerCase().trim();
+    // Exact title == skill name
+    if (titleLower === skillNameLower) return true;
+    // At least one significant token is shared between session title and skill name
+    return tokenOverlap(s.title, skill.name);
+  };
+
+  const related = dailySessions.filter(s =>
+    keywordMatch(s.title) ||
+    keywordMatch(s.topicKey) ||
+    aiAddedMatch(s)
   );
 
   if (related.length === 0) return { progress: 0, completedSessions: 0, totalSessions: 0 };
@@ -203,14 +251,25 @@ function progressToStatus(pct) {
 /** Compute overall job match %: (skills with roadmap presence / total skills). */
 function computeJobMatch(enrichedSkills, roadmapProgress) {
   if (!enrichedSkills.length) return 0;
-  let totalWeight = 0;
-  let weightedProgress = 0;
+
+  let totalWeight        = 0;
+  let weightedProgress   = 0;   // actual session-completion progress
+  let weightedCoverage   = 0;   // inRoadmap coverage (skill enrolled = 20% base)
+
   for (const s of enrichedSkills) {
-    totalWeight      += s.demand;
-    weightedProgress += (s.progress / 100) * s.demand;
+    totalWeight        += s.demand;
+    weightedProgress   += (s.progress / 100) * s.demand;
+    // A skill in the roadmap (even at 0% completion) counts as 20% effective coverage.
+    // A fully completed skill counts as 100%.
+    const effectivePct  = s.inRoadmap ? Math.max(s.progress, 20) : s.progress;
+    weightedCoverage   += (effectivePct / 100) * s.demand;
   }
-  const skillCoverage = totalWeight > 0 ? (weightedProgress / totalWeight) * 100 : 0;
-  return Math.round(skillCoverage * 0.7 + (roadmapProgress || 0) * 0.3);
+
+  const rawProgressScore = totalWeight > 0 ? (weightedProgress   / totalWeight) * 100 : 0;
+  const coverageScore    = totalWeight > 0 ? (weightedCoverage   / totalWeight) * 100 : 0;
+
+  // Weighted blend: coverage (40%) + actual progress (30%) + roadmap overall progress (30%)
+  return Math.min(100, Math.round(coverageScore * 0.4 + rawProgressScore * 0.3 + (roadmapProgress || 0) * 0.3));
 }
 
 /**
@@ -236,8 +295,9 @@ function computeAiRecommendation(enrichedSkills, displayName, currentJobMatch, c
   if (!enrichedSkills.length) return null;
 
   // Filter: exclude skills already in the roadmap (totalSessions > 0) or mastered
+  // Also exclude skills explicitly marked as inRoadmap (AI-added with no sessions yet)
   const candidates = enrichedSkills
-    .filter(s => s.status !== 'Mastered' && s.progress < 100 && s.totalSessions === 0)
+    .filter(s => s.status !== 'Mastered' && s.progress < 100 && s.totalSessions === 0 && !s.inRoadmap)
     .map(s => ({
       ...s,
       priorityScore: s.demand - s.progress,
@@ -472,8 +532,49 @@ async function buildInsightsResponse(roadmap, domains, forceRefresh = false) {
   const streak = roadmapStats.streak || 0;
 
   // ── 5. Compute per-skill progress ──
+  // Collect ALL session titles for broad duplicate-style matching.
+  // This ensures that if a skill would be blocked as a duplicate by addRecommendedSkill,
+  // it is also shown as "In Roadmap" here (instead of the confusing
+  // "Not in roadmap" + "already exists" combination).
+  const allSessionTitles = dailySessions
+    .map(s => (s.title || '').toLowerCase().trim())
+    .filter(t => t.length > 0);
+
+  // Also collect AI-added session titles specifically, for directAiMatch
+  const aiAddedTitles = dailySessions
+    .filter(s => s.phaseTitle === 'AI Recommended Skills')
+    .map(s => (s.title || '').toLowerCase().trim());
+
+  /**
+   * Mirrors the duplicate-check logic in addRecommendedSkill so that
+   * a skill blocked as a duplicate is also displayed as "In Roadmap".
+   */
+  function isSkillInRoadmapByTitle(skillNameLower) {
+    return allSessionTitles.some(title => {
+      if (!title) return false;
+      // Exact match
+      if (title === skillNameLower) return true;
+      // Safe substring match (same rules as duplicate check)
+      if (title.length > 4 && skillNameLower.includes(title)) return true;
+      if (skillNameLower.length > 4 && title.includes(skillNameLower)) return true;
+      return false;
+    });
+  }
+
   const enrichedSkills = mergedMarketSkills.map(skill => {
     const { progress, completedSessions, totalSessions } = computeSkillProgress(skill, dailySessions);
+    const skillNameLower = skill.name.toLowerCase().trim();
+
+    // Check if an AI-added session directly matches this market skill name
+    // (protects against keyword-mismatch from Tavily/Groq cached data)
+    const directAiMatch = aiAddedTitles.some(t =>
+      t === skillNameLower ||
+      tokenOverlap(t, skill.name)
+    );
+
+    // Broad title-based check: mirrors the duplicate detection in addRecommendedSkill
+    const titleMatch = isSkillInRoadmapByTitle(skillNameLower);
+
     return {
       name:              skill.name,
       demand:            skill.demand,
@@ -483,6 +584,9 @@ async function buildInsightsResponse(roadmap, domains, forceRefresh = false) {
       completedSessions,
       totalSessions,
       status:            progressToStatus(progress),
+      // inRoadmap = true when the skill is detected in the roadmap by ANY method:
+      // keyword-matched sessions, AI-added sessions, or broad title substring match
+      inRoadmap:         totalSessions > 0 || directAiMatch || titleMatch,
     };
   });
 

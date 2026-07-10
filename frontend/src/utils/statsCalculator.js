@@ -23,7 +23,9 @@ export const calculateRealtimeStats = (roadmapData) => {
   const sessions = roadmapData?.dailySessions || [];
   const milestones = roadmapData?.milestones || [];
   
-  const totalDays = parseDurationToDays(roadmapData?.profile?.targetDuration);
+  // Prefer the server-computed totalDays (updated when new skills are added)
+  // Fall back to parsing the targetDuration string
+  const totalDays = roadmapData?.stats?.totalDays || parseDurationToDays(roadmapData?.profile?.targetDuration);
   
   let completedDays = 0;
   const sessionsByDay = {};
