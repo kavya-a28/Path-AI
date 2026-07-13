@@ -135,7 +135,7 @@ export default function PracticeTestModal({ topic, domain, onClose, onComplete }
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="bg-white rounded-3xl p-10 shadow-2xl flex flex-col items-center max-w-sm w-full"
+          className="bg-white rounded-xl p-6 shadow-2xl flex flex-col items-center max-w-sm w-full"
         >
           <div className="relative mb-6">
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center">
@@ -143,7 +143,7 @@ export default function PracticeTestModal({ topic, domain, onClose, onComplete }
             </div>
             <Loader2 className="w-6 h-6 text-emerald-500 animate-spin absolute -bottom-1 -right-1" />
           </div>
-          <h2 className="text-xl font-black text-slate-800 mb-1">Loading Practice Test</h2>
+          <h2 className="text-lg font-bold text-slate-800 mb-1">Loading Practice Test</h2>
           <p className="text-slate-500 text-sm">Fetching 5 problems for <span className="font-bold text-emerald-600">{topic}</span></p>
         </motion.div>
       </div>
@@ -154,9 +154,9 @@ export default function PracticeTestModal({ topic, domain, onClose, onComplete }
   if (error) {
     return (
       <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center">
-        <div className="bg-white rounded-3xl p-8 shadow-2xl max-w-sm w-full">
+        <div className="bg-white rounded-xl p-6 shadow-2xl max-w-sm w-full">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-red-500 flex items-center gap-2">
+            <h2 className="text-lg font-bold text-red-500 flex items-center gap-2">
               <AlertCircle className="w-5 h-5" /> Error
             </h2>
             <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg transition"><X className="w-5 h-5 text-slate-400" /></button>
@@ -177,17 +177,17 @@ export default function PracticeTestModal({ topic, domain, onClose, onComplete }
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="bg-white rounded-3xl p-10 shadow-2xl max-w-md w-full text-center"
+          className="bg-white rounded-xl p-6 shadow-2xl max-w-md w-full text-center"
         >
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center mx-auto mb-6">
             <Trophy className="w-10 h-10 text-white" />
           </div>
-          <h2 className="text-2xl font-black text-slate-900 mb-2">Practice Test Complete!</h2>
-          <p className="text-slate-500 mb-6">You completed <span className="font-black text-emerald-600">{completedCount}</span> of <span className="font-black">{totalQuestions}</span> questions in <span className="font-mono font-bold">{formatTime(timeSeconds)}</span></p>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Practice Test Complete!</h2>
+          <p className="text-slate-500 mb-6">You completed <span className="font-bold text-emerald-600">{completedCount}</span> of <span className="font-bold">{totalQuestions}</span> questions in <span className="font-mono font-bold">{formatTime(timeSeconds)}</span></p>
 
           <div className="flex gap-2 justify-center mb-6">
             {questions.map((_, idx) => (
-              <div key={idx} className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm ${
+              <div key={idx} className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm ${
                 completedQuestions[idx]
                   ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-300'
                   : 'bg-red-50 text-red-400 border-2 border-red-200'
@@ -197,7 +197,7 @@ export default function PracticeTestModal({ topic, domain, onClose, onComplete }
             ))}
           </div>
 
-          <button onClick={onClose} className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl font-black shadow-lg hover:shadow-xl transition-all">
+          <button onClick={onClose} className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all">
             Done
           </button>
         </motion.div>
@@ -222,7 +222,7 @@ export default function PracticeTestModal({ topic, domain, onClose, onComplete }
             <X className="w-5 h-5 text-slate-500" />
           </button>
           <div>
-            <h2 className="text-base font-black text-slate-800 leading-tight">{topic} — Practice Test</h2>
+            <h2 className="text-base font-bold text-slate-800 leading-tight">{topic} — Practice Test</h2>
             <p className="text-xs font-semibold text-slate-400">Solve all 5 questions</p>
           </div>
         </div>
@@ -233,7 +233,7 @@ export default function PracticeTestModal({ topic, domain, onClose, onComplete }
             <button
               key={idx}
               onClick={() => { setCurrentIndex(idx); setActiveTestTab(0); }}
-              className={`w-9 h-9 rounded-xl text-xs font-black transition-all flex items-center justify-center ${
+              className={`w-9 h-9 rounded-xl text-xs font-bold transition-all flex items-center justify-center ${
                 idx === currentIndex
                   ? 'bg-slate-900 text-white shadow-lg scale-110'
                   : completedQuestions[idx]
@@ -250,7 +250,7 @@ export default function PracticeTestModal({ topic, domain, onClose, onComplete }
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 bg-slate-100 px-4 py-2 rounded-xl">
             <Timer className="w-4 h-4 text-slate-500" />
-            <span className="font-mono text-base font-black text-slate-700">{formatTime(timeSeconds)}</span>
+            <span className="font-mono text-base font-bold text-slate-700">{formatTime(timeSeconds)}</span>
           </div>
           <div className="text-xs font-bold text-slate-400">
             {completedCount}/{totalQuestions} solved
@@ -263,12 +263,12 @@ export default function PracticeTestModal({ topic, domain, onClose, onComplete }
 
         {/* ═══ LEFT: PROBLEM DESCRIPTION ═══ */}
         <div className="w-[42%] bg-white border-r border-slate-200 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-5">
 
             {/* Title + Difficulty */}
-            <h3 className="text-xl font-black text-slate-900 mb-3 leading-tight">{currentQ.title}</h3>
+            <h3 className="text-lg font-bold text-slate-900 mb-3 leading-tight">{currentQ.title}</h3>
             <div className="flex items-center gap-3 mb-5 flex-wrap">
-              <span className={`px-3 py-1 rounded-full text-xs font-black ${
+              <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                 currentQ.difficulty === 'HARD' ? 'bg-red-100 text-red-600' :
                 currentQ.difficulty === 'MEDIUM' ? 'bg-amber-100 text-amber-600' :
                 'bg-emerald-100 text-emerald-600'
@@ -286,13 +286,13 @@ export default function PracticeTestModal({ topic, domain, onClose, onComplete }
 
               {currentQ.inputFormat && (
                 <div>
-                  <h4 className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1">Input Format</h4>
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Input Format</h4>
                   <p className="text-sm text-slate-600">{currentQ.inputFormat}</p>
                 </div>
               )}
               {currentQ.outputFormat && (
                 <div>
-                  <h4 className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1">Output Format</h4>
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Output Format</h4>
                   <p className="text-sm text-slate-600">{currentQ.outputFormat}</p>
                 </div>
               )}
@@ -302,7 +302,7 @@ export default function PracticeTestModal({ topic, domain, onClose, onComplete }
             {currentQ.example && (
               <div className="mt-5 border border-slate-200 rounded-xl overflow-hidden">
                 <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-                  <h4 className="text-xs font-black text-slate-600 uppercase tracking-wider">Examples:</h4>
+                  <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Examples:</h4>
                 </div>
                 <div className="p-4 space-y-3">
                   <div>
@@ -380,7 +380,7 @@ export default function PracticeTestModal({ topic, domain, onClose, onComplete }
                   : 'bg-slate-50 border-slate-200'
               }`}>
                 <div className="flex items-center gap-3">
-                  <span className={`text-lg font-bold ${
+                  <span className={`text-base font-bold ${
                     currentResult.compileError ? 'text-red-500' :
                     currentResult.passed ? 'text-emerald-500' : 'text-red-500'
                   }`}>

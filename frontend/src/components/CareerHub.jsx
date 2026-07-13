@@ -6,7 +6,7 @@ import {
   Zap, Award, Sparkles, Brain, Rocket,
   RefreshCw, Users, AlertTriangle, Star, Database
 } from 'lucide-react';
-import { fetchCareerInsights, refreshCareerInsights, addRecommendedSkill, fetchJobMatches, refreshJobMatches } from '../services/careerApi';
+import { fetchCareerInsights, refreshCareerInsights, addRecommendedSkill } from '../services/careerApi';
 
 // ─── Skill status config ─────────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -25,12 +25,13 @@ const DATA_SOURCE_LABELS = {
 };
 
 // ─── Platform config ──────────────────────────────────────────────────────────
-const PLATFORM_FILTERS = ['All platforms', 'Internshala', 'Naukri', 'LinkedIn', 'Company site'];
+const PLATFORM_FILTERS = ['All platforms', 'Internshala', 'Naukri', 'LinkedIn', 'Glassdoor', 'Company site'];
 
 const PLATFORM_COLORS = {
   Internshala:    'bg-blue-50 text-blue-600 border border-blue-100',
   Naukri:         'bg-orange-50 text-orange-600 border border-orange-100',
   LinkedIn:       'bg-sky-50 text-sky-600 border border-sky-100',
+  Glassdoor:      'bg-emerald-50 text-emerald-600 border border-emerald-100',
   'Company site': 'bg-purple-50 text-purple-600 border border-purple-100',
 };
 
@@ -49,7 +50,7 @@ function CompanyLogo({ company }) {
   const color = colors[idx];
   const initials = (company || '?').slice(0, 2).toUpperCase();
   return (
-    <div className={`w-12 h-12 rounded-2xl ${color} flex items-center justify-center font-black text-lg flex-shrink-0`}>
+    <div className={`w-12 h-12 rounded-xl ${color} flex items-center justify-center font-bold text-base flex-shrink-0`}>
       {initials}
     </div>
   );
@@ -58,9 +59,9 @@ function CompanyLogo({ company }) {
 // ─── Job card skeleton ────────────────────────────────────────────────────────
 function JobCardSkeleton() {
   return (
-    <div className="bg-white border border-slate-100 rounded-2xl p-5 animate-pulse shadow-sm">
+    <div className="bg-white border border-slate-100 rounded-xl p-5 animate-pulse shadow-sm">
       <div className="flex items-start gap-3 mb-4">
-        <div className="w-12 h-12 rounded-2xl bg-slate-100" />
+        <div className="w-12 h-12 rounded-xl bg-slate-100" />
         <div className="flex-1 space-y-2">
           <div className="h-4 bg-slate-100 rounded w-3/4" />
           <div className="h-3 bg-slate-100 rounded w-1/2" />
@@ -79,10 +80,10 @@ function JobCardSkeleton() {
 
 // ─── Skeleton loader ─────────────────────────────────────────────────────────
 const SkillSkeleton = () => (
-  <div className="bg-white/5 border border-white/10 rounded-3xl p-6 animate-pulse">
+  <div className="bg-white/5 border border-white/10 rounded-xl p-5 animate-pulse">
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-2xl bg-white/10" />
+        <div className="w-12 h-12 rounded-xl bg-white/10" />
         <div className="space-y-2">
           <div className="h-5 w-32 bg-white/10 rounded-xl" />
           <div className="h-3 w-24 bg-white/10 rounded-xl" />
@@ -96,9 +97,9 @@ const SkillSkeleton = () => (
 );
 
 const StatSkeleton = () => (
-  <div className="bg-white/80 border border-white rounded-3xl p-6 shadow-xl animate-pulse">
+  <div className="bg-white/80 border border-white rounded-xl p-5 shadow-xl animate-pulse">
     <div className="flex items-center gap-3 mb-4">
-      <div className="w-12 h-12 rounded-2xl bg-slate-200" />
+      <div className="w-12 h-12 rounded-xl bg-slate-200" />
       <div className="space-y-2">
         <div className="h-3 w-20 bg-slate-200 rounded" />
         <div className="h-7 w-16 bg-slate-200 rounded" />
@@ -135,17 +136,9 @@ const CareerHub = ({ roadmapData, onRoadmapUpdate }) => {
   const [error, setError]                     = useState(null);
   const [addSkillResult, setAddSkillResult]   = useState(null); // { type: 'success'|'exists'|'error', message }
 
-  // ── Job Matches state ────────────────────────────────────────────────────
-  const [jobsData, setJobsData]               = useState(null);     // { jobs, domain, source }
-  const [jobsLoading, setJobsLoading]         = useState(false);
-  const [jobsRefreshing, setJobsRefreshing]   = useState(false);
-  const [jobsError, setJobsError]             = useState(null);
-  const [activePlatform, setActivePlatform]   = useState('All platforms');
-  const [savedJobs, setSavedJobs]             = useState(new Set()); // bookmarked job ids
-
   const tabs = [
     { id: 'insights', label: 'Market Insights', icon: TrendingUp },
-    { id: 'jobs',     label: 'Job Matches',     icon: Briefcase  },
+    { id: 'jobs',     label: 'Career Platforms', icon: Briefcase  },
   ];
 
   // ── Load insights from API (uses 24h cache) ──────────────────────────────
@@ -177,67 +170,6 @@ const CareerHub = ({ roadmapData, onRoadmapUpdate }) => {
   }, []);
 
   useEffect(() => { loadInsights(); }, [loadInsights]);
-
-  // ── Load job matches when jobs tab first becomes active ──────────────────
-  const loadJobMatches = useCallback(async () => {
-    try {
-      setJobsLoading(true);
-      setJobsError(null);
-      const data = await fetchJobMatches();
-      setJobsData(data);
-    } catch (err) {
-      setJobsError(err.message || 'Failed to load job matches');
-    } finally {
-      setJobsLoading(false);
-    }
-  }, []);
-
-  const handleRefreshJobs = useCallback(async () => {
-    try {
-      setJobsRefreshing(true);
-      setJobsError(null);
-      const data = await refreshJobMatches();
-      setJobsData(data);
-    } catch (err) {
-      setJobsError(err.message || 'Failed to refresh job matches');
-    } finally {
-      setJobsRefreshing(false);
-    }
-  }, []);
-
-  // Load jobs when switching to jobs tab (lazy load)
-  useEffect(() => {
-    if (activeTab === 'jobs' && !jobsData && !jobsLoading) {
-      loadJobMatches();
-    }
-  }, [activeTab, jobsData, jobsLoading, loadJobMatches]);
-
-  // Bookmark toggle
-  const toggleSave = (jobId) => {
-    setSavedJobs(prev => {
-      const next = new Set(prev);
-      if (next.has(jobId)) next.delete(jobId); else next.add(jobId);
-      return next;
-    });
-  };
-
-  // Filtered jobs based on selected platform
-  const filteredJobs = (jobsData?.jobs || []).filter(j =>
-    activePlatform === 'All platforms' || j.platform === activePlatform
-  );
-
-  // Match score color
-  const scoreColor = (pct) => {
-    if (pct >= 75) return 'text-emerald-600';
-    if (pct >= 50) return 'text-amber-500';
-    return 'text-red-500';
-  };
-
-  const scoreBarColor = (pct) => {
-    if (pct >= 75) return 'bg-emerald-500';
-    if (pct >= 50) return 'bg-amber-400';
-    return 'bg-red-400';
-  };
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const getStatusConfig = (status) => STATUS_CONFIG[status] || STATUS_CONFIG['Not Started'];
@@ -301,12 +233,12 @@ const CareerHub = ({ roadmapData, onRoadmapUpdate }) => {
       <div className="space-y-8">
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-3 bg-white/80 backdrop-blur-sm border border-white p-2 rounded-3xl shadow-lg w-fit">
+        <div className="flex items-center gap-3 bg-white/80 backdrop-blur-sm border border-white p-2 rounded-xl shadow-lg w-fit">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold transition-all ${
+              className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold transition-all ${
                 activeTab === tab.id
                   ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-lg'
                   : 'text-slate-600 hover:bg-slate-50'
@@ -336,7 +268,7 @@ const CareerHub = ({ roadmapData, onRoadmapUpdate }) => {
               <motion.div
                 initial={{ scale: 0.95 }}
                 animate={{ scale: 1 }}
-                className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-[48px] p-10 overflow-hidden shadow-2xl"
+                className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-[48px] p-6 overflow-hidden shadow-2xl"
               >
                 {/* Animated background blobs */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -360,12 +292,12 @@ const CareerHub = ({ roadmapData, onRoadmapUpdate }) => {
                         <motion.div
                           animate={{ rotate: [0, 360] }}
                           transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-                          className="w-14 h-14 rounded-2xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-xl"
+                          className="w-14 h-14 rounded-xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-xl"
                         >
                           <TrendingUp className="w-7 h-7 text-white" />
                         </motion.div>
                         <div>
-                          <h2 className="text-3xl font-black text-white tracking-tight">
+                          <h2 className="text-2xl font-bold text-white tracking-tight">
                             {loading
                               ? 'Loading Market Insights...'
                               : insights
@@ -403,7 +335,7 @@ const CareerHub = ({ roadmapData, onRoadmapUpdate }) => {
                       whileTap={{ scale: 0.95 }}
                       onClick={handleRefresh}
                       disabled={refreshing}
-                      className="flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white px-4 py-2 rounded-2xl font-bold hover:bg-white/20 transition-all disabled:opacity-50"
+                      className="flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white px-4 py-2 rounded-xl font-bold hover:bg-white/20 transition-all disabled:opacity-50"
                     >
                       <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                       <span>{refreshing ? 'Analyzing...' : 'Refresh'}</span>
@@ -416,7 +348,7 @@ const CareerHub = ({ roadmapData, onRoadmapUpdate }) => {
                       ? [...Array(4)].map((_, i) => <SkillSkeleton key={i} />)
                       : error
                         ? (
-                          <div className="bg-red-500/20 border border-red-500/30 rounded-3xl p-6 text-center">
+                          <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-5 text-center">
                             <p className="text-red-300 font-bold">{error}</p>
                             <button
                               onClick={() => loadInsights()}
@@ -428,9 +360,9 @@ const CareerHub = ({ roadmapData, onRoadmapUpdate }) => {
                         )
                         : !insights
                           ? (
-                            <div className="bg-white/5 border border-white/10 rounded-3xl p-8 text-center">
+                            <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
                               <Brain className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-                              <p className="text-slate-300 font-bold text-lg">No Roadmap Yet</p>
+                              <p className="text-slate-300 font-bold text-base">No Roadmap Yet</p>
                               <p className="text-slate-400 text-sm mt-1">
                                 Complete your onboarding to get personalised market insights.
                               </p>
@@ -448,15 +380,15 @@ const CareerHub = ({ roadmapData, onRoadmapUpdate }) => {
                                   initial={{ x: -20, opacity: 0 }}
                                   animate={{ x: 0, opacity: 1 }}
                                   transition={{ delay: index * 0.08 }}
-                                  className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl p-6 hover:bg-white/10 transition-all"
+                                  className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-5 hover:bg-white/10 transition-all"
                                 >
                                   <div className="flex items-center justify-between mb-4">
                                     <div className="flex items-center gap-4">
-                                      <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${skill.color} flex items-center justify-center shadow-lg`}>
+                                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${skill.color} flex items-center justify-center shadow-lg`}>
                                         <Zap className="w-6 h-6 text-white" />
                                       </div>
                                       <div>
-                                        <h3 className="text-xl font-black text-white tracking-tight">
+                                        <h3 className="text-lg font-bold text-white tracking-tight">
                                           {skill.name}
                                         </h3>
                                         <p className="text-sm text-slate-400 font-medium">
@@ -465,7 +397,7 @@ const CareerHub = ({ roadmapData, onRoadmapUpdate }) => {
                                       </div>
                                     </div>
                                     <div className="text-right">
-                                      <div className="text-3xl font-black text-white mb-1">{skill.demand}%</div>
+                                      <div className="text-2xl font-bold text-white mb-1">{skill.demand}%</div>
                                       <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">Demand</div>
                                     </div>
                                   </div>
@@ -514,7 +446,7 @@ const CareerHub = ({ roadmapData, onRoadmapUpdate }) => {
                                     <div className="flex items-center gap-2">
                                       <StatusIcon className={`w-4 h-4 ${cfg.iconColor}`} />
                                       <span className="text-sm font-bold text-slate-300">Your Status:</span>
-                                      <span className={`text-sm font-black px-3 py-1 rounded-full border ${cfg.color}`}>
+                                      <span className={`text-sm font-bold px-3 py-1 rounded-full border ${cfg.color}`}>
                                         {skill.status}
                                       </span>
                                     </div>
@@ -543,32 +475,32 @@ const CareerHub = ({ roadmapData, onRoadmapUpdate }) => {
                       initial={{ y: 20, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
                       transition={{ delay: 0.5 }}
-                      className="bg-gradient-to-br from-emerald-500/20 via-teal-500/20 to-cyan-500/20 backdrop-blur-sm border border-emerald-400/30 rounded-3xl p-8 text-center"
+                      className="bg-gradient-to-br from-emerald-500/20 via-teal-500/20 to-cyan-500/20 backdrop-blur-sm border border-emerald-400/30 rounded-xl p-6 text-center"
                     >
                       <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-400 flex items-center justify-center shadow-xl mx-auto mb-5">
                         <CheckCircle2 className="w-9 h-9 text-white" />
                       </div>
-                      <h3 className="text-2xl font-black text-white mb-2 tracking-tight">
+                      <h3 className="text-xl font-bold text-white mb-2 tracking-tight">
                         🚀 Your Roadmap is Fully Aligned
                       </h3>
                       <p className="text-slate-300 font-medium text-sm leading-relaxed max-w-sm mx-auto mb-6">
                         Great work! Your learning path already covers the top market-demanded skills for your career path. Keep completing sessions to boost your readiness score.
                       </p>
                       <div className="grid grid-cols-3 gap-3 mb-6">
-                        <div className="bg-white/10 rounded-2xl p-3">
-                          <p className="text-2xl font-black text-white">{insights.jobMatchPercent}%</p>
+                        <div className="bg-white/10 rounded-xl p-3">
+                          <p className="text-xl font-bold text-white">{insights.jobMatchPercent}%</p>
                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1">Market Match</p>
                         </div>
-                        <div className="bg-white/10 rounded-2xl p-3">
-                          <p className="text-2xl font-black text-white">
+                        <div className="bg-white/10 rounded-xl p-3">
+                          <p className="text-xl font-bold text-white">
                             {insights.skills?.length > 0
                               ? Math.round((insights.skills.filter(s => s.inRoadmap || s.totalSessions > 0).length / insights.skills.length) * 100)
                               : 0}%
                           </p>
                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1">Skill Coverage</p>
                         </div>
-                        <div className="bg-white/10 rounded-2xl p-3">
-                          <p className="text-2xl font-black text-white">
+                        <div className="bg-white/10 rounded-xl p-3">
+                          <p className="text-xl font-bold text-white">
                             {insights.skills?.filter(s => s.inRoadmap || s.totalSessions > 0).length ?? 0}/{insights.skills?.length ?? 0}
                           </p>
                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1">Skills Added</p>
@@ -585,19 +517,19 @@ const CareerHub = ({ roadmapData, onRoadmapUpdate }) => {
                       initial={{ y: 20, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
                       transition={{ delay: 0.5 }}
-                      className="bg-gradient-to-br from-emerald-500/20 via-cyan-500/20 to-blue-500/20 backdrop-blur-sm border border-white/20 rounded-3xl p-8"
+                      className="bg-gradient-to-br from-emerald-500/20 via-cyan-500/20 to-blue-500/20 backdrop-blur-sm border border-white/20 rounded-xl p-6"
                     >
                       <div className="flex items-start gap-4 mb-6">
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-400 flex items-center justify-center shadow-xl flex-shrink-0">
+                        <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-400 flex items-center justify-center shadow-xl flex-shrink-0">
                           <Brain className="w-7 h-7 text-white" />
                         </div>
                         <div className="flex-1">
-                          <h3 className="text-2xl font-black text-white mb-3 tracking-tight">
+                          <h3 className="text-xl font-bold text-white mb-3 tracking-tight">
                             💡 AI Recommendation
                           </h3>
-                          <p className="text-lg text-slate-200 font-medium leading-relaxed mb-4">
+                          <p className="text-base text-slate-200 font-medium leading-relaxed mb-4">
                             "Focus on{' '}
-                            <span className="font-black text-white">
+                            <span className="font-bold text-white">
                               {insights.aiRecommendation.skill}
                             </span>
                             {'. '}
@@ -629,13 +561,13 @@ const CareerHub = ({ roadmapData, onRoadmapUpdate }) => {
 
                           {/* Impact cards */}
                           <div className="grid grid-cols-2 gap-4 mb-6">
-                            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-4">
+                            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4">
                               <div className="flex items-center gap-2 mb-2">
                                 <Target className="w-5 h-5 text-emerald-400" />
                                 <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Job Match</span>
                               </div>
                               <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black text-white">
+                                <span className="text-2xl font-bold text-white">
                                   +{insights.aiRecommendation.jobMatchBoost}%
                                 </span>
                                 <TrendingUp className="w-5 h-5 text-emerald-400" />
@@ -646,13 +578,13 @@ const CareerHub = ({ roadmapData, onRoadmapUpdate }) => {
                                 </p>
                               )}
                             </div>
-                            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-4">
+                            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4">
                               <div className="flex items-center gap-2 mb-2">
                                 <Award className="w-5 h-5 text-cyan-400" />
                                 <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Career Readiness</span>
                               </div>
                               <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black text-white">
+                                <span className="text-2xl font-bold text-white">
                                   +{insights.aiRecommendation.readinessBoost}%
                                 </span>
                                 <TrendingUp className="w-5 h-5 text-cyan-400" />
@@ -672,7 +604,7 @@ const CareerHub = ({ roadmapData, onRoadmapUpdate }) => {
                                 initial={{ opacity: 0, y: -10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -10 }}
-                                className={`flex items-center gap-3 p-4 rounded-2xl mb-4 ${
+                                className={`flex items-center gap-3 p-4 rounded-xl mb-4 ${
                                   addSkillResult.type === 'success'
                                     ? 'bg-emerald-500/20 border border-emerald-500/30'
                                     : addSkillResult.type === 'exists'
@@ -705,7 +637,7 @@ const CareerHub = ({ roadmapData, onRoadmapUpdate }) => {
                             disabled={addingSkill}
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
-                            className="w-full bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500 text-white px-8 py-4 rounded-2xl font-black text-lg shadow-2xl hover:shadow-emerald-500/50 transition-all flex items-center justify-center gap-3 group disabled:opacity-70 disabled:cursor-not-allowed"
+                            className="w-full bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500 text-white px-6 py-4 rounded-xl font-bold text-base shadow-2xl hover:shadow-emerald-500/50 transition-all flex items-center justify-center gap-3 group disabled:opacity-70 disabled:cursor-not-allowed"
                           >
                             {addingSkill ? (
                               <>
@@ -733,7 +665,7 @@ const CareerHub = ({ roadmapData, onRoadmapUpdate }) => {
           )}
 
           {/* ================================================================
-              TAB 2: JOB MATCHES — Tavily-powered
+              TAB 2: CAREER PLATFORMS HUB
              ================================================================ */}
           {activeTab === 'jobs' && (
             <motion.div
@@ -741,189 +673,98 @@ const CareerHub = ({ roadmapData, onRoadmapUpdate }) => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="space-y-5"
+              className="space-y-8"
             >
-
-              {/* ── Header row ─────────────────────────────────────────── */}
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
-                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">Job Matches</h2>
-                  {jobsData?.source === 'tavily' && (
-                    <span className="inline-flex items-center gap-1.5 mt-1 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      Live · Powered by Tavily
-                    </span>
-                  )}
-                  {jobsData?.source === 'static' && (
-                    <span className="inline-flex items-center gap-1.5 mt-1 px-2.5 py-0.5 rounded-full bg-slate-50 border border-slate-200 text-slate-500 text-xs font-semibold">
-                      📊 Sample data
-                    </span>
-                  )}
-                </div>
-                <motion.button
-                  onClick={handleRefreshJobs}
-                  disabled={jobsRefreshing || jobsLoading}
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 text-sm font-bold shadow-sm hover:shadow-md transition-all disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-4 h-4 ${jobsRefreshing ? 'animate-spin' : ''}`} />
-                  {jobsRefreshing ? 'Refreshing…' : 'Refresh'}
-                </motion.button>
-              </div>
-
-              {/* ── Platform filter pills ───────────────────────────────── */}
-              <div className="flex items-center gap-2 flex-wrap">
-                {PLATFORM_FILTERS.map((platform) => (
-                  <motion.button
-                    key={platform}
-                    onClick={() => setActivePlatform(platform)}
-                    whileTap={{ scale: 0.95 }}
-                    className={`px-4 py-2 rounded-full text-sm font-semibold border transition-all ${
-                      activePlatform === platform
-                        ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-sm'
-                        : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    {platform}
-                  </motion.button>
-                ))}
-              </div>
-
-              {/* ── Error state ─────────────────────────────────────────── */}
-              {jobsError && (
-                <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-2xl">
-                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                  <p className="text-red-700 text-sm font-medium">{jobsError}</p>
-                  <button onClick={loadJobMatches} className="ml-auto text-red-600 text-sm font-bold hover:underline">Retry</button>
-                </div>
-              )}
-
-              {/* ── Loading skeletons ───────────────────────────────────── */}
-              {(jobsLoading || jobsRefreshing) && (
-                <div className="space-y-4">
-                  {[1,2,3].map(i => <JobCardSkeleton key={i} />)}
-                </div>
-              )}
-
-              {/* ── Empty state ─────────────────────────────────────────── */}
-              {!jobsLoading && !jobsRefreshing && !jobsError && filteredJobs.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
-                    <Briefcase className="w-8 h-8 text-slate-400" />
-                  </div>
-                  <h3 className="text-lg font-black text-slate-700 mb-1">No jobs found</h3>
-                  <p className="text-slate-500 text-sm mb-4">
-                    {activePlatform !== 'All platforms'
-                      ? `No ${activePlatform} listings found. Try another platform.`
-                      : 'Complete your onboarding to unlock personalised job matches.'}
+                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">Career Platform Hub</h2>
+                  <p className="text-slate-500 font-medium mt-1">
+                    Directly explore genuine opportunities on trusted career platforms.
                   </p>
-                  {activePlatform !== 'All platforms' && (
-                    <button onClick={() => setActivePlatform('All platforms')} className="text-blue-600 font-bold text-sm hover:underline">
-                      Show all platforms
-                    </button>
-                  )}
                 </div>
-              )}
+              </div>
 
-              {/* ── Job Cards ───────────────────────────────────────────── */}
-              {!jobsLoading && !jobsRefreshing && filteredJobs.map((job, index) => (
-                <motion.div
-                  key={job.id}
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.07 }}
-                  className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all"
-                >
-                  {/* ── Top row: logo + title + platform badge ── */}
-                  <div className="flex items-start gap-3 mb-4">
-                    <CompanyLogo company={job.company} />
-
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-bold text-slate-900 leading-tight truncate">
-                        {job.company} · {job.role}
-                      </h3>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 font-medium">
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5" />{job.location}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />{job.postedDays}
-                        </span>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[
+                  {
+                    name: 'Internshala',
+                    description: 'Find internships and fresher opportunities related to your domain.',
+                    url: 'https://internshala.com',
+                    color: 'bg-blue-50 text-blue-600',
+                    logo: 'IS'
+                  },
+                  {
+                    name: 'LinkedIn',
+                    description: 'The world\'s largest professional network. Connect and find jobs.',
+                    url: 'https://www.linkedin.com/jobs/',
+                    color: 'bg-sky-50 text-sky-600',
+                    logo: 'in'
+                  },
+                  {
+                    name: 'Naukri.com',
+                    description: 'Explore top jobs and opportunities from leading companies in India.',
+                    url: 'https://www.naukri.com/',
+                    color: 'bg-orange-50 text-orange-600',
+                    logo: 'Nk'
+                  },
+                  {
+                    name: 'Indeed',
+                    description: 'Search millions of jobs online to find the next step in your career.',
+                    url: 'https://in.indeed.com/',
+                    color: 'bg-indigo-50 text-indigo-600',
+                    logo: 'ID'
+                  },
+                  {
+                    name: 'Wellfound',
+                    description: 'Where startups and job seekers connect for exciting tech roles.',
+                    url: 'https://wellfound.com/',
+                    color: 'bg-slate-100 text-slate-700',
+                    logo: 'W:'
+                  },
+                  {
+                    name: 'Glassdoor',
+                    description: 'Search jobs, company reviews, and salaries to find the right fit.',
+                    url: 'https://www.glassdoor.com/',
+                    color: 'bg-green-50 text-green-700',
+                    logo: 'GD'
+                  }
+                ].map((platform, i) => (
+                  <motion.div
+                    key={platform.name}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.07 }}
+                    className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all flex flex-col h-full"
+                  >
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className={`w-14 h-14 rounded-2xl ${platform.color} flex items-center justify-center font-black text-xl flex-shrink-0 shadow-sm border border-white/50`}>
+                        {platform.logo}
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-slate-900 tracking-tight">{platform.name}</h3>
+                        <div className="flex items-center gap-1 mt-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                          <span className="text-xs font-semibold text-emerald-600">Verified Platform</span>
+                        </div>
                       </div>
                     </div>
-
-                    {/* Platform badge */}
-                    <span className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold ${
-                      PLATFORM_COLORS[job.platform] || 'bg-slate-50 text-slate-600 border border-slate-100'
-                    }`}>
-                      {job.platform}
-                    </span>
-                  </div>
-
-                  {/* ── Skill match bar ── */}
-                  <div className="mb-1 flex items-center justify-between text-sm font-semibold">
-                    <span className="text-slate-700">Skill match</span>
-                    <span className={scoreColor(job.matchScore)}>{job.matchScore}%</span>
-                  </div>
-                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-4">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${job.matchScore}%` }}
-                      transition={{ delay: index * 0.07 + 0.25, duration: 0.9, ease: 'easeOut' }}
-                      className={`h-full rounded-full ${scoreBarColor(job.matchScore)}`}
-                    />
-                  </div>
-
-                  {/* ── Skills chips ── */}
-                  {(job.requiredSkills?.length > 0 || job.missingSkills?.length > 0) && (
-                    <div className="flex flex-wrap gap-1.5 mb-4">
-                      {(job.requiredSkills || []).map(s => (
-                        <span key={s} className="px-2.5 py-1 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">
-                          ✓ {s}
-                        </span>
-                      ))}
-                      {(job.missingSkills || []).map(s => (
-                        <span key={s} className="px-2.5 py-1 bg-orange-50 border border-orange-100 text-orange-600 rounded-full text-xs font-semibold">
-                          + {s}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* ── Divider ── */}
-                  <div className="border-t border-slate-100 mb-4" />
-
-                  {/* ── Action row: apply + bookmark ── */}
-                  <div className="flex items-center gap-2">
+                    <p className="text-slate-600 text-sm mb-6 flex-grow leading-relaxed">
+                      {platform.description}
+                    </p>
                     <motion.a
-                      href={job.applyUrl || '#'}
+                      href={platform.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      whileHover={{ scale: 1.01 }}
+                      whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className="flex-1 bg-slate-900 text-white px-5 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-sm"
+                      className="w-full bg-slate-900 text-white px-5 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-sm group mt-auto"
                     >
-                      <ExternalLink className="w-4 h-4" />
-                      Apply on {job.platform}
+                      Explore Opportunities
+                      <ExternalLink className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                     </motion.a>
-
-                    <motion.button
-                      onClick={() => toggleSave(job.id)}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className={`w-11 h-11 rounded-xl border flex items-center justify-center transition-all ${
-                        savedJobs.has(job.id)
-                          ? 'bg-blue-50 border-blue-200 text-blue-600'
-                          : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600'
-                      }`}
-                    >
-                      <Bookmark className={`w-4 h-4 ${savedJobs.has(job.id) ? 'fill-blue-600' : ''}`} />
-                    </motion.button>
-                  </div>
-                </motion.div>
-              ))}
-
+                  </motion.div>
+                ))}
+              </div>
             </motion.div>
           )}
 

@@ -102,13 +102,13 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
         className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
       >
         <div>
-          <h2 className="text-3xl font-black text-slate-900 mb-2">Learning Analytics Dashboard</h2>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Learning Analytics Dashboard</h2>
           <p className="text-slate-500 font-medium">AI-powered insights to optimize your learning journey</p>
         </div>
         <div className="relative">
           <button 
             onClick={() => setShowTimeDropdown(!showTimeDropdown)}
-            className="flex items-center gap-2 px-5 py-3 bg-white border border-slate-200 rounded-2xl font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
+            className="flex items-center gap-2 px-5 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
           >
             <Calendar className="w-4 h-4" />
             {selectedTimeRange}
@@ -117,7 +117,7 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
             </svg>
           </button>
           {showTimeDropdown && (
-            <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
+            <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
               {['Today', 'Last 30 Days'].map((range) => (
                 <button
                   key={range}
@@ -141,14 +141,14 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="bg-gradient-to-br from-purple-50 via-blue-50 to-emerald-50 backdrop-blur-xl border border-white rounded-3xl p-8 shadow-xl"
+        className="bg-gradient-to-br from-purple-50 via-blue-50 to-emerald-50 backdrop-blur-xl border border-white rounded-xl p-6 shadow-xl"
       >
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center shadow-lg">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center shadow-lg">
             <Brain className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h3 className="text-2xl font-black text-slate-900">🧠 AI Mentor Insights</h3>
+            <h3 className="text-xl font-bold text-slate-900">🧠 AI Mentor Insights</h3>
             <span className={`text-xs font-bold px-3 py-1 rounded-full mt-1 inline-block ${
               selectedTimeRange === 'Today'
                 ? 'bg-emerald-100 text-emerald-700'
@@ -166,14 +166,14 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 + idx * 0.1 }}
-              className={`flex items-start gap-4 p-5 rounded-2xl ${
+              className={`flex items-start gap-4 p-5 rounded-xl ${
                 insight.type === 'positive' ? 'bg-emerald-100/50' :
                 insight.type === 'warning' ? 'bg-amber-100/50' :
                 insight.type === 'alert' ? 'bg-rose-100/50' :
                 'bg-blue-100/50'
               }`}
             >
-              <span className="text-2xl">{insight.icon}</span>
+              <span className="text-xl">{insight.icon}</span>
               <p className="text-slate-800 font-semibold flex-1">{insight.text}</p>
             </motion.div>
           ))}
@@ -181,21 +181,21 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
       </motion.div>
 
       {/* SECTION 2: Roadmap Health */}
-      <div className="grid lg:grid-cols-1 gap-6">
+      <div className="grid lg:grid-cols-1 gap-5">
         
         {/* Roadmap Health Score */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white/80 backdrop-blur-xl border border-white rounded-3xl p-8 shadow-xl"
+          className="bg-white/80 backdrop-blur-xl border border-white rounded-xl p-6 shadow-xl"
         >
-          <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
+          <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
             <Target className="w-6 h-6 text-emerald-500" />
             🧭 Roadmap Health
           </h3>
           
-          <div className="grid lg:grid-cols-2 gap-8 items-center">
+          <div className="grid lg:grid-cols-2 gap-6 items-center">
             {/* Circular Progress Gauge */}
             <div className="flex items-center justify-center">
               <div className="relative w-56 h-56">
@@ -234,7 +234,7 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
                 
                 {/* Center text */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <div className="text-5xl font-black text-slate-900">{healthScore.value}</div>
+                  <div className="text-4xl font-bold text-slate-900">{healthScore.value}</div>
                   <div className="text-sm font-bold text-slate-400">/ 100</div>
                   <div className="flex items-center gap-1 mt-2">
                     {healthScore.trend === 'up' ? (
@@ -255,12 +255,12 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
 
             {/* Factors */}
             <div className="space-y-4">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Health Factors</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Health Factors</p>
               {healthScore.factors.map((factor, idx) => (
                 <div key={factor.name} className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-bold text-slate-700">{factor.name}</span>
-                    <span className="text-sm font-black text-slate-900">{factor.score}%</span>
+                    <span className="text-sm font-bold text-slate-900">{factor.score}%</span>
                   </div>
                   <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
                     <motion.div
@@ -284,7 +284,7 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-8 shadow-2xl border border-slate-700 relative overflow-hidden"
+          className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-xl p-6 shadow-2xl border border-slate-700 relative overflow-hidden"
         >
           {/* Background glow */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -292,15 +292,15 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
 
           {/* ── Header ── */}
           <div className="flex flex-wrap items-center gap-3 mb-8 relative z-10">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-rose-500 flex items-center justify-center shadow-lg flex-shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-rose-500 flex items-center justify-center shadow-lg flex-shrink-0">
               <RefreshCw className="w-6 h-6 text-white" />
             </div>
             <div className="flex-1">
-              <h3 className="text-2xl font-black text-white">📋 Recovery Plan</h3>
+              <h3 className="text-xl font-bold text-white">📋 Recovery Plan</h3>
               <p className="text-slate-400 text-sm font-medium">How your missed tasks are absorbed into the schedule</p>
             </div>
             {lastReschedule?.mode && (
-              <span className={`text-xs font-black px-3 py-1.5 rounded-full uppercase tracking-wider flex-shrink-0 ${
+              <span className={`text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider flex-shrink-0 ${
                 lastReschedule.mode === 'light'     ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
                 lastReschedule.mode === 'medium'    ? 'bg-amber-500/20   text-amber-300   border border-amber-500/30'   :
                                                      'bg-rose-500/20    text-rose-300    border border-rose-500/30'
@@ -318,11 +318,11 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
               { label: 'Extra Daily Cap',    value: lastReschedule ? `+${lastReschedule.extraCapPerDay}h` : '—', prefix: '', raw: true, icon: Activity, color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20' },
               { label: 'Sessions Recovered', value: lastReschedule?.missedRescheduled ?? 0,         prefix: '',  icon: CheckCircle2, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
             ].map(({ label, value, icon: Icon, color, bg, prefix = '', raw }) => (
-              <div key={label} className={`rounded-2xl p-5 border ${bg}`}>
+              <div key={label} className={`rounded-xl p-5 border ${bg}`}>
                 <div className="w-9 h-9 rounded-xl mb-3 flex items-center justify-center bg-white/5">
                   <Icon className={`w-5 h-5 ${color}`} />
                 </div>
-                <p className={`text-2xl font-black ${color}`}>{prefix}{value}</p>
+                <p className={`text-xl font-bold ${color}`}>{prefix}{value}</p>
                 <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider leading-tight">{label}</p>
               </div>
             ))}
@@ -331,10 +331,10 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
           {/* ── Timeline Bar (fixed) ── */}
           {lastReschedule?.originalEndDay > 0 && lastReschedule?.newEndDay > 0 && (
             <div className="relative z-10 mb-8">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Roadmap Timeline Extension</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Roadmap Timeline Extension</p>
 
               {/* Fixed two-segment bar — no overflow, no absolute positioning */}
-              <div className="flex h-10 w-full rounded-2xl overflow-hidden border border-white/10">
+              <div className="flex h-10 w-full rounded-xl overflow-hidden border border-white/10">
                 {/* Green: original schedule portion */}
                 <motion.div
                   initial={{ flex: 0 }}
@@ -342,7 +342,7 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
                   transition={{ duration: 1.2, delay: 0.3, ease: 'easeOut' }}
                   className="bg-gradient-to-r from-emerald-600 to-emerald-400 flex items-center justify-center min-w-0 overflow-hidden"
                 >
-                  <span className="text-[10px] font-black text-white whitespace-nowrap px-2 truncate">
+                  <span className="text-[10px] font-bold text-white whitespace-nowrap px-2 truncate">
                     Original · Day {lastReschedule.originalEndDay}
                   </span>
                 </motion.div>
@@ -358,7 +358,7 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
                       background: 'repeating-linear-gradient(45deg, rgba(239,68,68,0.7), rgba(239,68,68,0.7) 6px, rgba(220,38,38,0.4) 6px, rgba(220,38,38,0.4) 12px)'
                     }}
                   >
-                    <span className="text-[10px] font-black text-white whitespace-nowrap px-2 drop-shadow truncate">
+                    <span className="text-[10px] font-bold text-white whitespace-nowrap px-2 drop-shadow truncate">
                       +{lastReschedule.extraDaysAdded}d extra
                     </span>
                   </motion.div>
@@ -382,20 +382,20 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
           {/* ── Rescheduled Tasks Table ── */}
           {lastReschedule && (
             <div className="relative z-10 mb-8">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
                 Missed Tasks — Rescheduled To
               </p>
 
               {/* Table */}
               {(dashboardStats?.pendingSessions?.length > 0 || lastReschedule?.missedRescheduled > 0) ? (
-                <div className="rounded-2xl overflow-hidden border border-white/10">
+                <div className="rounded-xl overflow-hidden border border-white/10">
                   {/* Header */}
                   <div className="grid grid-cols-12 px-4 py-2.5 bg-white/5 border-b border-white/10">
-                    <span className="col-span-1 text-[10px] font-black text-slate-500 uppercase">#</span>
-                    <span className="col-span-5 text-[10px] font-black text-slate-500 uppercase">Task</span>
-                    <span className="col-span-3 text-[10px] font-black text-slate-500 uppercase">Phase</span>
-                    <span className="col-span-2 text-[10px] font-black text-slate-500 uppercase text-center">New Day</span>
-                    <span className="col-span-1 text-[10px] font-black text-slate-500 uppercase text-right">Hrs</span>
+                    <span className="col-span-1 text-[10px] font-bold text-slate-500 uppercase">#</span>
+                    <span className="col-span-5 text-[10px] font-bold text-slate-500 uppercase">Task</span>
+                    <span className="col-span-3 text-[10px] font-bold text-slate-500 uppercase">Phase</span>
+                    <span className="col-span-2 text-[10px] font-bold text-slate-500 uppercase text-center">New Day</span>
+                    <span className="col-span-1 text-[10px] font-bold text-slate-500 uppercase text-right">Hrs</span>
                   </div>
 
                   {/* Rows — from rescheduledSessions or pendingSessions */}
@@ -416,7 +416,7 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
                           <p className="text-[10px] font-semibold text-slate-400 truncate">{s.phaseTitle || '—'}</p>
                         </div>
                         <div className="col-span-2 flex items-center justify-center">
-                          <span className="text-xs font-black text-amber-300 bg-amber-500/15 border border-amber-500/25 px-2 py-0.5 rounded-full">
+                          <span className="text-xs font-bold text-amber-300 bg-amber-500/15 border border-amber-500/25 px-2 py-0.5 rounded-full">
                             Day {s.newDay || s.day}
                           </span>
                         </div>
@@ -428,7 +428,7 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
                   </div>
                 </div>
               ) : (
-                <div className="rounded-2xl border border-white/10 px-6 py-5 text-center">
+                <div className="rounded-xl border border-white/10 px-5 py-5 text-center">
                   <p className="text-sm text-slate-400 font-semibold">✅ All missed tasks have been successfully rescheduled.</p>
                 </div>
               )}
@@ -436,7 +436,7 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
           )}
 
           {!lastReschedule && missedTotal > 0 && (
-            <div className="relative z-10 mb-8 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-6 py-5">
+            <div className="relative z-10 mb-8 rounded-xl border border-amber-500/20 bg-amber-500/10 px-5 py-5">
               <p className="text-sm font-bold text-amber-300">
                 ⚠️ You have {missedTotal} missed session(s). Click <strong>Reschedule</strong> on the Dashboard to automatically add extra days and re-absorb them.
               </p>
@@ -444,9 +444,9 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
           )}
 
           {/* ── Progress Ring + Recovery Tips ── */}
-          <div className="grid lg:grid-cols-2 gap-6 relative z-10">
+          <div className="grid lg:grid-cols-2 gap-5 relative z-10">
             {/* Ring */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex items-center gap-6">
+            <div className="bg-white/5 border border-white/10 rounded-xl p-5 flex items-center gap-5">
               <div className="relative w-24 h-24 flex-shrink-0">
                 <svg viewBox="0 0 100 100" className="transform -rotate-90 w-full h-full">
                   <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="12" />
@@ -467,14 +467,14 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
                   </defs>
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-lg font-black text-white">
+                  <span className="text-base font-bold text-white">
                     {totalSessions > 0 ? Math.round((completedTotal / totalSessions) * 100) : 0}%
                   </span>
                   <span className="text-[9px] font-bold text-slate-400">done</span>
                 </div>
               </div>
               <div>
-                <p className="text-sm font-black text-white mb-1">Overall Progress</p>
+                <p className="text-sm font-bold text-white mb-1">Overall Progress</p>
                 <p className="text-xs text-slate-400 font-semibold">{completedTotal} of {totalSessions} sessions done</p>
                 <p className="text-xs text-rose-400 font-semibold mt-1">
                   {missedTotal} missed &nbsp;·&nbsp; {Math.max(0, totalSessions - completedTotal - missedTotal)} remaining
@@ -483,8 +483,8 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
             </div>
 
             {/* Tips */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Recovery Tips</p>
+            <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Recovery Tips</p>
               <div className="space-y-3">
                 {(lastReschedule?.mode === 'intensive' ? [
                   { icon: '🔴', text: '4+ missed tasks — shifted to extra days at the end of your roadmap.' },
@@ -511,16 +511,16 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
       )}
 
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid lg:grid-cols-2 gap-5">
         
         {/* Skill Mastery Overview (Radar Chart) */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
-          className="bg-white/80 backdrop-blur-xl border border-white rounded-3xl p-8 shadow-xl"
+          className="bg-white/80 backdrop-blur-xl border border-white rounded-xl p-6 shadow-xl"
         >
-          <h3 className="text-xl font-black text-slate-900 mb-6">🧩 Skill Mastery Overview</h3>
+          <h3 className="text-lg font-bold text-slate-900 mb-6">🧩 Skill Mastery Overview</h3>
           
           {/* Radar Chart */}
           {skillMastery.length > 0 ? (
@@ -631,10 +631,10 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
 
           {/* AI Interpretation */}
           {skillBalance && (
-            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-6 border border-purple-200 space-y-4">
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-5 border border-purple-200 space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-black text-slate-700">📊 Skill Balance Score:</span>
-                <span className={`text-2xl font-black ${skillBalance.score >= 8 ? 'text-emerald-600' : 'text-purple-600'}`}>
+                <span className="text-sm font-bold text-slate-700">📊 Skill Balance Score:</span>
+                <span className={`text-xl font-bold ${skillBalance.score >= 8 ? 'text-emerald-600' : 'text-purple-600'}`}>
                   {skillBalance.score} / 10
                 </span>
               </div>
@@ -653,7 +653,7 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
                   <Sparkles className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm font-black text-slate-900 mb-2">💡 Recommendation:</p>
+                  <p className="text-sm font-bold text-slate-900 mb-2">💡 Recommendation:</p>
                   <p className="text-sm font-semibold text-slate-600">{skillBalance.recommendation}</p>
                 </div>
               </div>
@@ -667,17 +667,17 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7 }}
-            className="bg-gradient-to-br from-rose-50 via-orange-50 to-amber-50 backdrop-blur-xl border border-white rounded-3xl p-8 shadow-xl"
+            className="bg-gradient-to-br from-rose-50 via-orange-50 to-amber-50 backdrop-blur-xl border border-white rounded-xl p-6 shadow-xl"
           >
-            <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
+            <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
               <AlertCircle className="w-6 h-6 text-rose-500" />
               🚨 Weakest Link Spotlight
             </h3>
             
             <div className="space-y-6">
-              <div className="bg-white/60 rounded-2xl p-6 border border-rose-200">
+              <div className="bg-white/60 rounded-xl p-5 border border-rose-200">
                 <p className="text-sm font-bold text-slate-500 mb-2">Weakest Area This Month</p>
-                <p className="text-3xl font-black text-slate-900 mb-1">{weakestArea.topic}</p>
+                <p className="text-2xl font-bold text-slate-900 mb-1">{weakestArea.topic}</p>
                 <p className="text-sm font-semibold text-slate-600">{weakestArea.category}</p>
                 {weakestArea.reason && (
                   <div className="mt-4 pt-4 border-t border-rose-100 flex items-start gap-2">
@@ -688,11 +688,11 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
               </div>
 
               <div className="space-y-3">
-                <p className="text-sm font-black text-slate-700 uppercase tracking-wider">Suggested Actions:</p>
+                <p className="text-sm font-bold text-slate-700 uppercase tracking-wider">Suggested Actions:</p>
                 {weakestArea.suggestedActions?.map((action, idx) => (
                   <div key={idx} className="flex items-center gap-3 bg-white/60 rounded-xl p-4 border border-orange-200">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 to-rose-400 flex items-center justify-center flex-shrink-0">
-                      <span className="text-white font-black">{idx + 1}</span>
+                      <span className="text-white font-bold">{idx + 1}</span>
                     </div>
                     <p className="font-semibold text-slate-700">{action}</p>
                   </div>
@@ -701,7 +701,7 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
 
               <button 
                 onClick={() => setIsPracticeModalOpen(true)}
-                className="w-full bg-gradient-to-r from-rose-500 to-orange-500 text-white py-4 rounded-2xl font-black shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                className="w-full bg-gradient-to-r from-rose-500 to-orange-500 text-white py-4 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
               >
                 <Play className="w-5 h-5 fill-white" />
                 Start Now
@@ -713,10 +713,10 @@ const AnalyticsView = ({ dashboardStats, onRefresh }) => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7 }}
-            className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm flex flex-col items-center justify-center text-center h-full"
+            className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col items-center justify-center text-center h-full"
           >
             <Target className="w-12 h-12 text-slate-300 mb-4" />
-            <h3 className="text-xl font-bold text-slate-800 mb-2">Keep Learning to Unlock Insights</h3>
+            <h3 className="text-lg font-bold text-slate-800 mb-2">Keep Learning to Unlock Insights</h3>
             <p className="text-slate-500 max-w-sm">
               We need a bit more data on your practice attempts to accurately identify your weakest areas.
             </p>

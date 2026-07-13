@@ -179,19 +179,19 @@ const LandingPage = ({ onNavigate }) => {
 
       <div className="relative z-10">
         {/* NAV */}
-        <nav className="flex justify-between items-center px-10 py-6 bg-white/40 backdrop-blur-md border-b border-white/20">
+        <nav className="flex justify-between items-center px-6 py-5 bg-white/40 backdrop-blur-md border-b border-white/20">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
               <Target className="w-6 h-6 text-white" />
             </div>
-            <span className="text-3xl font-black bg-linear-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">PathAI</span>
+            <span className="text-2xl font-bold bg-linear-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">PathAI</span>
           </div>
           <div className="hidden md:flex space-x-8 font-bold text-slate-600">
             <button className="hover:text-blue-600 cursor-pointer transition-colors">Features</button>
             {/* Added onClick={onNavigate} here */}
             <button 
               onClick={onNavigate}
-              className="bg-linear-to-r from-blue-500 to-cyan-500 text-white px-8 py-2.5 rounded-xl hover:scale-105 transition-transform shadow-lg cursor-pointer"
+              className="bg-linear-to-r from-blue-500 to-cyan-500 text-white px-6 py-2.5 rounded-xl hover:scale-105 transition-transform shadow-lg cursor-pointer"
             >
               Login
             </button>
@@ -199,62 +199,62 @@ const LandingPage = ({ onNavigate }) => {
         </nav>
 
         {/* HERO */}
-        <div className="max-w-7xl mx-auto px-8 pt-24 text-center">
+        <div className="max-w-7xl mx-auto px-6 pt-24 text-center">
           <div className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-100 border border-blue-200 rounded-full mb-8">
             <Sparkles className="w-4 h-4 text-blue-600" />
-            <span className="text-blue-700 text-xs font-black uppercase tracking-widest">AI-Powered Roadmap</span>
+            <span className="text-blue-700 text-xs font-bold uppercase tracking-widest">AI-Powered Roadmap</span>
           </div>
 
-          <h1 className="text-6xl md:text-8xl font-black text-slate-900 leading-[0.9] tracking-tighter mb-8">
+          <h1 className="text-6xl md:text-8xl font-bold text-slate-900 leading-[0.9] tracking-tighter mb-8">
             Your Personalized <br/>
             <span className="bg-linear-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">Roadmap to Success</span>
           </h1>
 
-          <p className="text-xl md:text-2xl text-slate-500 max-w-3xl mx-auto mb-12 font-medium">
+          <p className="text-lg md:text-xl text-slate-500 max-w-3xl mx-auto mb-12 font-medium">
             AI that adapts to your <span className="text-blue-600">9-6 college schedule</span>, understands your <span className="text-cyan-600">energy patterns</span>, and fast-tracks your career.
           </p>
 
           <div className="flex justify-center gap-4 mb-24">
             <button 
               onClick={onNavigate} // Switch to Auth/Sign-up
-              className="bg-linear-to-r from-blue-500 to-cyan-500 text-white px-10 py-5 rounded-2xl font-black text-xl shadow-2xl hover:scale-105 transition-transform flex items-center gap-3"
+              className="bg-linear-to-r from-blue-500 to-cyan-500 text-white px-6 py-5 rounded-xl font-bold text-lg shadow-2xl hover:scale-105 transition-transform flex items-center gap-3"
             >
               Start Journey <ArrowRight />
             </button>
-            <button className="bg-white border-2 border-blue-500 text-blue-600 px-10 py-5 rounded-2xl font-black text-xl hover:bg-blue-50 transition-colors">Watch Demo</button>
+            <button className="bg-white border-2 border-blue-500 text-blue-600 px-6 py-5 rounded-xl font-bold text-lg hover:bg-blue-50 transition-colors">Watch Demo</button>
           </div>
 
           {/* SKILLS GRID */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-32">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5 mb-32">
             {skills.map((skill, idx) => (
               <div
                 key={idx}
-                className={`p-6 rounded-3xl transition-all duration-500 cursor-pointer shadow-xl ${
+                className={`p-5 rounded-xl transition-all duration-500 cursor-pointer shadow-xl ${
                   activeSkill === idx 
                   ? 'bg-linear-to-br ' + skill.color + ' scale-110 text-white ring-4 ring-white/50' 
                   : 'bg-white text-slate-700 border border-slate-100'
                 }`}
                 onMouseEnter={() => setActiveSkill(idx)}
               >
-                <div className="text-4xl mb-3">{skill.icon}</div>
-                <div className="font-black text-sm uppercase tracking-tight">{skill.name}</div>
+                <div className="text-3xl mb-3">{skill.icon}</div>
+                <div className="font-bold text-sm uppercase tracking-tight">{skill.name}</div>
               </div>
             ))}
           </div>
 
           {/* ROADMAP VISUAL */}
-          <div className="bg-white/60 backdrop-blur-xl border border-white p-12 rounded-[40px] shadow-2xl mb-32">
-            <h3 className="text-3xl font-black text-slate-800 mb-12 flex items-center justify-center gap-3">
+          <div className="bg-white/60 backdrop-blur-xl border border-white p-8 rounded-2xl shadow-2xl mb-32">
+            <h3 className="text-2xl font-bold text-slate-800 mb-12 flex items-center justify-center gap-3">
               <Award className="w-10 h-10 text-blue-600" /> Your Learning Journey
             </h3>
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
               {['🎯 Start', '📚 Learn', '🛠️ Build', '💻 Project', '🚀 Career'].map((step, i) => (
                 <React.Fragment key={i}>
                   <div className="flex flex-col items-center">
-                    <div className="w-20 h-20 rounded-[24px] bg-linear-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-3xl shadow-lg shadow-blue-200">
+                    <div className="w-20 h-20 rounded-2xl bg-linear-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-2xl shadow-lg shadow-blue-200">
                       {step.split(' ')[0]}
                     </div>
-                    <span className="mt-4 font-black text-slate-700 uppercase tracking-widest text-xs">{step.split(' ')[1]}</span>
+                    <span className="mt-4 font-bold text-slate-700 uppercase tracking-widest text-xs">{step.split(' ')[1]}</span>
                   </div>
                   {i < 4 && <div className="hidden md:block flex-1 h-1.5 bg-slate-100 rounded-full relative overflow-hidden">
                     <div className="absolute inset-0 bg-linear-to-r from-blue-500 to-cyan-400 w-1/2 animate-pulse" />
@@ -266,18 +266,18 @@ const LandingPage = ({ onNavigate }) => {
         </div>
 
         {/* FEATURES */}
-        <div className="max-w-7xl mx-auto px-8 pb-32 grid md:grid-cols-4 gap-8">
+        <div className="max-w-7xl mx-auto px-6 pb-32 grid md:grid-cols-4 gap-6">
           {features.map((f, i) => (
             <div 
               key={i} 
               onMouseEnter={() => setHoveredCard(i)}
               onMouseLeave={() => setHoveredCard(null)}
-              className={`p-10 bg-white rounded-[32px] shadow-xl border border-slate-50 transition-all duration-300 ${hoveredCard === i ? 'translate-y-[-10px] shadow-2xl ring-2 ring-blue-400' : ''}`}
+              className={`p-6 bg-white rounded-2xl shadow-xl border border-slate-50 transition-all duration-300 ${hoveredCard === i ? 'translate-y-[-10px] shadow-2xl ring-2 ring-blue-400' : ''}`}
             >
-              <div className={`w-16 h-16 rounded-2xl bg-linear-to-br ${f.color} flex items-center justify-center text-white mb-8 shadow-lg`}>
+              <div className={`w-16 h-16 rounded-xl bg-linear-to-br ${f.color} flex items-center justify-center text-white mb-8 shadow-lg`}>
                 {f.icon}
               </div>
-              <h3 className="text-2xl font-black text-slate-800 mb-4">{f.title}</h3>
+              <h3 className="text-xl font-bold text-slate-800 mb-4">{f.title}</h3>
               <p className="text-slate-500 font-medium leading-relaxed">{f.description}</p>
             </div>
           ))}

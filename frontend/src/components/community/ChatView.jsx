@@ -66,7 +66,7 @@ const ChatView = ({ conversationId, meta, onBack }) => {
   };
 
   return (
-    <div className="flex flex-col h-[600px] bg-gradient-to-br from-slate-50 via-blue-50/30 to-emerald-50/30 rounded-3xl border border-white/80 overflow-hidden shadow-xl relative">
+    <div className="flex flex-col h-[600px] bg-gradient-to-br from-slate-50 via-blue-50/30 to-emerald-50/30 rounded-xl border border-white/80 overflow-hidden shadow-xl relative">
       {/* Background Pattern Overlay */}
       <div
         className="absolute inset-0 opacity-[0.03] pointer-events-none"
@@ -82,10 +82,10 @@ const ChatView = ({ conversationId, meta, onBack }) => {
         </button>
         <div className="flex items-center gap-3">
           <div className="h-11 w-11 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden shrink-0">
-             {meta.isGroup ? <span className="text-xl">{meta.icon || '🚀'}</span> : (meta.otherUser?.avatarUrl ? <img src={meta.otherUser.avatarUrl} className="h-full w-full object-cover" alt=""/> : <User className="h-6 w-6 text-slate-400" />)}
+             {meta.isGroup ? <span className="text-lg">{meta.icon || '🚀'}</span> : (meta.otherUser?.avatarUrl ? <img src={meta.otherUser.avatarUrl} className="h-full w-full object-cover" alt=""/> : <User className="h-6 w-6 text-slate-400" />)}
           </div>
           <div className="flex flex-col justify-center">
-            <h3 className="font-semibold text-slate-900 text-lg leading-tight">{meta.title}</h3>
+            <h3 className="font-semibold text-slate-900 text-base leading-tight">{meta.title}</h3>
             {!meta.isGroup && meta.otherUser && (
               <p className="text-[13px] text-slate-500 font-medium">
                 online

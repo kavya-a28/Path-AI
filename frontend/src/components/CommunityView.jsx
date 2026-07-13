@@ -104,7 +104,7 @@ const CommunityView = () => {
   const isInSubView = showNotifications || showConnectionRequests;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 p-4 md:p-6">
       <div className="max-w-7xl mx-auto space-y-4">
         
 
@@ -112,7 +112,7 @@ const CommunityView = () => {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`${theme.glass} rounded-[32px] p-6 relative overflow-hidden`}
+          className={`${theme.glass} rounded-2xl p-5 relative overflow-hidden`}
         >
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -120,7 +120,7 @@ const CommunityView = () => {
                 <Users className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Community</h2>
+                <h2 className="text-xl font-bold text-slate-900 tracking-tight">Community</h2>
                 <p className="text-slate-500 font-semibold text-xs">Connect & Collaborate</p>
               </div>
             </div>
@@ -153,7 +153,7 @@ const CommunityView = () => {
               >
                 <Bell className="w-5 h-5 text-slate-600" />
                 {notificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                     {notificationCount > 9 ? '9+' : notificationCount}
                   </span>
                 )}

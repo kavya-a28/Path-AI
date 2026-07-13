@@ -103,7 +103,7 @@ function ProgressRing({ percentage }) {
         y="60"
         textAnchor="middle"
         dominantBaseline="central"
-        className="fill-slate-700 text-[1.6rem] font-black rotate-90 origin-center"
+        className="fill-slate-700 text-[1.6rem] font-bold rotate-90 origin-center"
       >
         {Math.round(percentage)}
       </text>
@@ -121,11 +121,11 @@ function TypingIndicator() {
       className="flex gap-3"
     >
       {/* Avatar */}
-      <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 flex items-center justify-center flex-shrink-0 shadow-lg">
+      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 flex items-center justify-center flex-shrink-0 shadow-lg">
         <Sparkles className="w-5 h-5 text-white" />
       </div>
       {/* Dots */}
-      <div className="bg-white/90 border border-white/60 px-6 py-4 rounded-3xl rounded-tl-none shadow-xl">
+      <div className="bg-white/90 border border-white/60 px-5 py-4 rounded-xl rounded-tl-none shadow-xl">
         <div className="flex gap-2">
           {[0, 0.2, 0.4].map((delay, i) => (
             <motion.div
@@ -160,24 +160,24 @@ function ChatMessage({ message, index }) {
       >
         {/* Avatar */}
         <div
-          className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg ${
+          className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg ${
             isUser
               ? 'bg-gradient-to-br from-slate-700 to-slate-900'
               : 'bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500'
           }`}
         >
           {isUser ? (
-            <span className="text-white font-black text-xs">You</span>
+            <span className="text-white font-bold text-xs">You</span>
           ) : (
             <Sparkles className="w-5 h-5 text-white" />
           )}
         </div>
         {/* Bubble */}
         <div
-          className={`px-6 py-4 shadow-xl ${
+          className={`px-5 py-4 shadow-xl ${
             isUser
-              ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-3xl rounded-tr-none'
-              : 'bg-white/90 border border-white/60 rounded-3xl rounded-tl-none'
+              ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-xl rounded-tr-none'
+              : 'bg-white/90 border border-white/60 rounded-xl rounded-tl-none'
           }`}
         >
           <p
@@ -218,7 +218,7 @@ function SuggestedReplies({ suggestions, onSelect, disabled }) {
           whileTap={{ scale: 0.95 }}
           onClick={() => onSelect(text)}
           disabled={disabled}
-          className="px-5 py-2.5 bg-white/80 hover:bg-white border border-slate-200 hover:border-blue-300 rounded-2xl font-semibold text-sm text-slate-700 hover:text-blue-600 shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-5 py-2.5 bg-white/80 hover:bg-white border border-slate-200 hover:border-blue-300 rounded-xl font-semibold text-sm text-slate-700 hover:text-blue-600 shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {text}
         </motion.button>
@@ -237,7 +237,7 @@ function TraitsPanel({ traits }) {
     <motion.div
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: 'auto' }}
-      className="max-w-5xl mx-auto px-6"
+      className="max-w-5xl mx-auto px-5"
     >
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -292,7 +292,7 @@ function ErrorToast({ message, onRetry, onDismiss }) {
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 40 }}
-      className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-5 py-3 rounded-2xl shadow-2xl max-w-md"
+      className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-5 py-3 rounded-xl shadow-2xl max-w-md"
     >
       <AlertCircle className="w-5 h-5 flex-shrink-0" />
       <span className="text-sm font-semibold flex-1">{message}</span>
@@ -308,7 +308,7 @@ function ErrorToast({ message, onRetry, onDismiss }) {
       {onDismiss && (
         <button
           onClick={onDismiss}
-          className="text-red-400 hover:text-red-600 font-bold text-lg leading-none"
+          className="text-red-400 hover:text-red-600 font-bold text-base leading-none"
         >
           ×
         </button>
@@ -366,7 +366,7 @@ function CompletionScreen({ traits, profile, onComplete }) {
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.6, ease: 'easeOut' }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center p-5"
     >
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-purple-50" />
@@ -379,7 +379,7 @@ function CompletionScreen({ traits, profile, onComplete }) {
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3, duration: 0.5 }}
-        className="relative max-w-lg w-full bg-white/90 backdrop-blur-2xl rounded-[2rem] shadow-2xl border border-white/60 p-8 md:p-10 z-10"
+        className="relative max-w-lg w-full bg-white/90 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/60 p-6 md:p-6 z-10"
       >
         {/* Success icon */}
         <motion.div
@@ -393,7 +393,7 @@ function CompletionScreen({ traits, profile, onComplete }) {
           </div>
         </motion.div>
 
-        <h2 className="text-3xl md:text-4xl font-black text-center text-slate-800 mb-2 tracking-tight">
+        <h2 className="text-2xl md:text-3xl font-bold text-center text-slate-800 mb-2 tracking-tight">
           Profile Complete!
         </h2>
         <p className="text-center text-slate-500 font-medium mb-8">
@@ -430,7 +430,7 @@ function CompletionScreen({ traits, profile, onComplete }) {
           whileHover={{ scale: 1.03, y: -2 }}
           whileTap={{ scale: 0.97 }}
           onClick={() => onComplete(profile)}
-          className="w-full py-4 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500 text-white rounded-2xl font-bold text-lg shadow-xl hover:shadow-2xl transition-shadow"
+          className="w-full py-4 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500 text-white rounded-xl font-bold text-base shadow-xl hover:shadow-2xl transition-shadow"
         >
           Generate My Roadmap 🚀
         </motion.button>
@@ -657,7 +657,7 @@ export default function AIOnboarding({ onComplete, onBack }) {
 
       {/* ===== Header ===== */}
       <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-2xl border-b border-slate-200/50">
-        <div className="max-w-5xl mx-auto px-6 py-4">
+        <div className="max-w-5xl mx-auto px-5 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               {onBack && (
@@ -674,12 +674,12 @@ export default function AIOnboarding({ onComplete, onBack }) {
                 <motion.div
                   animate={{ rotate: [0, 360] }}
                   transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-                  className="w-11 h-11 bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg"
+                  className="w-11 h-11 bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 rounded-xl flex items-center justify-center shadow-lg"
                 >
                   <Brain className="w-6 h-6 text-white" />
                 </motion.div>
                 <div>
-                  <h1 className="text-xl font-black text-slate-800 tracking-tight">
+                  <h1 className="text-lg font-bold text-slate-800 tracking-tight">
                     AI Mentor
                   </h1>
                   <div className="flex items-center gap-1.5">
@@ -715,7 +715,7 @@ export default function AIOnboarding({ onComplete, onBack }) {
       )}
 
       {/* ===== Chat Messages ===== */}
-      <div className="flex-1 overflow-y-auto px-6 pt-6 pb-52">
+      <div className="flex-1 overflow-y-auto px-5 pt-6 pb-52">
         <div className="max-w-4xl mx-auto space-y-5">
           <AnimatePresence mode="popLayout">
             {messages.map((msg, i) => (
@@ -739,7 +739,7 @@ export default function AIOnboarding({ onComplete, onBack }) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              className="bg-gradient-to-t from-white/95 via-white/80 to-transparent backdrop-blur-sm px-6 pt-4 pb-2"
+              className="bg-gradient-to-t from-white/95 via-white/80 to-transparent backdrop-blur-sm px-5 pt-4 pb-2"
             >
               <div className="max-w-4xl mx-auto">
                 <SuggestedReplies
@@ -753,7 +753,7 @@ export default function AIOnboarding({ onComplete, onBack }) {
         </AnimatePresence>
 
         {/* Text input bar */}
-        <div className="bg-white/80 backdrop-blur-2xl border-t border-slate-200/50 px-6 py-4 shadow-[0_-4px_30px_rgba(0,0,0,0.06)]">
+        <div className="bg-white/80 backdrop-blur-2xl border-t border-slate-200/50 px-5 py-4 shadow-[0_-4px_30px_rgba(0,0,0,0.06)]">
           <div className="max-w-4xl mx-auto flex gap-3">
             <input
               ref={inputRef}
@@ -763,14 +763,14 @@ export default function AIOnboarding({ onComplete, onBack }) {
               onKeyDown={handleKeyDown}
               placeholder={isTyping ? 'AI is thinking...' : 'Type your answer or pick a suggestion above...'}
               disabled={inputDisabled}
-              className="flex-1 px-6 py-4 bg-white rounded-3xl border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all font-semibold text-slate-700 shadow-lg outline-none disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-slate-400"
+              className="flex-1 px-5 py-4 bg-white rounded-xl border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all font-semibold text-slate-700 shadow-lg outline-none disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-slate-400"
             />
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleSend}
               disabled={inputDisabled || !inputText.trim()}
-              className="px-6 py-4 bg-gradient-to-r from-blue-500 via-purple-600 to-blue-600 text-white rounded-3xl font-bold shadow-xl hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-5 py-4 bg-gradient-to-r from-blue-500 via-purple-600 to-blue-600 text-white rounded-xl font-bold shadow-xl hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               <Send className="w-5 h-5" />
               <span className="hidden sm:inline">Send</span>

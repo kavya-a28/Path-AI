@@ -329,7 +329,7 @@ const OnboardingQuiz = ({ onComplete, onBack }) => {
 
       {/* Sticky Header - Simplified without progress */}
       <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-2xl border-b border-slate-200/50 shadow-sm">
-        <div className="max-w-5xl mx-auto px-6 py-5">
+        <div className="max-w-5xl mx-auto px-5 py-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               {onBack && (
@@ -345,12 +345,12 @@ const OnboardingQuiz = ({ onComplete, onBack }) => {
                 <motion.div 
                   animate={{ rotate: 360 }}
                   transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                  className="w-11 h-11 bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg"
+                  className="w-11 h-11 bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 rounded-xl flex items-center justify-center shadow-lg"
                 >
                   <Brain className="w-6 h-6 text-white" />
                 </motion.div>
                 <div>
-                  <h1 className="text-xl font-black text-slate-800 tracking-tight">AI Mentor</h1>
+                  <h1 className="text-lg font-bold text-slate-800 tracking-tight">AI Mentor</h1>
                   <p className="text-xs text-slate-500 font-semibold">Building your perfect roadmap</p>
                 </div>
               </div>
@@ -360,7 +360,7 @@ const OnboardingQuiz = ({ onComplete, onBack }) => {
       </div>
 
       {/* Chat Container */}
-      <div className="flex-1 overflow-y-auto p-6 pb-32">
+      <div className="flex-1 overflow-y-auto p-5 pb-32">
         <div className="max-w-4xl mx-auto space-y-5">
           <AnimatePresence>
             {messages.map((message, index) => (
@@ -378,7 +378,7 @@ const OnboardingQuiz = ({ onComplete, onBack }) => {
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
-                    className={`flex-shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${
+                    className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${
                       message.type === 'ai' 
                         ? 'bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500' 
                         : 'bg-gradient-to-br from-slate-700 to-slate-900'
@@ -387,7 +387,7 @@ const OnboardingQuiz = ({ onComplete, onBack }) => {
                     {message.type === 'ai' ? (
                       <Sparkles className="w-5 h-5 text-white" />
                     ) : (
-                      <span className="text-white font-black text-sm">You</span>
+                      <span className="text-white font-bold text-sm">You</span>
                     )}
                   </motion.div>
                   
@@ -396,10 +396,10 @@ const OnboardingQuiz = ({ onComplete, onBack }) => {
                     initial={{ scale: 0.9, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ delay: 0.2 }}
-                    className={`px-6 py-4 shadow-xl backdrop-blur-xl border ${
+                    className={`px-5 py-4 shadow-xl backdrop-blur-xl border ${
                       message.type === 'ai'
-                        ? 'bg-white/90 border-white/60 rounded-3xl rounded-tl-none'
-                        : 'bg-gradient-to-br from-blue-500 via-purple-600 to-blue-600 text-white rounded-3xl rounded-tr-none border-transparent'
+                        ? 'bg-white/90 border-white/60 rounded-xl rounded-tl-none'
+                        : 'bg-gradient-to-br from-blue-500 via-purple-600 to-blue-600 text-white rounded-xl rounded-tr-none border-transparent'
                     }`}
                   >
                     <p className={`font-semibold leading-relaxed whitespace-pre-line ${
@@ -420,10 +420,10 @@ const OnboardingQuiz = ({ onComplete, onBack }) => {
               animate={{ opacity: 1, y: 0 }}
               className="flex gap-3"
             >
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 flex items-center justify-center shadow-lg">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 flex items-center justify-center shadow-lg">
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
-              <div className="bg-white/90 backdrop-blur-xl border border-white/60 px-6 py-4 rounded-3xl rounded-tl-none shadow-xl">
+              <div className="bg-white/90 backdrop-blur-xl border border-white/60 px-5 py-4 rounded-xl rounded-tl-none shadow-xl">
                 <div className="flex gap-2">
                   <motion.div
                     animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
@@ -461,7 +461,7 @@ const OnboardingQuiz = ({ onComplete, onBack }) => {
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => handleOptionClick(option)}
-                  className="px-6 py-3.5 bg-gradient-to-r from-blue-500 via-purple-600 to-blue-600 text-white rounded-2xl font-bold shadow-lg hover:shadow-2xl transition-all cursor-pointer"
+                  className="px-5 py-3.5 bg-gradient-to-r from-blue-500 via-purple-600 to-blue-600 text-white rounded-xl font-bold shadow-lg hover:shadow-2xl transition-all cursor-pointer"
                 >
                   {option.label}
                 </motion.button>
@@ -481,7 +481,7 @@ const OnboardingQuiz = ({ onComplete, onBack }) => {
                 whileHover={{ scale: 1.05, y: -5 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleFinalComplete}
-                className="relative px-16 py-7 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white rounded-3xl font-black text-2xl shadow-2xl flex items-center gap-4 overflow-hidden group"
+                className="relative px-16 py-7 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white rounded-xl font-bold text-xl shadow-2xl flex items-center gap-4 overflow-hidden group"
               >
                 <motion.div
                   className="absolute inset-0 bg-gradient-to-r from-pink-600 via-purple-600 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
@@ -506,7 +506,7 @@ const OnboardingQuiz = ({ onComplete, onBack }) => {
 
       {/* Text Input Area */}
       {!showOptions && quizFlow[currentQuestion]?.type === 'text' && !isTyping && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-2xl border-t border-slate-200/50 p-6 shadow-2xl">
+        <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-2xl border-t border-slate-200/50 p-5 shadow-2xl">
           <div className="max-w-4xl mx-auto">
             <div className="flex gap-3">
               <input
@@ -515,7 +515,7 @@ const OnboardingQuiz = ({ onComplete, onBack }) => {
                 onChange={(e) => setUserInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Type your answer here..."
-                className="flex-1 px-6 py-4 bg-white rounded-3xl border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all font-semibold text-slate-700 placeholder-slate-400 shadow-lg"
+                className="flex-1 px-5 py-4 bg-white rounded-xl border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all font-semibold text-slate-700 placeholder-slate-400 shadow-lg"
                 autoFocus
               />
               <motion.button
@@ -523,7 +523,7 @@ const OnboardingQuiz = ({ onComplete, onBack }) => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 disabled={!userInput.trim()}
-                className="px-8 py-4 bg-gradient-to-r from-blue-500 via-purple-600 to-blue-600 text-white rounded-3xl font-bold shadow-xl hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-6 py-4 bg-gradient-to-r from-blue-500 via-purple-600 to-blue-600 text-white rounded-xl font-bold shadow-xl hover:shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <Send className="w-5 h-5" />
                 Send

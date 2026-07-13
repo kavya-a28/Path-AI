@@ -183,7 +183,7 @@ const AuthScreen = ({ onBack, onNavigate }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 md:p-10 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 md:p-6 relative overflow-hidden">
       
       {/* 1. FLOATING BACK BUTTON */}
       <motion.button
@@ -201,20 +201,20 @@ const AuthScreen = ({ onBack, onNavigate }) => {
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-purple-100/50 blur-[100px]" />
       </div>
 
-      <div className="w-full max-w-6xl flex flex-col md:flex-row bg-white/60 backdrop-blur-2xl rounded-[40px] shadow-2xl border border-white/80 overflow-hidden">
+      <div className="w-full max-w-6xl flex flex-col md:flex-row bg-white/60 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/80 overflow-hidden">
         
         {/* LEFT SIDE: Illustration & Branding */}
-        <div className="md:w-1/2 bg-linear-to-br from-blue-600 to-indigo-700 p-12 text-white flex flex-col justify-between relative">
+        <div className="md:w-1/2 bg-linear-to-br from-blue-600 to-indigo-700 p-8 text-white flex flex-col justify-between relative">
           <div className="relative z-10">
             {/* Clickable Logo also goes back */}
             <div onClick={onBack} className="flex items-center gap-2 mb-8 cursor-pointer group">
               <Sparkles className="w-8 h-8 group-hover:rotate-12 transition-transform" />
-              <span className="text-3xl font-black tracking-tighter">PathAI</span>
+              <span className="text-2xl font-bold tracking-tighter">PathAI</span>
             </div>
-            <h2 className="text-4xl md:text-5xl font-black leading-tight mb-6 tracking-tight">
+            <h2 className="text-3xl md:text-4xl font-bold leading-tight mb-6 tracking-tight">
               Start Your Journey <br/> Today.
             </h2>
-            <p className="text-blue-100 text-lg font-medium max-w-sm">
+            <p className="text-blue-100 text-base font-medium max-w-sm">
               Join 10,000+ students mastering skills with dynamic AI roadmaps.
             </p>
           </div>
@@ -224,7 +224,7 @@ const AuthScreen = ({ onBack, onNavigate }) => {
              <motion.div 
                animate={{ y: [0, -15, 0] }} 
                transition={{ duration: 4, repeat: Infinity }}
-               className="bg-white/10 backdrop-blur-md p-8 rounded-3xl border border-white/20 relative"
+               className="bg-white/10 backdrop-blur-md p-6 rounded-xl border border-white/20 relative"
              >
                 <Laptop className="w-24 h-24 opacity-80" />
                 <div className="absolute -top-4 -right-4 bg-orange-400 p-3 rounded-xl shadow-lg">
@@ -244,7 +244,7 @@ const AuthScreen = ({ onBack, onNavigate }) => {
         </div>
 
         {/* RIGHT SIDE: Auth Forms */}
-        <div className="md:w-1/2 p-8 md:p-16 flex flex-col justify-center">
+        <div className="md:w-1/2 p-6 md:p-16 flex flex-col justify-center">
           <AnimatePresence mode="wait">
             {isLogin ? (
               <motion.div 
@@ -254,17 +254,17 @@ const AuthScreen = ({ onBack, onNavigate }) => {
                 animate="visible"
                 exit="exit"
               >
-                <h3 className="text-3xl font-black text-slate-800 mb-2">Welcome Back! 👋</h3>
+                <h3 className="text-2xl font-bold text-slate-800 mb-2">Welcome Back! 👋</h3>
                 <p className="text-slate-500 font-medium mb-8">Please enter your details to continue.</p>
 
                 <div className="space-y-4">
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input name="email" value={loginForm.email} onChange={handleLoginChange} onKeyDown={handleSubmitOnEnter} type="email" placeholder="Email Address" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
+                    <input name="email" value={loginForm.email} onChange={handleLoginChange} onKeyDown={handleSubmitOnEnter} type="email" placeholder="Email Address" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
                   </div>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input name="password" value={loginForm.password} onChange={handleLoginChange} onKeyDown={handleSubmitOnEnter} type="password" placeholder="Password" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
+                    <input name="password" value={loginForm.password} onChange={handleLoginChange} onKeyDown={handleSubmitOnEnter} type="password" placeholder="Password" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
                   </div>
                 </div>
 
@@ -274,7 +274,7 @@ const AuthScreen = ({ onBack, onNavigate }) => {
                 <button 
                   onClick={handleAuthAction}
                   disabled={isLoading || isSuccess}
-                  className="w-full bg-linear-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-blue-200 mt-8 flex items-center justify-center gap-2 hover:opacity-90 transition-all cursor-pointer relative overflow-hidden"
+                  className="w-full bg-linear-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-xl font-bold text-base shadow-xl shadow-blue-200 mt-8 flex items-center justify-center gap-2 hover:opacity-90 transition-all cursor-pointer relative overflow-hidden"
                 >
                   {isLoading ? (
                     <motion.div 
@@ -330,25 +330,25 @@ const AuthScreen = ({ onBack, onNavigate }) => {
                 animate="visible"
                 exit="exit"
               >
-                <h3 className="text-3xl font-black text-slate-800 mb-2">Create Account ✨</h3>
+                <h3 className="text-2xl font-bold text-slate-800 mb-2">Create Account ✨</h3>
                 <p className="text-slate-500 font-medium mb-8">Join the community and start learning.</p>
 
                 <div className="space-y-4">
                   <div className="relative">
                     <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input name="fullName" value={signupForm.fullName} onChange={handleSignupChange} onKeyDown={handleSubmitOnEnter} type="text" placeholder="Full Name" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
+                    <input name="fullName" value={signupForm.fullName} onChange={handleSignupChange} onKeyDown={handleSubmitOnEnter} type="text" placeholder="Full Name" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
                   </div>
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input name="email" value={signupForm.email} onChange={handleSignupChange} onKeyDown={handleSubmitOnEnter} type="email" placeholder="Email Address" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
+                    <input name="email" value={signupForm.email} onChange={handleSignupChange} onKeyDown={handleSubmitOnEnter} type="email" placeholder="Email Address" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
                   </div>
                   <div className="relative">
                     <School className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input name="college" value={signupForm.college} onChange={handleSignupChange} onKeyDown={handleSubmitOnEnter} type="text" placeholder="College (Optional)" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
+                    <input name="college" value={signupForm.college} onChange={handleSignupChange} onKeyDown={handleSubmitOnEnter} type="text" placeholder="College (Optional)" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
                   </div>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input name="password" value={signupForm.password} onChange={handleSignupChange} onKeyDown={handleSubmitOnEnter} type="password" placeholder="Password" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
+                    <input name="password" value={signupForm.password} onChange={handleSignupChange} onKeyDown={handleSubmitOnEnter} type="password" placeholder="Password" className="w-full pl-12 pr-4 py-4 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500 transition-all font-medium" />
                   </div>
                 </div>
 
@@ -357,7 +357,7 @@ const AuthScreen = ({ onBack, onNavigate }) => {
                 <button 
                   onClick={handleAuthAction}
                   disabled={isLoading || isSuccess}
-                  className="w-full bg-linear-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-blue-200 mt-8 flex items-center justify-center gap-2 hover:opacity-90 transition-all cursor-pointer overflow-hidden"
+                  className="w-full bg-linear-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-xl font-bold text-base shadow-xl shadow-blue-200 mt-8 flex items-center justify-center gap-2 hover:opacity-90 transition-all cursor-pointer overflow-hidden"
                 >
                    {isLoading ? (
                     <motion.div 

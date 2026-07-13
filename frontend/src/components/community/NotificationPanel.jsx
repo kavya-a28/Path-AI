@@ -108,7 +108,7 @@ const NotificationPanel = ({ onBack, onOpenConnectionRequests, onOpenChat, socke
       
       <div className="max-h-96 overflow-y-auto">
         {notifications.length === 0 ? (
-          <div className="p-6 text-center text-gray-500 text-sm">
+          <div className="p-5 text-center text-gray-500 text-sm">
             You're all caught up!
           </div>
         ) : (

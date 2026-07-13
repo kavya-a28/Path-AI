@@ -33,7 +33,7 @@ const Avatar = ({ user, isGroup, icon, size = 'md', isOnline = false }) => {
   return (
     <div className={`relative ${sizeMap[size]} rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0 overflow-visible`}>
       {isGroup ? (
-        <span className="text-xl">{icon || '🚀'}</span>
+        <span className="text-lg">{icon || '🚀'}</span>
       ) : user?.avatarUrl ? (
         <img src={user.avatarUrl} alt="" className="h-full w-full rounded-full object-cover" />
       ) : (
@@ -51,7 +51,7 @@ const Avatar = ({ user, isGroup, icon, size = 'md', isOnline = false }) => {
 // ─── Typing Indicator ────────────────────────────────────────────────────────
 const TypingIndicator = () => (
   <div className="flex items-end mr-auto max-w-[60%] mb-1">
-    <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-white border border-slate-100 shadow-sm">
+    <div className="px-4 py-3 rounded-xl rounded-bl-sm bg-white border border-slate-100 shadow-sm">
       <div className="flex gap-1 items-center h-4">
         {[0, 1, 2].map(i => (
           <span
@@ -85,7 +85,7 @@ const MessageBubble = ({ msg, isMe, onDelete }) => {
       className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-1 group`}
     >
       <div
-        className={`relative max-w-[75%] px-3 pt-2 pb-5 rounded-2xl shadow-sm min-w-[70px] ${
+        className={`relative max-w-[75%] px-3 pt-2 pb-5 rounded-xl shadow-sm min-w-[70px] ${
           isMe
             ? 'bg-gradient-to-br from-emerald-400 to-emerald-500 text-white rounded-br-sm'
             : 'bg-white text-slate-800 rounded-bl-sm border border-slate-100'
@@ -265,7 +265,7 @@ const ChatPanel = ({ conversation, currentUser, onBack, onlineUsers, onMessageSe
   };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-slate-50 via-blue-50/30 to-emerald-50/30 rounded-2xl overflow-hidden shadow-xl relative">
+    <div className="flex flex-col h-full bg-gradient-to-br from-slate-50 via-blue-50/30 to-emerald-50/30 rounded-xl overflow-hidden shadow-xl relative">
       {/* WhatsApp-style subtle pattern background */}
       <div
         className="absolute inset-0 opacity-[0.03] pointer-events-none"
@@ -330,7 +330,7 @@ const ChatPanel = ({ conversation, currentUser, onBack, onlineUsers, onMessageSe
                 key={emoji}
                 type="button"
                 onClick={() => { setText(prev => prev + emoji); setShowEmoji(false); }}
-                className="text-xl hover:bg-slate-100 rounded-lg p-1.5 transition-colors"
+                className="text-lg hover:bg-slate-100 rounded-lg p-1.5 transition-colors"
               >
                 {emoji}
               </button>
@@ -529,7 +529,7 @@ const Messages = ({ onSelectConversation, activeChatId, activeChatPeer, onCloseC
   const showChat = !!activeConv;
 
   return (
-    <div className="flex h-[calc(100vh-220px)] min-h-[500px] bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/80 overflow-hidden">
+    <div className="flex h-[calc(100vh-220px)] min-h-[500px] bg-white/80 backdrop-blur-xl rounded-xl shadow-xl border border-white/80 overflow-hidden">
 
       {/* ── Left Panel: Conversation List ── */}
       <div className={`${showChat ? 'hidden lg:flex' : 'flex'} lg:flex flex-col w-full lg:w-[360px] flex-shrink-0 border-r border-slate-200 bg-white`}>
@@ -562,7 +562,7 @@ const Messages = ({ onSelectConversation, activeChatId, activeChatPeer, onCloseC
               ))}
             </div>
           ) : filteredConversations.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center p-8">
+            <div className="flex flex-col items-center justify-center h-full text-center p-6">
               <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
                 <MessageCircle className="h-8 w-8 text-slate-300" />
               </div>

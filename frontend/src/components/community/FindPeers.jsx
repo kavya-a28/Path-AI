@@ -113,7 +113,7 @@ const FindPeers = ({ socket, onOpenChat, onShowRequests, onlineUsers = new Set()
       {[...Array(6)].map((_, i) => (
         <div
           key={i}
-          className="bg-white/80 backdrop-blur-xl border border-white shadow-xl rounded-[28px] p-6 animate-pulse"
+          className="bg-white/80 backdrop-blur-xl border border-white shadow-xl rounded-[28px] p-5 animate-pulse"
         >
           <div className="flex items-start gap-4">
             <div className="w-14 h-14 rounded-full bg-slate-200" />
@@ -153,7 +153,7 @@ const FindPeers = ({ socket, onOpenChat, onShowRequests, onlineUsers = new Set()
     return (
       <div className="relative">
         <div
-          className={`w-14 h-14 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold text-lg shadow-md`}
+          className={`w-14 h-14 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold text-base shadow-md`}
         >
           {peer.fullName?.charAt(0)?.toUpperCase() || '?'}
         </div>
@@ -222,14 +222,14 @@ const FindPeers = ({ socket, onOpenChat, onShowRequests, onlineUsers = new Set()
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-black text-slate-900">Find Peers</h2>
+          <h2 className="text-xl font-bold text-slate-900">Find Peers</h2>
           <p className="text-slate-500 text-sm mt-0.5">Discover study partners matched to your goals</p>
         </div>
         <motion.button
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
           onClick={onShowRequests}
-          className="relative px-4 py-2.5 bg-slate-900 text-white font-bold text-sm rounded-2xl hover:bg-slate-800 transition-colors flex items-center gap-2"
+          className="relative px-4 py-2.5 bg-slate-900 text-white font-bold text-sm rounded-xl hover:bg-slate-800 transition-colors flex items-center gap-2"
         >
           <Users className="w-4 h-4" />
           Connection Requests
@@ -249,13 +249,13 @@ const FindPeers = ({ socket, onOpenChat, onShowRequests, onlineUsers = new Set()
           placeholder="Search by name, skill, or college..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-12 pr-4 py-3.5 bg-white/80 backdrop-blur-xl border border-white shadow-xl rounded-2xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 transition-all"
+          className="w-full pl-12 pr-4 py-3.5 bg-white/80 backdrop-blur-xl border border-white shadow-xl rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 transition-all"
         />
       </div>
 
       {/* Error state */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-center">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
           <p className="text-red-600 font-medium">{error}</p>
           <button
             onClick={loadPeers}
@@ -274,12 +274,12 @@ const FindPeers = ({ socket, onOpenChat, onShowRequests, onlineUsers = new Set()
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white/80 backdrop-blur-xl border border-white shadow-xl rounded-[28px] p-12 text-center"
+          className="bg-white/80 backdrop-blur-xl border border-white shadow-xl rounded-[28px] p-8 text-center"
         >
           <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-emerald-500 to-blue-500 rounded-full flex items-center justify-center">
             <Users className="w-8 h-8 text-white" />
           </div>
-          <h3 className="text-lg font-bold text-slate-900 mb-2">
+          <h3 className="text-base font-bold text-slate-900 mb-2">
             {search ? 'No peers match your search' : 'No peer recommendations yet'}
           </h3>
           <p className="text-slate-500 text-sm">
@@ -302,7 +302,7 @@ const FindPeers = ({ socket, onOpenChat, onShowRequests, onlineUsers = new Set()
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ delay: index * 0.05 }}
                 whileHover={{ y: -5 }}
-                className="bg-white/80 backdrop-blur-xl border border-white shadow-xl rounded-[28px] p-6 relative overflow-hidden"
+                className="bg-white/80 backdrop-blur-xl border border-white shadow-xl rounded-[28px] p-5 relative overflow-hidden"
               >
                 {/* Perfect Match Badge */}
                 {peer.match >= 85 && (

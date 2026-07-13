@@ -381,7 +381,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
   const SettingItem = ({ icon: Icon, title, subtitle, action, danger, onClick }) => (
     <div 
       onClick={onClick}
-      className="flex items-center justify-between p-6 hover:bg-slate-50/50 rounded-2xl transition-all cursor-pointer group"
+      className="flex items-center justify-between p-5 hover:bg-slate-50/50 rounded-xl transition-all cursor-pointer group"
     >
       <div className="flex items-center gap-4">
         <div className={`w-12 h-12 rounded-xl ${danger ? 'bg-red-100' : 'bg-emerald-50'} flex items-center justify-center`}>
@@ -430,7 +430,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            className={`fixed top-6 right-6 z-[100] flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl text-sm font-bold max-w-sm border backdrop-blur-xl ${
+            className={`fixed top-6 right-6 z-[100] flex items-center gap-3 px-5 py-4 rounded-xl shadow-2xl text-sm font-bold max-w-sm border backdrop-blur-xl ${
               toast.type === 'success' ? 'bg-emerald-900/95 border-emerald-700 text-white'
               : toast.type === 'error' ? 'bg-red-900/95 border-red-700 text-white'
               : 'bg-slate-900/95 border-slate-700 text-white'
@@ -455,12 +455,12 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
-              className="bg-white rounded-[32px] p-8 w-full max-w-md shadow-2xl border border-white"
+              className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-white"
             >
               {/* ── Connect Account Modal ── */}
               {activeModal === 'connect-account' && (
                 <>
-                  <h3 className="text-2xl font-black text-slate-900 mb-2">
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">
                     Connect {targetAccount?.charAt(0).toUpperCase() + targetAccount?.slice(1)}
                   </h3>
                   <p className="text-slate-500 mb-6">Enter your {targetAccount} username or profile URL below.</p>
@@ -470,7 +470,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
                     value={tempInput}
                     onChange={(e) => setTempInput(e.target.value)}
                     placeholder={`e.g. @username or https://${targetAccount}.com/username`}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 font-bold text-slate-800 outline-none focus:ring-4 focus:ring-emerald-100 mb-6"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-4 font-bold text-slate-800 outline-none focus:ring-4 focus:ring-emerald-100 mb-6"
                     autoFocus
                     onKeyDown={(e) => e.key === 'Enter' && handleConnectAccountSave()}
                   />
@@ -495,7 +495,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
               {/* ── Email / Password Modal ── */}
               {(activeModal === 'email' || activeModal === 'password') && (
                 <>
-                  <h3 className="text-2xl font-black text-slate-900 mb-2">
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">
                     Change {activeModal === 'email' ? 'Email' : 'Password'}
                   </h3>
                   <p className="text-slate-500 mb-6">Enter your new {activeModal} below.</p>
@@ -506,7 +506,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
                       value={tempInput}
                       onChange={(e) => setTempInput(e.target.value)}
                       placeholder="new@example.com"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 font-bold text-slate-800 outline-none focus:ring-4 focus:ring-emerald-100 mb-6"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-4 font-bold text-slate-800 outline-none focus:ring-4 focus:ring-emerald-100 mb-6"
                       autoFocus
                       onKeyDown={(e) => e.key === 'Enter' && handleModalSave()}
                     />
@@ -518,7 +518,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
                           value={tempInput}
                           onChange={(e) => setTempInput(e.target.value)}
                           placeholder="New Password"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 pr-12 font-bold text-slate-800 outline-none focus:ring-4 focus:ring-emerald-100"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-4 pr-12 font-bold text-slate-800 outline-none focus:ring-4 focus:ring-emerald-100"
                           autoFocus
                         />
                         <button 
@@ -533,7 +533,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
                         value={tempInputConfirm}
                         onChange={(e) => setTempInputConfirm(e.target.value)}
                         placeholder="Confirm Password"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 font-bold text-slate-800 outline-none focus:ring-4 focus:ring-emerald-100"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-4 font-bold text-slate-800 outline-none focus:ring-4 focus:ring-emerald-100"
                         onKeyDown={(e) => e.key === 'Enter' && handleModalSave()}
                       />
                       {tempInput && tempInput.length < 6 && (
@@ -569,7 +569,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
                     <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
                       <AlertTriangle className="w-6 h-6 text-red-500" />
                     </div>
-                    <h3 className="text-2xl font-black text-red-600">Delete Account</h3>
+                    <h3 className="text-xl font-bold text-red-600">Delete Account</h3>
                   </div>
                   <p className="text-slate-600 mb-2">This action is <strong>permanent</strong> and cannot be undone. All your data will be lost, including:</p>
                   <ul className="text-sm text-slate-500 mb-4 space-y-1 ml-4 list-disc">
@@ -584,7 +584,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
                     value={deleteConfirmText}
                     onChange={(e) => setDeleteConfirmText(e.target.value.toUpperCase())}
                     placeholder="Type DELETE"
-                    className="w-full bg-red-50 border border-red-200 rounded-2xl px-5 py-4 font-bold text-slate-800 outline-none focus:ring-4 focus:ring-red-100 mb-6 font-mono"
+                    className="w-full bg-red-50 border border-red-200 rounded-xl px-5 py-4 font-bold text-slate-800 outline-none focus:ring-4 focus:ring-red-100 mb-6 font-mono"
                     autoFocus
                     onKeyDown={(e) => e.key === 'Enter' && handleDeleteAccount()}
                   />
@@ -617,12 +617,12 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
                     <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
                       <Target className="w-6 h-6 text-purple-600" />
                     </div>
-                    <h3 className="text-2xl font-black text-slate-900">Smart Schedule</h3>
+                    <h3 className="text-xl font-bold text-slate-900">Smart Schedule</h3>
                   </div>
                   <p className="text-slate-600 mb-6">Let our AI analyze your study patterns and optimize your learning schedule for peak performance.</p>
                   
                   <div className="space-y-4 mb-6">
-                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-2xl border border-purple-100">
+                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-100">
                       <div className="flex items-center gap-3">
                         <Sparkles className="w-5 h-5 text-purple-500" />
                         <div>
@@ -631,7 +631,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
                         </div>
                       </div>
                     </div>
-                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-2xl border border-blue-100">
+                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
                       <div className="flex items-center gap-3">
                         <Clock className="w-5 h-5 text-blue-500" />
                         <div>
@@ -640,7 +640,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
                         </div>
                       </div>
                     </div>
-                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-4 rounded-2xl border border-emerald-100">
+                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-4 rounded-xl border border-emerald-100">
                       <div className="flex items-center gap-3">
                         <Bell className="w-5 h-5 text-emerald-500" />
                         <div>
@@ -685,19 +685,19 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`${theme.glass} rounded-[40px] p-10 relative overflow-hidden`}
+        className={`${theme.glass} rounded-2xl p-6 relative overflow-hidden`}
       >
         <Sparkles className="absolute top-8 right-8 w-8 h-8 text-emerald-500/10" />
         
         <div className="flex items-start justify-between mb-8">
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Profile Settings</h2>
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Profile Settings</h2>
           
           {/* EDIT TOGGLE BUTTON */}
           <div className="flex items-center gap-2">
             {!isEditingProfile && (
               <button 
                 onClick={handleLogout}
-                className="flex items-center gap-2 px-5 py-3 rounded-2xl font-bold text-red-500 hover:bg-red-50 hover:text-red-600 transition-all border border-red-100 mr-2"
+                className="flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-red-500 hover:bg-red-50 hover:text-red-600 transition-all border border-red-100 mr-2"
               >
                 <LogOut className="w-4 h-4" /> Log Out
               </button>
@@ -705,14 +705,14 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
             {isEditingProfile && (
               <button 
                 onClick={handleProfileCancel}
-                className="flex items-center gap-2 px-5 py-3 rounded-2xl font-bold text-slate-500 hover:bg-slate-100 transition-all"
+                className="flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-all"
               >
                 <X className="w-4 h-4" /> Cancel
               </button>
             )}
             <button 
               onClick={() => isEditingProfile ? handleProfileSave() : setIsEditingProfile(true)}
-              className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold transition-all ${
+              className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold transition-all ${
                 isEditingProfile 
                   ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-200' 
                   : 'bg-slate-900 text-white hover:scale-105'
@@ -727,10 +727,10 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row items-start gap-8">
+        <div className="flex flex-col md:flex-row items-start gap-6">
           {/* Profile Photo */}
           <div className="relative group">
-            <div className={`w-32 h-32 rounded-[32px] ${userData.avatarUrl ? '' : theme.cardIcon} flex items-center justify-center text-5xl font-black text-white shadow-2xl shadow-emerald-100 overflow-hidden`}>
+            <div className={`w-32 h-32 rounded-2xl ${userData.avatarUrl ? '' : theme.cardIcon} flex items-center justify-center text-4xl font-bold text-white shadow-2xl shadow-emerald-100 overflow-hidden`}>
               {userData.avatarUrl ? (
                 <img src={userData.avatarUrl} alt="Profile" className="w-full h-full object-cover" />
               ) : (
@@ -739,7 +739,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
             </div>
             <button 
               onClick={() => fileInputRef.current?.click()}
-              className="absolute -bottom-3 -right-3 bg-white border-4 border-white w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg hover:scale-110 transition-all group-hover:bg-emerald-50"
+              className="absolute -bottom-3 -right-3 bg-white border-4 border-white w-12 h-12 rounded-xl flex items-center justify-center shadow-lg hover:scale-110 transition-all group-hover:bg-emerald-50"
             >
               <Camera className="w-5 h-5 text-slate-600 group-hover:text-emerald-600" />
             </button>
@@ -753,7 +753,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
                   <input 
                     value={userData.name}
                     onChange={(e) => setUserData({...userData, name: e.target.value})}
-                    className="w-full text-3xl font-black text-slate-900 bg-white/50 border-b-2 border-emerald-500 outline-none px-2 py-1"
+                    className="w-full text-2xl font-bold text-slate-900 bg-white/50 border-b-2 border-emerald-500 outline-none px-2 py-1"
                     placeholder="Your Name"
                   />
                    <div className="flex items-center gap-2">
@@ -777,7 +777,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
                 </div>
               ) : (
                 <>
-                  <h3 className="text-3xl font-black text-slate-900 mb-2">{userData.name}</h3>
+                  <h3 className="text-2xl font-bold text-slate-900 mb-2">{userData.name}</h3>
                   <p className="text-slate-500 font-medium flex items-center gap-2">
                     <GraduationCap className="w-4 h-4" /> {userData.college || 'Add your college/university'}
                   </p>
@@ -789,33 +789,33 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
             </div>
 
             {/* Stats */}
-            <div className="flex flex-wrap gap-6">
-              <div className="flex items-center gap-3 bg-gradient-to-br from-orange-50 to-red-50 px-5 py-3 rounded-2xl border border-orange-100">
-                <div className="text-2xl">🔥</div>
+            <div className="flex flex-wrap gap-5">
+              <div className="flex items-center gap-3 bg-gradient-to-br from-orange-50 to-red-50 px-5 py-3 rounded-xl border border-orange-100">
+                <div className="text-xl">🔥</div>
                 <div>
-                  <p className="text-xs font-black text-slate-400 uppercase">Streak</p>
-                  <p className="text-xl font-black text-slate-800">{dashStats?.streak ?? roadmapData?.stats?.streak ?? stats.streak ?? 0} Days</p>
+                  <p className="text-xs font-bold text-slate-400 uppercase">Streak</p>
+                  <p className="text-lg font-bold text-slate-800">{dashStats?.streak ?? roadmapData?.stats?.streak ?? stats.streak ?? 0} Days</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 bg-gradient-to-br from-blue-50 to-indigo-50 px-5 py-3 rounded-2xl border border-blue-100">
-                <div className="text-2xl">⭐</div>
+              <div className="flex items-center gap-3 bg-gradient-to-br from-blue-50 to-indigo-50 px-5 py-3 rounded-xl border border-blue-100">
+                <div className="text-xl">⭐</div>
                 <div>
-                  <p className="text-xs font-black text-slate-400 uppercase">Level</p>
-                  <p className="text-xl font-black text-slate-800">{dashStats?.level ?? roadmapData?.stats?.level ?? stats.level ?? 1}</p>
+                  <p className="text-xs font-bold text-slate-400 uppercase">Level</p>
+                  <p className="text-lg font-bold text-slate-800">{dashStats?.level ?? roadmapData?.stats?.level ?? stats.level ?? 1}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 bg-gradient-to-br from-emerald-50 to-teal-50 px-5 py-3 rounded-2xl border border-emerald-100">
-                <div className="text-2xl">💎</div>
+              <div className="flex items-center gap-3 bg-gradient-to-br from-emerald-50 to-teal-50 px-5 py-3 rounded-xl border border-emerald-100">
+                <div className="text-xl">💎</div>
                 <div>
-                  <p className="text-xs font-black text-slate-400 uppercase">XP</p>
-                  <p className="text-xl font-black text-slate-800">{(realStats.xpScore ?? dashStats?.xpScore ?? stats.xp ?? 0).toLocaleString()}</p>
+                  <p className="text-xs font-bold text-slate-400 uppercase">XP</p>
+                  <p className="text-lg font-bold text-slate-800">{(realStats.xpScore ?? dashStats?.xpScore ?? stats.xp ?? 0).toLocaleString()}</p>
                 </div>
               </div>
             </div>
 
             {/* Skills */}
             <div>
-              <p className="text-xs font-black text-slate-400 uppercase mb-3">Skills I'm Learning</p>
+              <p className="text-xs font-bold text-slate-400 uppercase mb-3">Skills I'm Learning</p>
               <div className="flex flex-wrap gap-3">
                 {(() => {
                   let displaySkills = stats.skills || [];
@@ -852,7 +852,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
                     <div key={i} className="bg-white border border-slate-200 px-4 py-2 rounded-xl">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="font-bold text-sm text-slate-800">{skill.name}</span>
-                        <span className="text-xs font-black text-emerald-600">{skill.progress}%</span>
+                        <span className="text-xs font-bold text-emerald-600">{skill.progress}%</span>
                       </div>
                       <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden w-24">
                         <div 
@@ -869,16 +869,16 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
         </div>
       </motion.div>
 
-      <div className="grid lg:grid-cols-2 gap-8">
+      <div className="grid lg:grid-cols-2 gap-6">
         
         {/* Account Settings */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.1 }}
-          className={`${theme.glass} rounded-[32px] p-8`}
+          className={`${theme.glass} rounded-2xl p-6`}
         >
-          <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
+          <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
             <User className="w-5 h-5 text-emerald-600" /> Account
           </h3>
           <div className="space-y-2">
@@ -918,9 +918,9 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className={`${theme.glass} rounded-[32px] p-8`}
+          className={`${theme.glass} rounded-2xl p-6`}
         >
-          <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
+          <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
             <Globe className="w-5 h-5 text-emerald-600" /> Connected Accounts
           </h3>
           
@@ -928,7 +928,7 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
             {Object.entries(connectedAccounts).map(([key, account]) => {
               const IconComp = accountIcons[key];
               return (
-                <div key={key} className="flex items-center justify-between p-5 bg-white border border-slate-100 rounded-2xl hover:shadow-md transition-all">
+                <div key={key} className="flex items-center justify-between p-5 bg-white border border-slate-100 rounded-xl hover:shadow-md transition-all">
                   <div className="flex items-center gap-4 min-w-0 pr-4">
                     <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
                       <IconComp className="w-5 h-5 text-slate-600" />
@@ -973,14 +973,14 @@ const SettingsView = ({ roadmapData, dashStats, onProfileUpdate }) => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
-        className={`${theme.glass} rounded-[32px] p-8`}
+        className={`${theme.glass} rounded-2xl p-6`}
       >
-        <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
+        <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
           <Shield className="w-5 h-5 text-emerald-600" /> Privacy & Security
         </h3>
         
         <div className="space-y-6">
-          <div className="flex items-center justify-between p-6 bg-white border border-slate-100 rounded-2xl">
+          <div className="flex items-center justify-between p-5 bg-white border border-slate-100 rounded-xl">
             <div>
               <p className="font-bold text-slate-800 mb-1">Profile Visibility</p>
               <p className="text-xs text-slate-500">Control who can see your profile</p>

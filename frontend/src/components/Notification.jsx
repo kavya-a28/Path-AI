@@ -63,16 +63,16 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="absolute top-24 right-10 z-50 w-96 bg-white/90 backdrop-blur-xl border border-white/50 rounded-[32px] shadow-2xl overflow-hidden"
+            className="absolute top-24 right-10 z-50 w-96 bg-white/90 backdrop-blur-xl border border-white/50 rounded-2xl shadow-2xl overflow-hidden"
           >
             {/* Header */}
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white/50">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-white/50">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
                   <Bell className="w-5 h-5 text-emerald-600" />
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-800 text-lg">Notifications</h3>
+                  <h3 className="font-bold text-slate-800 text-base">Notifications</h3>
                   <p className="text-xs text-slate-500 font-bold">You have 2 unread</p>
                 </div>
               </div>
@@ -89,7 +89,7 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
               {notifications.map((notif) => (
                 <div 
                   key={notif.id}
-                  className={`p-4 rounded-2xl mb-1 flex gap-4 transition-all cursor-pointer ${
+                  className={`p-4 rounded-xl mb-1 flex gap-4 transition-all cursor-pointer ${
                     notif.read ? 'bg-transparent hover:bg-slate-50' : 'bg-blue-50/50 hover:bg-blue-50 border border-blue-100'
                   }`}
                 >
@@ -98,7 +98,7 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
                   </div>
                   <div className="flex-1">
                     <div className="flex justify-between items-start">
-                      <h4 className={`text-sm ${notif.read ? 'font-bold text-slate-700' : 'font-black text-slate-900'}`}>
+                      <h4 className={`text-sm ${notif.read ? 'font-bold text-slate-700' : 'font-bold text-slate-900'}`}>
                         {notif.title}
                       </h4>
                       <span className="text-[10px] font-bold text-slate-400">{notif.time}</span>
@@ -113,7 +113,7 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
 
             {/* Footer */}
             <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
-              <button className="text-xs font-black text-emerald-600 hover:text-emerald-700 uppercase tracking-wider">
+              <button className="text-xs font-bold text-emerald-600 hover:text-emerald-700 uppercase tracking-wider">
                 Mark all as read
               </button>
             </div>

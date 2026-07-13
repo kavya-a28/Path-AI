@@ -91,7 +91,7 @@ const QuoteBoard = ({ x, y }) => (
         "A roadmap is not just a plan,<br/>it's a promise to your future success."
       </p>
     </div>
-    <div className="flex gap-6 -mt-1">
+    <div className="flex gap-5 -mt-1">
       <div className="w-2 h-8 bg-amber-900" />
       <div className="w-2 h-8 bg-amber-900" />
     </div>
@@ -117,15 +117,15 @@ const Skeleton = ({ className }) => (
 const NoRoadmapCTA = ({ onRetry }) => (
   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
     className="flex flex-col items-center justify-center py-20 text-center">
-    <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 rounded-3xl flex items-center justify-center mb-6">
+    <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 rounded-xl flex items-center justify-center mb-6">
       <MapIcon className="w-12 h-12 text-blue-500" />
     </div>
-    <h2 className="text-2xl font-black text-slate-800 mb-2">No Roadmap Yet</h2>
+    <h2 className="text-xl font-bold text-slate-800 mb-2">No Roadmap Yet</h2>
     <p className="text-slate-500 font-medium mb-6 max-w-sm">
       Complete the onboarding quiz so our AI can generate your personalised learning path.
     </p>
     <button onClick={onRetry}
-      className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-blue-700 transition-colors">
+      className="flex items-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors">
       <RefreshCw className="w-4 h-4" /> Try Again
     </button>
   </motion.div>
@@ -139,14 +139,14 @@ const MilestoneModal = ({ milestone, onClose, onTaskSelect }) => {
       className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-md"
       onClick={onClose}>
       <motion.div initial={{ scale: 0.9, y: 50 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 50 }}
-        className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-lg w-full max-h-[80vh] overflow-y-auto"
+        className="bg-white rounded-xl shadow-2xl overflow-hidden max-w-lg w-full max-h-[80vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}>
 
         {/* Header */}
-        <div className="h-32 p-6 relative flex-shrink-0" style={{ backgroundColor: milestone.color || '#4f46e5' }}>
+        <div className="h-32 p-5 relative flex-shrink-0" style={{ backgroundColor: milestone.color || '#4f46e5' }}>
           <div className="flex justify-between items-start">
             <div>
-              <h3 className="text-2xl font-black text-white mb-1">{milestone.title}</h3>
+              <h3 className="text-xl font-bold text-white mb-1">{milestone.title}</h3>
               <p className="text-white/80 font-semibold text-sm">{milestone.subtitle}</p>
               {milestone.durationWeeks && (
                 <p className="text-white/60 text-xs mt-1">{milestone.durationWeeks} weeks</p>
@@ -158,12 +158,12 @@ const MilestoneModal = ({ milestone, onClose, onTaskSelect }) => {
           </div>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-5 space-y-6">
           {/* Progress */}
           <div>
             <div className="flex justify-between items-center mb-2">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Progress</span>
-              <span className="text-2xl font-black text-slate-800">{milestone.progress || 0}%</span>
+              <span className="text-xl font-bold text-slate-800">{milestone.progress || 0}%</span>
             </div>
             <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
               <motion.div className="h-full rounded-full" style={{ backgroundColor: milestone.color }}
@@ -174,7 +174,7 @@ const MilestoneModal = ({ milestone, onClose, onTaskSelect }) => {
           {/* Topics */}
           {milestone.topics?.length > 0 && (
             <div>
-              <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Topics Covered</h4>
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Topics Covered</h4>
               <div className="space-y-2">
                 {milestone.topics.map((topic, i) => (
                   <motion.div key={i} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
@@ -209,7 +209,7 @@ const MilestoneModal = ({ milestone, onClose, onTaskSelect }) => {
           {/* Resources */}
           {milestone.resources?.length > 0 && (
             <div>
-              <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Resources</h4>
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Resources</h4>
               <div className="space-y-2">
                 {milestone.resources.map((res, i) => (
                   <div key={i}
@@ -508,9 +508,9 @@ const RoadmapView = ({
   // ── Loading skeleton ─────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-slate-50 to-purple-50 p-6 space-y-6">
-        <Skeleton className="h-48 w-full rounded-3xl" />
-        <Skeleton className="h-[600px] w-full rounded-3xl" />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-slate-50 to-purple-50 p-5 space-y-6">
+        <Skeleton className="h-48 w-full rounded-xl" />
+        <Skeleton className="h-[600px] w-full rounded-xl" />
       </div>
     );
   }
@@ -518,28 +518,28 @@ const RoadmapView = ({
   // ── No roadmap state ─────────────────────────────────────────────────────────
   if (!roadmap) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-slate-50 to-purple-50 p-6">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-slate-50 to-purple-50 p-5">
         <NoRoadmapCTA onRetry={fetchRoadmap} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-slate-50 to-purple-50 p-6 font-sans flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-slate-50 to-purple-50 p-5 font-sans flex flex-col">
       <div className="max-w-7xl mx-auto space-y-6 w-full">
 
         {/* ── HEADER CARD ─────────────────────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-          className="relative overflow-hidden rounded-3xl bg-white shadow-xl">
+          className="relative overflow-hidden rounded-xl bg-white shadow-xl">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-cyan-500/5 to-purple-500/5" />
-          <div className="relative p-8">
+          <div className="relative p-6">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
                   <MapIcon className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-black text-slate-800">{displayName} Roadmap</h1>
+                  <h1 className="text-2xl font-bold text-slate-800">{displayName} Roadmap</h1>
                   <p className="text-sm font-bold text-blue-600 mt-1">Your personalised AI learning path</p>
                 </div>
               </div>
@@ -579,7 +579,7 @@ const RoadmapView = ({
 
             {/* Pending panel — upcoming tasks not yet started */}
             {filterTab === 'pending' && (
-              <div className="mb-6 bg-amber-50 border-2 border-amber-200 rounded-2xl p-5 max-h-64 overflow-y-auto">
+              <div className="mb-6 bg-amber-50 border-2 border-amber-200 rounded-xl p-5 max-h-64 overflow-y-auto">
                 {pendingSessions.length === 0 ? (
                   <p className="text-sm font-medium text-amber-700">No pending tasks — you're on track! 🎉</p>
                 ) : (
@@ -590,7 +590,7 @@ const RoadmapView = ({
                           <p className="text-sm font-bold text-slate-800 truncate">{s.title}</p>
                           <p className="text-xs text-slate-400">{s.phaseTitle} · Day {s.day} · {s.estimatedHours || 1}h</p>
                         </div>
-                        <span className="text-[10px] font-black text-amber-600 uppercase ml-3 flex-shrink-0">
+                        <span className="text-[10px] font-bold text-amber-600 uppercase ml-3 flex-shrink-0">
                           {s.status === 'current' ? '▶ In Progress' : '⏳ Pending'}
                         </span>
                       </div>
@@ -602,7 +602,7 @@ const RoadmapView = ({
 
             {/* Missed panel — overdue tasks with reschedule CTA */}
             {filterTab === 'missed' && (
-              <div className="mb-6 bg-red-50 border-2 border-red-200 rounded-2xl p-5 max-h-64 overflow-y-auto">
+              <div className="mb-6 bg-red-50 border-2 border-red-200 rounded-xl p-5 max-h-64 overflow-y-auto">
                 {missedSessions.length === 0 ? (
                   <p className="text-sm font-medium text-red-700">No missed tasks — great consistency! 🔥</p>
                 ) : (
@@ -613,7 +613,7 @@ const RoadmapView = ({
                           <p className="text-sm font-bold text-slate-800 truncate">{s.title}</p>
                           <p className="text-xs text-slate-400">{s.phaseTitle} · Was Day {s.day} · {s.estimatedHours || 1}h</p>
                         </div>
-                        <span className="text-[10px] font-black text-red-500 uppercase ml-3 flex-shrink-0">✗ Missed</span>
+                        <span className="text-[10px] font-bold text-red-500 uppercase ml-3 flex-shrink-0">✗ Missed</span>
                       </div>
                     ))}
                     <button
@@ -632,7 +632,7 @@ const RoadmapView = ({
 
             {/* Done panel */}
             {filterTab === 'done' && (
-              <div className="mb-6 bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-5 max-h-64 overflow-y-auto">
+              <div className="mb-6 bg-emerald-50 border-2 border-emerald-200 rounded-xl p-5 max-h-64 overflow-y-auto">
                 {completedSessions.length === 0 ? (
                   <p className="text-sm font-medium text-emerald-700">No completed topics yet — start learning!</p>
                 ) : (
@@ -651,7 +651,7 @@ const RoadmapView = ({
                             {s.completedAt && ` · ${new Date(s.completedAt).toLocaleDateString()}`}
                           </p>
                         </div>
-                        <span className="text-[10px] font-black text-emerald-600 uppercase flex-shrink-0">Review</span>
+                        <span className="text-[10px] font-bold text-emerald-600 uppercase flex-shrink-0">Review</span>
                       </div>
                     ))}
                   </div>
@@ -661,22 +661,22 @@ const RoadmapView = ({
 
             {/* Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-5 border-2 border-blue-200">
-                <p className="text-3xl font-black text-slate-800">{milestonesLabel}</p>
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-5 border-2 border-blue-200">
+                <p className="text-2xl font-bold text-slate-800">{milestonesLabel}</p>
                 <p className="text-xs font-bold text-slate-600 uppercase">Sessions</p>
               </div>
-              <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-2xl p-5 border-2 border-cyan-200">
-                <p className="text-3xl font-black text-slate-800">{dynamicProgress}%</p>
+              <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-xl p-5 border-2 border-cyan-200">
+                <p className="text-2xl font-bold text-slate-800">{dynamicProgress}%</p>
                 <p className="text-xs font-bold text-slate-600 uppercase">Progress</p>
               </div>
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl p-5 border-2 border-purple-200">
-                <p className="text-3xl font-black text-slate-800">
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-5 border-2 border-purple-200">
+                <p className="text-2xl font-bold text-slate-800">
                   {dailySessions.filter(s => s.status !== 'completed').length}
                 </p>
                 <p className="text-xs font-bold text-slate-600 uppercase">Pending</p>
               </div>
-              <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl p-5">
-                <p className="text-3xl font-black text-white">{dynamicXP}</p>
+              <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl p-5">
+                <p className="text-2xl font-bold text-white">{dynamicXP}</p>
                 <p className="text-xs font-bold text-white/90 uppercase">XP Score</p>
               </div>
             </div>
@@ -753,7 +753,7 @@ const RoadmapView = ({
               <div className="absolute top-[8%] left-[6%] flex flex-col items-center z-30">
                 <motion.div animate={{ y: [0, -5, 0] }} transition={{ duration: 2, repeat: Infinity }}
                   className="w-10 h-8 bg-slate-800 rounded-lg flex items-center justify-center border-2 border-slate-600 shadow-xl">
-                  <span className="text-[10px] font-black text-white tracking-widest">GO</span>
+                  <span className="text-[10px] font-bold text-white tracking-widest">GO</span>
                 </motion.div>
                 <div className="w-1.5 h-12 bg-slate-800 -mt-2 rounded-full" />
               </div>
@@ -766,7 +766,7 @@ const RoadmapView = ({
               {(() => {
                 const n = milestones.length;
                 const circleSize = n > 12 ? 'w-10 h-10' : n > 8 ? 'w-12 h-12' : 'w-14 h-14';
-                const fontSize = n > 12 ? 'text-sm' : n > 8 ? 'text-lg' : 'text-2xl';
+                const fontSize = n > 12 ? 'text-sm' : n > 8 ? 'text-base' : 'text-xl';
                 const labelClass = n > 8
                   ? 'opacity-0 group-hover:opacity-100 transition-opacity duration-200'
                   : '';
@@ -796,7 +796,7 @@ const RoadmapView = ({
                           isNew ? 'border-emerald-300' : 'border-white'
                         }`}
                         style={{ backgroundColor: isNew ? '#a7f3d0' : ms.color }}>
-                        <span className={`${fontSize} font-black ${isNew ? 'text-emerald-800' : 'text-white'}`}>{i + 1}</span>
+                        <span className={`${fontSize} font-bold ${isNew ? 'text-emerald-800' : 'text-white'}`}>{i + 1}</span>
                       </div>
                       {/* Label: flips above when near bottom edge, below when near top */}
                       <div className={`absolute ${flipUp ? 'bottom-full mb-2' : 'top-full mt-1'} backdrop-blur-md px-3 py-1.5 rounded-xl shadow-lg whitespace-nowrap transform transition-all z-30 pointer-events-none ${labelClass} ${
@@ -804,7 +804,7 @@ const RoadmapView = ({
                       }`}>
                         <p className={`text-xs font-bold ${isNew ? 'text-emerald-700' : 'text-slate-800'}`}>{ms.title}</p>
                         {isNew && (
-                          <span className="text-[9px] font-black text-emerald-500 uppercase tracking-wider">✨ New — AI Added</span>
+                          <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-wider">✨ New — AI Added</span>
                         )}
                       </div>
                       {(ms.status === 'current' || isNew) && (
@@ -839,10 +839,10 @@ const RoadmapView = ({
 
               {/* START / FINISH badges */}
               <div className="absolute" style={{ left: '3%', top: '85%', zIndex: 30 }}>
-                <div className="bg-blue-600 text-white font-black text-xs px-4 py-1 rounded-full shadow-lg border-2 border-white -rotate-6">START</div>
+                <div className="bg-blue-600 text-white font-bold text-xs px-4 py-1 rounded-full shadow-lg border-2 border-white -rotate-6">START</div>
               </div>
               <div className="absolute" style={{ left: '92%', top: '92%', zIndex: 30 }}>
-                <div className="bg-red-600 text-white font-black text-xs px-4 py-1 rounded-full shadow-lg border-2 border-white rotate-6">FINISH</div>
+                <div className="bg-red-600 text-white font-bold text-xs px-4 py-1 rounded-full shadow-lg border-2 border-white rotate-6">FINISH</div>
               </div>
 
               <QuoteBoard x={5} y={10} />
@@ -872,7 +872,7 @@ const RoadmapView = ({
                         <div className="flex items-center gap-2 mb-1">
                           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: isNewDay ? '#6ee7b7' : day.topicColor }}></span>
                           <p className="font-bold text-xs">{day.milestoneTitle || `Day ${day.id}`}</p>
-                          {isNewDay && <span className="text-[9px] font-black text-emerald-300">✨ NEW</span>}
+                          {isNewDay && <span className="text-[9px] font-bold text-emerald-300">✨ NEW</span>}
                         </div>
                         {day.subtitle && day.subtitle !== day.milestoneTitle && (
                           <p className="text-slate-400 font-medium text-[10px] max-w-[200px] truncate text-center">
@@ -940,7 +940,7 @@ const RoadmapView = ({
 
               {/* Day header with navigation */}
               <div className="absolute top-6 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1.5">
-                <div className="bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg flex items-center gap-2">
+                <div className="bg-white/90 backdrop-blur-md px-4 py-2 rounded-xl shadow-lg flex items-center gap-2">
                   <button
                     onClick={goToPrevDay}
                     disabled={!hasPrev}
@@ -948,9 +948,9 @@ const RoadmapView = ({
                   >
                     <ChevronLeft className="w-5 h-5 text-slate-600" />
                   </button>
-                  <span className="text-xl font-black text-slate-800 min-w-[80px] text-center">Day {activeDayNum}</span>
+                  <span className="text-lg font-bold text-slate-800 min-w-[80px] text-center">Day {activeDayNum}</span>
                   {isViewingToday && (
-                    <span className="bg-emerald-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                    <span className="bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                       Today
                     </span>
                   )}
@@ -978,12 +978,12 @@ const RoadmapView = ({
               </div>
 
               {/* Sessions */}
-              <div className="absolute inset-0 z-30 flex items-center px-12" style={{ paddingTop: '80px' }}>
+              <div className="absolute inset-0 z-30 flex items-center px-8" style={{ paddingTop: '80px' }}>
                 {todaySessions.length === 0 ? (
                   <div className="w-full flex items-center justify-center">
-                    <div className="bg-white/80 backdrop-blur-md rounded-3xl p-8 text-center shadow-xl">
-                      <p className="text-2xl mb-2">🎉</p>
-                      <p className="font-black text-slate-800 text-lg">All done for today!</p>
+                    <div className="bg-white/80 backdrop-blur-md rounded-xl p-6 text-center shadow-xl">
+                      <p className="text-xl mb-2">🎉</p>
+                      <p className="font-bold text-slate-800 text-base">All done for today!</p>
                       <p className="text-slate-500 font-medium">No sessions scheduled.</p>
                     </div>
                   </div>
@@ -1028,14 +1028,14 @@ const RoadmapView = ({
                             <motion.span
                               animate={{ scale: [1, 1.05, 1] }}
                               transition={{ duration: 1.5, repeat: Infinity }}
-                              className="mb-2 bg-emerald-400/30 border border-emerald-400/60 text-emerald-200 font-black text-[10px] px-4 py-1.5 rounded-full uppercase tracking-wider backdrop-blur-sm"
+                              className="mb-2 bg-emerald-400/30 border border-emerald-400/60 text-emerald-200 font-bold text-[10px] px-4 py-1.5 rounded-full uppercase tracking-wider backdrop-blur-sm"
                             >
                               ✨ AI Added — New Skill
                             </motion.span>
                           )}
                           {/* Action buttons */}
                           {isComp && (
-                            <span className="mb-3 bg-emerald-100 text-emerald-700 font-black text-[10px] px-4 py-1.5 rounded-full uppercase tracking-wider">
+                            <span className="mb-3 bg-emerald-100 text-emerald-700 font-bold text-[10px] px-4 py-1.5 rounded-full uppercase tracking-wider">
                               ✓ Completed
                             </span>
                           )}
@@ -1045,7 +1045,7 @@ const RoadmapView = ({
                                 e.stopPropagation();
                                 if (onTaskSelect) onTaskSelect({ ...session, milestoneId: session.phaseId });
                               }}
-                              className={`mb-3 text-white font-black text-xs px-5 py-2 rounded-full shadow-md uppercase tracking-wider transition-colors ${
+                              className={`mb-3 text-white font-bold text-xs px-5 py-2 rounded-full shadow-md uppercase tracking-wider transition-colors ${
                                 isMissed ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-500 hover:bg-emerald-600'
                               }`}
                             >
@@ -1055,7 +1055,7 @@ const RoadmapView = ({
 
                           {/* Icon box */}
                           <div className="mb-5">
-                            <div className={`w-24 h-24 rounded-2xl flex items-center justify-center shadow-xl relative z-10 ${
+                            <div className={`w-24 h-24 rounded-xl flex items-center justify-center shadow-xl relative z-10 ${
                               isNewSession
                                 ? 'bg-gradient-to-br from-emerald-300 to-teal-400 border-4 border-emerald-200'
                                 : isComp    ? 'bg-gradient-to-br from-green-400 to-emerald-600 border-4 border-white'
@@ -1085,8 +1085,8 @@ const RoadmapView = ({
                           </div>
 
                           {/* Text card */}
-                          <div className="text-center bg-black/25 backdrop-blur-sm rounded-2xl px-4 py-3 border border-white/10 max-w-[170px]">
-                            <h3 className="text-white font-black text-sm leading-tight mb-1 drop-shadow-md">{session.title}</h3>
+                          <div className="text-center bg-black/25 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/10 max-w-[170px]">
+                            <h3 className="text-white font-bold text-sm leading-tight mb-1 drop-shadow-md">{session.title}</h3>
                             <p className="text-white/60 font-semibold text-[10px] uppercase tracking-wider mb-1">{session.time}</p>
                             {session.topicPart && (
                               <p className="text-white/50 text-[9px] font-semibold">{session.topicPart}</p>
@@ -1116,7 +1116,7 @@ const RoadmapView = ({
       </div>
 
       {toast && (
-        <div className="fixed bottom-6 right-6 z-[100] bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-semibold max-w-sm">
+        <div className="fixed bottom-6 right-6 z-[100] bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl text-sm font-semibold max-w-sm">
           {toast}
         </div>
       )}

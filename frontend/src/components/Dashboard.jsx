@@ -315,12 +315,12 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
           animate={{ x: 0 }} 
           className="w-72 bg-white/70 backdrop-blur-2xl border-r border-white/80 flex flex-col z-20 h-screen overflow-hidden"
         >
-          <div className="p-8 flex-shrink-0">
+          <div className="p-6 flex-shrink-0">
             <div className="flex items-center gap-3">
               <div className={`${theme.accent} w-10 h-10 rounded-xl flex items-center justify-center shadow-lg`}>
                 <Sparkles className="w-6 h-6 text-white" />
               </div>
-              <span className="text-2xl font-black tracking-tighter">PathAI</span>
+              <span className="text-xl font-bold tracking-tighter">PathAI</span>
             </div>
           </div>
 
@@ -329,7 +329,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold transition-all cursor-pointer ${
+                className={`w-full flex items-center gap-4 px-5 py-4 rounded-xl font-bold transition-all cursor-pointer ${
                   activeTab === item.id ? theme.sidebarActive : 'text-slate-500 hover:bg-white/40'
                 }`}
               >
@@ -340,13 +340,13 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
 
             {/* Sidebar Bottom Widgets */}
             <div className="mt-8 space-y-4 px-2">
-              <div className="bg-white/80 border border-white p-5 rounded-[24px] shadow-sm">
+              <div className="bg-white/80 border border-white p-5 rounded-2xl shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <Flame className="w-5 h-5 text-emerald-500" />
-                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Active Streak</span>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Active Streak</span>
                 </div>
                 <div className="flex items-end gap-2">
-                  <span className="text-4xl font-black text-slate-800 leading-none">
+                  <span className="text-3xl font-bold text-slate-800 leading-none">
                     {statsLoading ? '—' : streak}
                   </span>
                   <span className="text-sm font-bold text-slate-400 mb-1 tracking-tighter">DAYS</span>
@@ -364,10 +364,10 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
         <div className="flex-1 flex flex-col overflow-hidden relative">
           
           {/* Top Navigation Header */}
-          <header className="px-10 py-6 flex items-center justify-between z-10 bg-white/10 backdrop-blur-md border-b border-white/20 flex-shrink-0 relative">
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight capitalize">{activeTab}</h1>
+          <header className="px-6 py-5 flex items-center justify-between z-10 bg-white/10 backdrop-blur-md border-b border-white/20 flex-shrink-0 relative">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight capitalize">{activeTab}</h1>
             
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-5">
               {/* Search Bar */}
               <div className="relative hidden md:block z-50">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -381,7 +381,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                   onFocus={() => setShowSearchDropdown(true)}
                   onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
                   placeholder="Search resources..." 
-                  className="pl-12 pr-6 py-3 bg-white/80 border border-white rounded-2xl text-sm focus:ring-4 focus:ring-emerald-100 w-80 shadow-sm outline-none" 
+                  className="pl-12 pr-6 py-3 bg-white/80 border border-white rounded-xl text-sm focus:ring-4 focus:ring-emerald-100 w-80 shadow-sm outline-none" 
                 />
                 
                 {/* Search Dropdown */}
@@ -391,7 +391,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 10 }}
-                      className="absolute top-full mt-2 w-full bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden"
+                      className="absolute top-full mt-2 w-full bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden"
                     >
                       {searchResults.length > 0 ? (
                         <div className="max-h-80 overflow-y-auto">
@@ -409,7 +409,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                           ))}
                         </div>
                       ) : (
-                        <div className="px-4 py-6 text-center text-sm text-slate-500">
+                        <div className="px-4 py-5 text-center text-sm text-slate-500">
                           No resources found matching "{searchQuery}"
                         </div>
                       )}
@@ -428,7 +428,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                 {localUserData?.avatarUrl ? (
                   <img src={localUserData.avatarUrl} alt="Profile" className="w-9 h-9 rounded-xl object-cover" />
                 ) : (
-                  <div className={`${theme.accent} w-9 h-9 rounded-xl flex items-center justify-center font-black text-white`}>
+                  <div className={`${theme.accent} w-9 h-9 rounded-xl flex items-center justify-center font-bold text-white`}>
                     {userName.charAt(0).toUpperCase()}
                   </div>
                 )}
@@ -440,7 +440,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
           </header>
 
           {/* Dynamic Content Area */}
-          <main className="flex-1 overflow-y-auto px-10 pb-10 scrollbar-hide">
+          <main className="flex-1 overflow-y-auto px-6 pb-10 scrollbar-hide">
             <AnimatePresence mode="wait">
               
               {/* DASHBOARD VIEW */}
@@ -454,25 +454,25 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                 >
                   
                   {/* Welcome Card */}
-                  <div className={`p-10 rounded-[40px] relative overflow-hidden bg-white/80 border border-white shadow-xl`}>
-                    <div className="relative z-10 grid md:grid-cols-2 gap-8">
+                  <div className={`p-6 rounded-2xl relative overflow-hidden bg-white/80 border border-white shadow-xl`}>
+                    <div className="relative z-10 grid md:grid-cols-2 gap-6">
                       <div>
-                        <div className="bg-emerald-100 px-3 py-1 rounded-full text-[#059669] text-[10px] font-black uppercase inline-block mb-4">
+                        <div className="bg-emerald-100 px-3 py-1 rounded-full text-[#059669] text-[10px] font-bold uppercase inline-block mb-4">
                           Level {level}
                         </div>
-                        <h2 className="text-4xl font-black text-slate-900 mb-6 leading-tight tracking-tight">
+                        <h2 className="text-3xl font-bold text-slate-900 mb-6 leading-tight tracking-tight">
                           Excellent progress, <br/> {userName}! 🚀
                         </h2>
-                        <div className="flex gap-10">
+                        <div className="flex gap-6">
                           <div>
                             <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-1">Weekly Goal</p>
-                            <p className="text-2xl font-black text-[#059669]">
+                            <p className="text-xl font-bold text-[#059669]">
                               {statsLoading ? '—' : `${weeklyGoal}%`}
                             </p>
                           </div>
                           <div>
                             <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-1">Studied</p>
-                            <p className="text-2xl font-black text-slate-800">
+                            <p className="text-xl font-bold text-slate-800">
                               {statsLoading ? '—' : `${studiedHours}h`}
                             </p>
                           </div>
@@ -501,8 +501,8 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                       </div>
                       <div className="flex flex-col justify-end">
                         <div className="flex justify-between items-end mb-3">
-                          <span className="font-black text-slate-700 uppercase text-[10px] tracking-widest">{displayName} Mastery</span>
-                          <span className="text-[#3b82f6] font-black">{masteryProgress}%</span>
+                          <span className="font-bold text-slate-700 uppercase text-[10px] tracking-widest">{displayName} Mastery</span>
+                          <span className="text-[#3b82f6] font-bold">{masteryProgress}%</span>
                         </div>
                         <div className="h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
                           <motion.div 
@@ -536,7 +536,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                         initial={{ opacity: 0, y: -16, scale: 0.97 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                        className={`bg-gradient-to-r ${modeConfig.bg} border ${modeConfig.border} rounded-3xl p-6 relative overflow-hidden`}
+                        className={`bg-gradient-to-r ${modeConfig.bg} border ${modeConfig.border} rounded-xl p-5 relative overflow-hidden`}
                       >
                         {/* Dismiss button */}
                         <button
@@ -548,14 +548,14 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
 
                         <div className="flex flex-col md:flex-row md:items-center gap-5">
                           {/* Icon */}
-                          <div className="w-14 h-14 rounded-2xl bg-white shadow-md flex items-center justify-center flex-shrink-0">
+                          <div className="w-14 h-14 rounded-xl bg-white shadow-md flex items-center justify-center flex-shrink-0">
                             <CalendarDays className="w-7 h-7 text-amber-500" />
                           </div>
 
                           {/* Content */}
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2 mb-2">
-                              <h4 className="font-black text-slate-900 text-lg">📅 Roadmap Rescheduled</h4>
+                              <h4 className="font-bold text-slate-900 text-base">📅 Roadmap Rescheduled</h4>
                               <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${modeConfig.badge}`}>
                                 {modeConfig.emoji} {modeConfig.label}
                               </span>
@@ -566,19 +566,19 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                               <div className="flex items-center gap-1.5">
                                 <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
                                 <span className="font-semibold text-slate-700">
-                                  <span className="font-black text-amber-700">{banner.missedRescheduled}</span> missed sessions recovered
+                                  <span className="font-bold text-amber-700">{banner.missedRescheduled}</span> missed sessions recovered
                                 </span>
                               </div>
                               <div className="flex items-center gap-1.5">
                                 <CalendarDays className="w-4 h-4 text-rose-500 flex-shrink-0" />
                                 <span className="font-semibold text-slate-700">
-                                  <span className="font-black text-rose-700">+{banner.extraDaysAdded}</span> extra days added
+                                  <span className="font-bold text-rose-700">+{banner.extraDaysAdded}</span> extra days added
                                 </span>
                               </div>
                               <div className="flex items-center gap-1.5">
                                 <TrendingUp className="w-4 h-4 text-blue-500 flex-shrink-0" />
                                 <span className="font-semibold text-slate-700">
-                                  New daily cap: <span className="font-black text-blue-700">{banner.maxPerDay ? `${banner.maxPerDay}h/day` : `+${banner.extraCapPerDay}h extra`}</span>
+                                  New daily cap: <span className="font-bold text-blue-700">{banner.maxPerDay ? `${banner.maxPerDay}h/day` : `+${banner.extraCapPerDay}h extra`}</span>
                                 </span>
                               </div>
                             </div>
@@ -612,7 +612,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                           {/* CTA */}
                           <button
                             onClick={() => setActiveTab('analytics')}
-                            className="flex-shrink-0 flex items-center gap-2 bg-white border border-slate-200 px-4 py-2.5 rounded-2xl font-bold text-slate-700 text-sm hover:bg-slate-50 transition-all shadow-sm"
+                            className="flex-shrink-0 flex items-center gap-2 bg-white border border-slate-200 px-4 py-2.5 rounded-xl font-bold text-slate-700 text-sm hover:bg-slate-50 transition-all shadow-sm"
                           >
                             <BarChart3 className="w-4 h-4" />
                             View Analysis
@@ -622,11 +622,11 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                     );
                   })()}
 
-                  <div className="grid lg:grid-cols-3 gap-8">
+                  <div className="grid lg:grid-cols-3 gap-6">
                     {/* Focus Zone */}
                     <div className="lg:col-span-2 space-y-6">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
+                        <h3 className="text-lg font-bold text-slate-800 uppercase tracking-tight flex items-center gap-2">
                           <Zap className="w-5 h-5 text-[#10b981]" /> Focus Zone
                         </h3>
                         {pendingCount > 0 && (
@@ -644,13 +644,13 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                           </div>
                         )}
                       </div>
-                      <div className="bg-white rounded-[32px] p-8 border border-white shadow-xl flex flex-col md:flex-row items-center gap-8">
-                        <div className={`w-24 h-24 rounded-3xl ${theme.cardIcon} flex items-center justify-center text-4xl shadow-xl shadow-emerald-100`}>
+                      <div className="bg-white rounded-2xl p-6 border border-white shadow-xl flex flex-col md:flex-row items-center gap-6">
+                        <div className={`w-24 h-24 rounded-xl ${theme.cardIcon} flex items-center justify-center text-3xl shadow-xl shadow-emerald-100`}>
                           {focusTask.icon}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <h4 className="text-2xl font-black text-slate-800 tracking-tight">
+                            <h4 className="text-xl font-bold text-slate-800 tracking-tight">
                               {focusTask.title}
                             </h4>
                             {focusTask.status === 'current' && (
@@ -668,14 +668,14 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                           <div className="flex gap-3 flex-wrap">
                             <button 
                               onClick={() => handleStartTask(focusTask)}
-                              className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-bold flex items-center gap-2 hover:scale-105 transition-all cursor-pointer"
+                              className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:scale-105 transition-all cursor-pointer"
                             >
                               <Play className="w-4 h-4 fill-white" /> 
                               {focusTask.status === 'current' ? 'Continue' : 'Start Learning'}
                             </button>
                             <button
                               onClick={() => handleStartTask(focusTask)}
-                              className="bg-slate-50 text-slate-600 px-6 py-3 rounded-2xl font-bold hover:bg-slate-100 transition-all"
+                              className="bg-slate-50 text-slate-600 px-5 py-3 rounded-xl font-bold hover:bg-slate-100 transition-all"
                             >
                               Details
                             </button>
@@ -684,7 +684,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                               <button
                                 onClick={() => handleMarkMissed(focusTask)}
                                 title="[Testing] Mark this session as missed"
-                                className="bg-red-50 text-red-600 border border-red-200 px-4 py-3 rounded-2xl font-bold hover:bg-red-100 transition-all flex items-center gap-1.5 text-sm"
+                                className="bg-red-50 text-red-600 border border-red-200 px-4 py-3 rounded-xl font-bold hover:bg-red-100 transition-all flex items-center gap-1.5 text-sm"
                               >
                                 <span>❌</span> Miss (Test)
                               </button>
@@ -696,23 +696,23 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
 
                     {/* Upcoming Tasks */}
                     <div className="space-y-6">
-                      <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Up Next</h3>
+                      <h3 className="text-lg font-bold text-slate-800 uppercase tracking-tight">Up Next</h3>
                       {upcomingTasks.length > 0 ? upcomingTasks.map((task, i) => (
                         <div 
                           key={task.id || i}
-                          className="bg-white border border-white p-6 rounded-[28px] shadow-sm hover:shadow-md transition-all"
+                          className="bg-white border border-white p-5 rounded-[28px] shadow-sm hover:shadow-md transition-all"
                         >
                           <div 
                             onClick={() => handleStartTask(task)}
                             className="flex items-center justify-between cursor-pointer"
                           >
                             <div className="flex items-center gap-4">
-                              <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${task.priorityColor} flex items-center justify-center shadow-lg opacity-80`}>
+                              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${task.priorityColor} flex items-center justify-center shadow-lg opacity-80`}>
                                 <Clock className="w-6 h-6 text-white" />
                               </div>
                               <div>
                                 <h5 className="font-bold text-slate-800 text-sm">{task.title}</h5>
-                                <p className="text-[10px] text-slate-400 font-black uppercase">{task.due}</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase">{task.due}</p>
                               </div>
                             </div>
                             <ChevronRight className="w-5 h-5 text-slate-300" />
@@ -731,7 +731,7 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
                           )}
                         </div>
                       )) : (
-                        <div className="bg-white border border-white p-6 rounded-[28px] shadow-sm text-center text-slate-400 text-sm font-medium">
+                        <div className="bg-white border border-white p-5 rounded-[28px] shadow-sm text-center text-slate-400 text-sm font-medium">
                           🎉 All caught up!
                         </div>
                       )}
@@ -838,13 +838,13 @@ const Dashboard = ({ userData, roadmapData, onRoadmapUpdate }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            className={`fixed bottom-6 right-6 z-[100] flex items-start gap-3 px-5 py-4 rounded-2xl shadow-2xl text-sm font-semibold max-w-sm border ${
+            className={`fixed bottom-6 right-6 z-[100] flex items-start gap-3 px-5 py-4 rounded-xl shadow-2xl text-sm font-semibold max-w-sm border ${
               toastType === 'success' ? 'bg-emerald-900 border-emerald-700 text-white'
               : toastType === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-900'
               : 'bg-slate-900 border-slate-700 text-white'
             }`}
           >
-            <span className="text-lg leading-none mt-0.5">
+            <span className="text-base leading-none mt-0.5">
               {toastType === 'success' ? '✅' : toastType === 'warning' ? '📅' : 'ℹ️'}
             </span>
             <span className="flex-1">{toast}</span>

@@ -709,7 +709,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
           <div className="h-8 w-px bg-slate-200 flex-shrink-0"></div>
           
           <div className="min-w-0">
-            <h1 className="text-slate-900 font-black text-lg xl:text-xl leading-tight mb-0.5 truncate">
+            <h1 className="text-slate-900 font-bold text-base xl:text-lg leading-tight mb-0.5 truncate">
               {taskData.icon || '🎯'} {taskData.title}
             </h1>
             <div className="flex items-center gap-2 text-xs">
@@ -761,7 +761,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
               ) : (
                 <Clock className={`w-3.5 h-3.5 ${learningOvertime ? 'text-red-500' : 'text-blue-500'}`} />
               )}
-              <span className={`text-[10px] font-black uppercase tracking-wider ${
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${
                 (activeTab === 'practice' ? practiceOvertime : learningOvertime)
                   ? 'text-red-600'
                   : 'text-slate-500'
@@ -770,7 +770,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
               </span>
             </div>
             <div className="flex items-baseline gap-1">
-              <span className={`font-black text-sm ${
+              <span className={`font-bold text-sm ${
                 (activeTab === 'practice' ? practiceOvertime : learningOvertime)
                   ? 'text-red-700'
                   : 'text-slate-900'
@@ -867,7 +867,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                               <p className="text-slate-400 font-bold">Loading video...</p></>
                             ) : (
                               <><AlertCircle className="w-12 h-12 text-slate-500" />
-                              <p className="text-slate-400 font-bold text-lg">No video available for this topic</p>
+                              <p className="text-slate-400 font-bold text-base">No video available for this topic</p>
                               <p className="text-slate-500 text-sm">Check the documentation and practice tabs below</p></>
                             )}
                           </div>
@@ -877,15 +877,15 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                   </div>
 
                   {/* VIDEO INFO SECTION */}
-                  <div className="p-8">
+                  <div className="p-6">
                     <div className="max-w-6xl mx-auto space-y-8">
                       {/* Title Header */}
                       <div className="flex items-start justify-between border-b border-slate-200 pb-6">
                         <div>
-                          <h2 className="text-3xl font-black text-slate-900 mb-3 tracking-tight">
+                          <h2 className="text-2xl font-bold text-slate-900 mb-3 tracking-tight">
                             {taskData.title}
                           </h2>
-                          <div className="flex items-center gap-6 text-sm text-slate-600">
+                          <div className="flex items-center gap-5 text-sm text-slate-600">
                             <span className="flex items-center gap-2 bg-white px-2 py-1 rounded-lg border border-slate-200 shadow-sm">
                               <div className="w-6 h-6 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-md flex items-center justify-center text-white font-bold text-[10px]">AI</div>
                               <span className="font-bold text-slate-800">
@@ -915,12 +915,12 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                       </div>
 
                       {/* Stats Grid */}
-                      <div className="grid grid-cols-3 gap-6">
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+                      <div className="grid grid-cols-3 gap-5">
+                        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center gap-4">
                           <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><Clock className="w-6 h-6" /></div>
                           <div>
                             <div className="text-slate-500 text-xs font-bold mb-1 uppercase tracking-wider">Est. Duration</div>
-                            <div className="text-slate-900 font-black text-2xl">
+                            <div className="text-slate-900 font-bold text-xl">
                               {timeBudget.total}h
                             </div>
                             <div className="text-xs text-slate-400 font-bold mt-1">
@@ -928,28 +928,28 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                             </div>
                           </div>
                         </div>
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+                        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center gap-4">
                           <div className="p-3 bg-amber-50 text-amber-600 rounded-xl"><Zap className="w-6 h-6" /></div>
                           <div>
                             <div className="text-slate-500 text-xs font-bold mb-1 uppercase tracking-wider">Difficulty</div>
-                            <div className="text-amber-500 font-black text-2xl flex gap-0.5">
+                            <div className="text-amber-500 font-bold text-xl flex gap-0.5">
                               {'★'.repeat(taskData.difficulty || 3)}
                               <span className="text-slate-200">{'★'.repeat(5 - (taskData.difficulty || 3))}</span>
                             </div>
                           </div>
                         </div>
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+                        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center gap-4">
                           <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><Sparkles className="w-6 h-6" /></div>
                           <div>
                             <div className="text-slate-500 text-xs font-bold mb-1 uppercase tracking-wider">XP Reward</div>
-                            <div className="text-emerald-500 font-black text-2xl">+{taskData.xp || 50} XP</div>
+                            <div className="text-emerald-500 font-bold text-xl">+{taskData.xp || 50} XP</div>
                           </div>
                         </div>
                       </div>
 
                       {/* What You'll Learn – Dynamic */}
-                      <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
-                        <h3 className="text-slate-900 font-black mb-6 flex items-center gap-2 text-lg">
+                      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                        <h3 className="text-slate-900 font-bold mb-6 flex items-center gap-2 text-base">
                           What You'll Learn
                         </h3>
                         {contentLoading ? (
@@ -1006,13 +1006,13 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                       <div className="flex flex-col sm:flex-row gap-3">
                         <button
                           onClick={() => handleTabChange('read')}
-                          className="flex-1 group bg-white border-2 border-slate-200 text-slate-700 py-4 rounded-2xl font-bold text-base hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+                          className="flex-1 group bg-white border-2 border-slate-200 text-slate-700 py-4 rounded-xl font-bold text-base hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
                         >
                           Continue to Reading <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                         </button>
                         <button
                           onClick={() => handleTabChange('practice')}
-                          className="flex-1 group bg-slate-900 text-white py-4 rounded-2xl font-black text-base hover:bg-slate-800 transition-all shadow-xl flex items-center justify-center gap-2"
+                          className="flex-1 group bg-slate-900 text-white py-4 rounded-xl font-bold text-base hover:bg-slate-800 transition-all shadow-xl flex items-center justify-center gap-2"
                         >
                           Skip to Practice <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                         </button>
@@ -1032,11 +1032,11 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="p-8 pb-32"
+                  className="p-6 pb-32"
                 >
                   <div className="max-w-4xl mx-auto space-y-6">
                     <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">
+                      <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
                         {taskData.title}
                       </h2>
                       <div className="text-sm font-bold text-slate-500">
@@ -1062,7 +1062,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                     ) : (
                       <div
                         ref={articleRef}
-                        className="bg-white/80 backdrop-blur-xl border border-white rounded-3xl p-8 shadow-lg prose prose-lg prose-slate max-w-none"
+                        className="bg-white/80 backdrop-blur-xl border border-white rounded-xl p-6 shadow-lg prose prose-lg prose-slate max-w-none"
                         onScroll={(e) => {
                           const el = e.target;
                           const scrolled = (el.scrollTop / (el.scrollHeight - el.clientHeight)) * 100;
@@ -1070,18 +1070,18 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                         }}
                         style={{ maxHeight: '520px', overflowY: 'auto' }}
                       >
-                        <p className="text-xl text-slate-600 leading-relaxed font-medium">
+                        <p className="text-lg text-slate-600 leading-relaxed font-medium">
                           {topicContent?.readContent?.introduction || `Explore the core concepts of ${taskData.title} and how they apply in real-world scenarios.`}
                         </p>
 
-                        <h2 className="font-black">How It Works</h2>
+                        <h2 className="font-bold">How It Works</h2>
                         <p className="font-medium">
                           {topicContent?.readContent?.howItWorks || `${taskData.title} is a fundamental concept that powers many real-world applications.`}
                         </p>
 
                         {topicContent?.readContent?.steps?.length > 0 && (
                           <>
-                            <h3 className="font-black">Step-by-Step:</h3>
+                            <h3 className="font-bold">Step-by-Step:</h3>
                             <ol className="font-medium space-y-1">
                               {topicContent.readContent.steps.map((step, i) => (
                                 <li key={i}>{step}</li>
@@ -1091,7 +1091,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                         )}
 
                         {topicContent?.readContent?.codeExample && (
-                          <div className="bg-slate-900 text-emerald-400 p-6 rounded-2xl font-mono text-sm not-prose my-8">
+                          <div className="bg-slate-900 text-emerald-400 p-5 rounded-xl font-mono text-sm not-prose my-8">
                             <div className="text-slate-400 text-xs mb-3 uppercase tracking-widest">
                               {topicContent.readContent.codeLanguage || 'code'}
                             </div>
@@ -1102,8 +1102,8 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                         )}
 
                         {topicContent?.readContent?.keyTakeaway && (
-                          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 not-prose">
-                            <h4 className="font-black text-emerald-800 mb-2 flex items-center gap-2">
+                          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 not-prose">
+                            <h4 className="font-bold text-emerald-800 mb-2 flex items-center gap-2">
                               <Lightbulb className="w-5 h-5" /> Key Takeaway
                             </h4>
                             <p className="text-emerald-700 font-medium">{topicContent.readContent.keyTakeaway}</p>
@@ -1114,12 +1114,12 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
 
                     {/* Action Buttons */}
                     <div className="flex gap-3">
-                      <button className="flex items-center gap-2 px-6 py-3 bg-white/80 backdrop-blur-xl border border-white text-slate-700 rounded-xl font-bold hover:bg-white transition-all shadow-sm">
+                      <button className="flex items-center gap-2 px-5 py-3 bg-white/80 backdrop-blur-xl border border-white text-slate-700 rounded-xl font-bold hover:bg-white transition-all shadow-sm">
                         <Bookmark className="w-4 h-4" /> Bookmark
                       </button>
                       <button
                         onClick={() => handleTabChange('practice')}
-                        className="flex-1 bg-slate-900 text-white py-3 rounded-2xl font-black hover:bg-slate-800 transition-all flex items-center justify-center gap-2 shadow-lg"
+                        className="flex-1 bg-slate-900 text-white py-3 rounded-xl font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2 shadow-lg"
                       >
                         Go to Practice <ChevronRight className="w-5 h-5" />
                       </button>
@@ -1138,11 +1138,11 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="p-8 pb-32"
+                  className="p-6 pb-32"
                 >
                   <div className="max-w-5xl mx-auto space-y-6">
                     <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">
+                      <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
                         Practice Challenge
                       </h2>
                       <div className="flex items-center gap-3">
@@ -1163,14 +1163,14 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                     {contentLoading ? (
                       <div className="space-y-4">
                         {[...Array(4)].map((_, i) => (
-                          <div key={i} className="h-12 bg-slate-100 rounded-2xl animate-pulse" />
+                          <div key={i} className="h-12 bg-slate-100 rounded-xl animate-pulse" />
                         ))}
                       </div>
                     ) : (
-                      <div className="bg-white/80 backdrop-blur-xl border border-white rounded-3xl p-8 shadow-lg">
+                      <div className="bg-white/80 backdrop-blur-xl border border-white rounded-xl p-6 shadow-lg">
                         <div className="flex items-start justify-between mb-6">
                           <div>
-                            <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">
+                            <h3 className="text-xl font-bold text-slate-900 mb-3 tracking-tight">
                               {topicContent?.practiceChallenge?.title || `${taskData.title} Challenge`}
                             </h3>
                             <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
@@ -1195,8 +1195,8 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                           )}
                         </div>
 
-                        <div className="bg-gradient-to-br from-slate-50 to-blue-50 border border-slate-200 rounded-2xl p-6 mb-6">
-                          <h4 className="font-black text-slate-900 mb-3 text-sm flex items-center gap-2">
+                        <div className="bg-gradient-to-br from-slate-50 to-blue-50 border border-slate-200 rounded-xl p-5 mb-6">
+                          <h4 className="font-bold text-slate-900 mb-3 text-sm flex items-center gap-2">
                             <Lightbulb className="w-4 h-4 text-amber-500" />
                             Problem Description
                           </h4>
@@ -1215,8 +1215,8 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                         </div>
 
                         {/* Code Editor */}
-                        <div className="bg-slate-900 rounded-2xl overflow-hidden mb-6 border border-slate-800">
-                          <div className="flex items-center justify-between bg-slate-800 px-6 py-3">
+                        <div className="bg-slate-900 rounded-xl overflow-hidden mb-6 border border-slate-800">
+                          <div className="flex items-center justify-between bg-slate-800 px-5 py-3">
                             <span className="text-emerald-400 font-bold flex items-center gap-2">
                               <Code className="w-4 h-4" /> Your Solution
                             </span>
@@ -1227,7 +1227,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                           <textarea
                             value={userCode}
                             onChange={(e) => setUserCode(e.target.value)}
-                            className="w-full bg-slate-900 text-emerald-300 font-mono text-sm p-6 focus:outline-none min-h-[280px] resize-none"
+                            className="w-full bg-slate-900 text-emerald-300 font-mono text-sm p-5 focus:outline-none min-h-[280px] resize-none"
                             placeholder={`// Write your ${taskData.title} solution here`}
                           />
                         </div>
@@ -1250,7 +1250,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
 
                         {practiceOvertime && (
                           <div className="rounded-xl p-4 mb-4 border bg-red-50 border-red-200">
-                            <p className="font-black text-red-700 text-sm flex items-center gap-2">
+                            <p className="font-bold text-red-700 text-sm flex items-center gap-2">
                               <AlertCircle className="w-4 h-4" /> Overtime
                             </p>
                             <p className="text-red-600 text-sm mt-1">
@@ -1264,7 +1264,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                           <button
                             onClick={handleRunCode}
                             disabled={isRunning}
-                            className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white rounded-xl font-bold transition-all shadow-sm"
+                            className="flex items-center gap-2 px-5 py-3 bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white rounded-xl font-bold transition-all shadow-sm"
                           >
                             {isRunning ? (
                               <><Loader2 className="w-4 h-4 animate-spin" /> Running...</>
@@ -1274,7 +1274,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                           </button>
                           <button
                             onClick={handleGetHint}
-                            className="flex items-center gap-2 px-6 py-3 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-xl font-bold transition-all border border-amber-200"
+                            className="flex items-center gap-2 px-5 py-3 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-xl font-bold transition-all border border-amber-200"
                           >
                             <Lightbulb className="w-4 h-4" />
                             {hintVisible ? (hintLevel < buildHints().length - 1 ? 'Next Hint' : 'Reset Hints') : 'Get Hint'}
@@ -1316,7 +1316,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                         {/* Hint Panel */}
                         {hintVisible && (
                           <div className="mt-4 rounded-xl p-4 bg-amber-50 border border-amber-200">
-                            <p className="font-black text-amber-700 text-sm mb-2 flex items-center gap-2">
+                            <p className="font-bold text-amber-700 text-sm mb-2 flex items-center gap-2">
                               <Lightbulb className="w-4 h-4" />
                               {HINT_LABELS[hintLevel]}
                             </p>
@@ -1328,7 +1328,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
 
                         {/* LeetCode-Style Test Results Panel */}
                         {testCaseResults !== null && (
-                          <div className="mt-4 rounded-2xl border border-slate-200 overflow-hidden shadow-sm bg-white">
+                          <div className="mt-4 rounded-xl border border-slate-200 overflow-hidden shadow-sm bg-white">
                             {/* Panel Header */}
                             <div className={`flex items-center justify-between px-5 py-3 ${
                               testCaseResults.compileError
@@ -1338,7 +1338,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                                 : 'bg-slate-50 border-b border-slate-200'
                             }`}>
                               <div className="flex items-center gap-3">
-                                <span className="font-black text-sm uppercase tracking-wider text-slate-600">
+                                <span className="font-bold text-sm uppercase tracking-wider text-slate-600">
                                   {testCaseResults.isSubmission ? 'Submission Results' : 'Test Results'}
                                 </span>
                                 {!testCaseResults.compileError && testCaseResults.tests.length > 0 && (
@@ -1362,7 +1362,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                             {/* Compile Error */}
                             {testCaseResults.compileError && (
                               <div className="p-5 bg-white">
-                                <h3 className="text-2xl font-semibold text-red-500 mb-4">Compile Error</h3>
+                                <h3 className="text-xl font-semibold text-red-500 mb-4">Compile Error</h3>
                                 <div className="bg-red-50 rounded-xl p-4 border border-red-100">
                                   <pre className="text-red-600 text-sm font-mono whitespace-pre-wrap">
                                     {testCaseResults.compileError}
@@ -1374,7 +1374,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                             {/* Test Case List */}
                             {!testCaseResults.compileError && testCaseResults.tests.length > 0 && (
                               <div className="p-5 bg-white">
-                                <h3 className={`text-2xl font-semibold mb-4 ${testCaseResults.passed ? 'text-emerald-500' : 'text-red-500'}`}>
+                                <h3 className={`text-xl font-semibold mb-4 ${testCaseResults.passed ? 'text-emerald-500' : 'text-red-500'}`}>
                                   {testCaseResults.passed ? 'Accepted' : 'Wrong Answer'}
                                 </h3>
                                 
@@ -1503,9 +1503,9 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
               exit={{ x: 400 }}
               className="w-[420px] bg-white/70 backdrop-blur-2xl border-l border-white/80 flex flex-col overflow-hidden shadow-xl"
             >
-              <div className="px-6 py-4 border-b border-white/80">
+              <div className="px-5 py-4 border-b border-white/80">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-black text-slate-900 flex items-center gap-2">
+                  <h3 className="font-bold text-slate-900 flex items-center gap-2">
                     <StickyNote className="w-5 h-5 text-amber-500" />
                     {taskData.title} Notes
                   </h3>
@@ -1542,9 +1542,9 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
 
               <div className="flex-1 overflow-y-auto">
                 {notesTab === 'study' ? (
-                  <div className="p-6 space-y-6">
+                  <div className="p-5 space-y-6">
                     {contentLoading ? (
-                      <div className="flex items-center justify-center py-12 text-slate-400">
+                      <div className="flex items-center justify-center py-8 text-slate-400">
                         <Loader2 className="w-6 h-6 animate-spin mr-2" />
                         Loading study notes...
                       </div>
@@ -1552,7 +1552,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                       <>
                         {(topicContent?.studyNotes?.overview || topicContent?.readContent?.introduction) && (
                           <section>
-                            <h4 className="text-xs font-black uppercase tracking-wider text-amber-600 mb-2">Overview</h4>
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-amber-600 mb-2">Overview</h4>
                             <p className="text-sm text-slate-700 leading-relaxed">
                               {topicContent?.studyNotes?.overview || topicContent?.readContent?.introduction}
                             </p>
@@ -1561,7 +1561,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
 
                         {(topicContent?.studyNotes?.theory?.length > 0) && (
                           <section>
-                            <h4 className="text-xs font-black uppercase tracking-wider text-amber-600 mb-3">Theory</h4>
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-amber-600 mb-3">Theory</h4>
                             <div className="space-y-3">
                               {topicContent.studyNotes.theory.map((section, i) => (
                                 <div key={i} className="bg-white/80 border border-amber-100 rounded-xl p-4">
@@ -1575,7 +1575,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
 
                         {(topicContent?.studyNotes?.examples?.length > 0) && (
                           <section>
-                            <h4 className="text-xs font-black uppercase tracking-wider text-amber-600 mb-3">Examples</h4>
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-amber-600 mb-3">Examples</h4>
                             <div className="space-y-4">
                               {topicContent.studyNotes.examples.map((ex, i) => (
                                 <div key={i} className="bg-slate-900 rounded-xl overflow-hidden">
@@ -1606,7 +1606,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
 
                         {!topicContent?.studyNotes?.examples?.length && topicContent?.readContent?.codeExample && (
                           <section>
-                            <h4 className="text-xs font-black uppercase tracking-wider text-amber-600 mb-3">Example</h4>
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-amber-600 mb-3">Example</h4>
                             <div className="bg-slate-900 rounded-xl overflow-hidden">
                               <div className="px-4 py-2 bg-slate-800 text-xs font-bold text-slate-300">
                                 {topicContent.readContent.codeLanguage || 'code'}
@@ -1620,7 +1620,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
 
                         {(topicContent?.studyNotes?.externalResources?.length > 0) && (
                           <section>
-                            <h4 className="text-xs font-black uppercase tracking-wider text-amber-600 mb-3">External Resources</h4>
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-amber-600 mb-3">External Resources</h4>
                             <div className="space-y-2">
                               {topicContent.studyNotes.externalResources.map((res, i) => (
                                 <a
@@ -1630,7 +1630,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                                   rel="noopener noreferrer"
                                   className="flex items-center gap-3 p-3 bg-white/80 border border-slate-200 rounded-xl hover:border-blue-300 hover:bg-blue-50/50 transition-all group"
                                 >
-                                  <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${
+                                  <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-md ${
                                     res.source === 'MDN' ? 'bg-orange-100 text-orange-700'
                                     : res.source === 'GeeksforGeeks' ? 'bg-green-100 text-green-700'
                                     : res.source === 'LeetCode' ? 'bg-yellow-100 text-yellow-700'
@@ -1650,7 +1650,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
 
                         {topicContent?.readContent?.keyTakeaway && (
                           <section className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                            <h4 className="text-xs font-black uppercase tracking-wider text-emerald-700 mb-1">Key Takeaway</h4>
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-700 mb-1">Key Takeaway</h4>
                             <p className="text-sm text-emerald-800 font-medium">{topicContent.readContent.keyTakeaway}</p>
                           </section>
                         )}
@@ -1658,7 +1658,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                     )}
                   </div>
                 ) : (
-                  <div className="p-6 h-full flex flex-col">
+                  <div className="p-5 h-full flex flex-col">
                     <div className="text-xs text-slate-500 font-semibold mb-4">
                       Auto-saved locally
                     </div>
@@ -1666,7 +1666,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
                       placeholder={"Take your own notes here...\n\n• Key points\n• Questions to revisit\n• Practice ideas"}
-                      className="flex-1 w-full min-h-[400px] bg-amber-50/50 border border-amber-200 rounded-2xl p-4 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none placeholder-slate-400 font-medium"
+                      className="flex-1 w-full min-h-[400px] bg-amber-50/50 border border-amber-200 rounded-xl p-4 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none placeholder-slate-400 font-medium"
                     />
                   </div>
                 )}
@@ -1742,7 +1742,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            className="fixed top-20 right-20 bg-white/90 backdrop-blur-2xl border-2 border-blue-500 shadow-2xl z-40 flex flex-col rounded-2xl overflow-hidden"
+            className="fixed top-20 right-20 bg-white/90 backdrop-blur-2xl border-2 border-blue-500 shadow-2xl z-40 flex flex-col rounded-xl overflow-hidden"
             style={{ 
               width: chatSize.width, 
               height: chatSize.height,
@@ -1755,7 +1755,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
               onPointerDown={(e) => chatDragControls.start(e)}
               className="px-4 py-3 border-b border-white/80 flex items-center justify-between bg-gradient-to-r from-blue-500 to-cyan-500 cursor-move touch-none"
             >
-              <h3 className="font-black flex items-center gap-2 text-white text-sm">
+              <h3 className="font-bold flex items-center gap-2 text-white text-sm">
                 <Sparkles className="w-4 h-4" />
                 AI Study Assistant
               </h3>
@@ -1770,8 +1770,8 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
             {/* Chat Content */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-blue-50/50 to-white/50">
               {chatMessages.length === 0 ? (
-                <div className="text-center text-slate-500 py-8 flex flex-col items-center justify-center h-full">
-                  <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-500 flex items-center justify-center mb-3">
+                <div className="text-center text-slate-500 py-6 flex flex-col items-center justify-center h-full">
+                  <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-500 flex items-center justify-center mb-3">
                     <MessageCircle className="w-6 h-6" />
                   </div>
                   <p className="font-bold text-sm">Ask me anything!</p>
@@ -1844,7 +1844,7 @@ const TaskDetailView = ({ task, onBack, onComplete, onStatsRefresh }) => {
         <motion.div
           initial={{ y: 100 }}
           animate={{ y: 0 }}
-          className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-red-500 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 z-40"
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-red-500 text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3 z-40"
         >
           <WifiOff className="w-5 h-5" />
           <span className="font-bold">You're offline - Some features unavailable</span>
